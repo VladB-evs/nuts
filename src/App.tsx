@@ -1,68 +1,43 @@
 import React, { useState } from 'react';
-import { TicketProvider, useTickets } from './context/TicketContext';
-import { Header } from './components/layout/Header';
-import { Sidebar } from './components/layout/Sidebar';
-import { DepartmentTabs } from './components/layout/DepartmentTabs';
-import { MobileNav } from './components/layout/MobileNav';
-import { FilterBar } from './components/filters/FilterBar';
-import { TicketingConsoleView } from './components/views/TicketingConsoleView';
-import { ListView } from './components/views/ListView';
-import { ServicePortalView } from './components/views/ServicePortalView';
-import { MetricsView } from './components/views/MetricsView';
-import { CreateTicketModal } from './components/tickets/CreateTicketModal';
-import { CommandPalette } from './components/filters/CommandPalette';
-import { SupabaseGuideModal } from './components/views/SupabaseGuideModal';
+import { IssueProvider, useIssues } from './context/TicketContext';
+import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { IssueTable } from './components/IssueTable';
+import { IssueDetail } from './components/IssueDetail';
+import { CreateIssueModal } from './components/CreateIssueModal';
+import { SupabaseModal } from './components/SupabaseModal';
 
 const AppContent: React.FC = () => {
-  const { activeView } = useTickets();
-  const [isSupabaseGuideOpen, setIsSupabaseGuideOpen] = useState(false);
+  const { selectedIssue } = useIssues();
+  const [isSupabaseOpen, setIsSupabaseOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white">
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans">
       {/* Top Header */}
-      <Header onOpenSupabaseGuide={() => setIsSupabaseGuideOpen(true)} />
+      <Header onOpenSupabase={() => setIsSupabaseOpen(true)} />
 
-      {/* Horizontal Department Switcher Tabs */}
-      <DepartmentTabs />
-
-      {/* Main Body: Sidebar + Dynamic Workspace */}
+      {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar with Smart Queues */}
-        <Sidebar onOpenSupabaseGuide={() => setIsSupabaseGuideOpen(true)} />
+        {/* Left Navigation */}
+        <Sidebar />
 
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0 overflow-hidden bg-zinc-950/40">
-          {/* Filter Bar (Queue Indicator, Search, Status, Priority, Type) */}
-          {(activeView === 'console' || activeView === 'table') && <FilterBar />}
-
-          {/* View Container */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {activeView === 'console' && <TicketingConsoleView />}
-            {activeView === 'table' && <ListView />}
-            {activeView === 'portal' && <ServicePortalView />}
-            {activeView === 'sla_metrics' && <MetricsView />}
-          </div>
+        {/* Center Main Area: Either Detail view or Table list */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-white">
+          {selectedIssue ? <IssueDetail /> : <IssueTable />}
         </main>
       </div>
 
-      {/* Mobile Navigation bar and slide drawer */}
-      <MobileNav onOpenSupabaseGuide={() => setIsSupabaseGuideOpen(true)} />
-
-      {/* Modals & Dialogs */}
-      <CreateTicketModal />
-      <CommandPalette onOpenSupabaseGuide={() => setIsSupabaseGuideOpen(true)} />
-      <SupabaseGuideModal
-        isOpen={isSupabaseGuideOpen}
-        onClose={() => setIsSupabaseGuideOpen(false)}
-      />
+      {/* Modals */}
+      <CreateIssueModal />
+      <SupabaseModal isOpen={isSupabaseOpen} onClose={() => setIsSupabaseOpen(false)} />
     </div>
   );
 };
 
 export default function App() {
   return (
-    <TicketProvider>
+    <IssueProvider>
       <AppContent />
-    </TicketProvider>
+    </IssueProvider>
   );
 }
