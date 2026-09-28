@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
 import {
   Priority,
@@ -22,7 +22,7 @@ import {
   IMPACT_LEVELS,
 } from '../lib/departmentRules';
 import { USERS } from '../data/mockData';
-import { X } from 'lucide-react';
+import { X, SlidersHorizontal } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
   const {
@@ -35,9 +35,7 @@ export const CreateIssueModal: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [departmentId, setDepartmentId] = useState(
-    selectedDepartment !== 'all' ? selectedDepartment : 'engineering'
-  );
+  const [departmentId, setDepartmentId] = useState<string>('engineering');
   const [priority, setPriority] = useState<Priority>('P2');
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
 
@@ -58,9 +56,21 @@ export const CreateIssueModal: React.FC = () => {
   const [opsCategory, setOpsCategory] = useState<OpsCategory>('IT & Access');
   const [impactLevel, setImpactLevel] = useState<ImpactLevel>('Company-wide');
 
+  // Synchronize department when modal opens based on which department view is active
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      const activeDeptId =
+        selectedDepartment !== 'all'
+          ? selectedDepartment
+          : departments[0]?.id || 'engineering';
+      setDepartmentId(activeDeptId);
+    }
+  }, [isCreateModalOpen, selectedDepartment, departments]);
+
   if (!isCreateModalOpen) return null;
 
-  const currentRuleKind = getDepartmentRuleKind(departmentId);
+  const currentDept = departments.find((d) => d.id === departmentId) || departments[0];
+  const currentRuleKind = getDepartmentRuleKind(departmentId, departments);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +119,14 @@ export const CreateIssueModal: React.FC = () => {
       <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
-          <span className="font-semibold text-gray-900 text-sm">Create New Issue</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-gray-900 text-sm">Create New Issue</span>
+            {currentDept && (
+              <span className="font-mono text-[10px] font-semibold text-gray-700 bg-gray-100 border border-gray-300 px-1.5 py-0.5 rounded">
+                {currentDept.name} ({currentDept.code})
+              </span>
+            )}
+          </div>
           <button
             onClick={() => setIsCreateModalOpen(false)}
             className="text-gray-400 hover:text-black p-1 rounded"
@@ -139,7 +156,7 @@ export const CreateIssueModal: React.FC = () => {
               <select
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer font-medium"
               >
                 {departments.map((dept) => (
                   <option key={dept.id} value={dept.id}>
@@ -166,14 +183,21 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* ======================================================== */}
           {/* DEPARTMENT SPECIFIC RULES                                */}
+          {/* Automatically adapts when departmentId changes           */}
           {/* ======================================================== */}
 
           {/* 1. ENGINEERING / TECH RULES */}
           {currentRuleKind === 'engineering' && (
-            <div className="space-y-3 p-3 bg-gray-50/80 rounded border border-gray-200">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-semibold block">
-                Engineering Stage & Scope
-              </span>
+            <div className="space-y-3 p-3 bg-gray-50/90 rounded border border-gray-200 animate-fade-in">
+              <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-800 font-bold flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3 h-3 text-gray-500" />
+                  {currentDept.name} Rules ({currentDept.code})
+                </span>
+                <span className="text-[10px] font-mono text-gray-500 bg-white border border-gray-200 px-1.5 py-0.2 rounded">
+                  Environment & Layer
+                </span>
+              </div>
 
               {/* Environment Stage */}
               <div>
@@ -240,10 +264,16 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* 2. MARKETING RULES */}
           {currentRuleKind === 'marketing' && (
-            <div className="space-y-3 p-3 bg-gray-50/80 rounded border border-gray-200">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-semibold block">
-                Marketing Campaign & Channel
-              </span>
+            <div className="space-y-3 p-3 bg-rose-50/30 rounded border border-rose-100 animate-fade-in">
+              <div className="flex items-center justify-between pb-1 border-b border-rose-100">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-rose-900 font-bold flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3 h-3 text-rose-600" />
+                  {currentDept.name} Rules ({currentDept.code})
+                </span>
+                <span className="text-[10px] font-mono text-rose-700 bg-white border border-rose-200 px-1.5 py-0.2 rounded">
+                  Channel & Deliverable
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 font-medium mb-1 text-[11px]">
@@ -252,7 +282,7 @@ export const CreateIssueModal: React.FC = () => {
                   <select
                     value={marketingChannel}
                     onChange={(e) => setMarketingChannel(e.target.value as MarketingChannel)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
                   >
                     {MARKETING_CHANNELS.map((ch) => (
                       <option key={ch} value={ch}>
@@ -269,7 +299,7 @@ export const CreateIssueModal: React.FC = () => {
                   <select
                     value={deliverableType}
                     onChange={(e) => setDeliverableType(e.target.value as DeliverableType)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
                   >
                     {DELIVERABLE_TYPES.map((dt) => (
                       <option key={dt} value={dt}>
@@ -284,10 +314,16 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* 3. SALES RULES */}
           {currentRuleKind === 'sales' && (
-            <div className="space-y-3 p-3 bg-gray-50/80 rounded border border-gray-200">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-semibold block">
-                Sales Pipeline & Account
-              </span>
+            <div className="space-y-3 p-3 bg-indigo-50/30 rounded border border-indigo-100 animate-fade-in">
+              <div className="flex items-center justify-between pb-1 border-b border-indigo-100">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-indigo-900 font-bold flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3 h-3 text-indigo-600" />
+                  {currentDept.name} Rules ({currentDept.code})
+                </span>
+                <span className="text-[10px] font-mono text-indigo-700 bg-white border border-indigo-200 px-1.5 py-0.2 rounded">
+                  Segment & Stage
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 font-medium mb-1 text-[11px]">
@@ -296,7 +332,7 @@ export const CreateIssueModal: React.FC = () => {
                   <select
                     value={dealSegment}
                     onChange={(e) => setDealSegment(e.target.value as DealSegment)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
                   >
                     {DEAL_SEGMENTS.map((seg) => (
                       <option key={seg} value={seg}>
@@ -313,7 +349,7 @@ export const CreateIssueModal: React.FC = () => {
                   <select
                     value={dealStage}
                     onChange={(e) => setDealStage(e.target.value as DealStage)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
                   >
                     {DEAL_STAGES.map((stg) => (
                       <option key={stg} value={stg}>
@@ -328,10 +364,16 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* 4. OPERATIONS RULES */}
           {currentRuleKind === 'operations' && (
-            <div className="space-y-3 p-3 bg-gray-50/80 rounded border border-gray-200">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-semibold block">
-                Operations Category & Scope
-              </span>
+            <div className="space-y-3 p-3 bg-teal-50/30 rounded border border-teal-100 animate-fade-in">
+              <div className="flex items-center justify-between pb-1 border-b border-teal-100">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-teal-900 font-bold flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3 h-3 text-teal-600" />
+                  {currentDept.name} Rules ({currentDept.code})
+                </span>
+                <span className="text-[10px] font-mono text-teal-700 bg-white border border-teal-200 px-1.5 py-0.2 rounded">
+                  Category & Impact
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-700 font-medium mb-1 text-[11px]">
@@ -340,7 +382,7 @@ export const CreateIssueModal: React.FC = () => {
                   <select
                     value={opsCategory}
                     onChange={(e) => setOpsCategory(e.target.value as OpsCategory)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
                   >
                     {OPS_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -357,7 +399,7 @@ export const CreateIssueModal: React.FC = () => {
                   <select
                     value={impactLevel}
                     onChange={(e) => setImpactLevel(e.target.value as ImpactLevel)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
                   >
                     {IMPACT_LEVELS.map((imp) => (
                       <option key={imp} value={imp}>

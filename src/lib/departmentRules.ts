@@ -1,4 +1,5 @@
 import {
+  Department,
   Issue,
   Environment,
   DevScope,
@@ -12,20 +13,81 @@ import {
 
 export type DepartmentRuleKind = 'engineering' | 'marketing' | 'sales' | 'operations' | 'general';
 
-export const getDepartmentRuleKind = (departmentId: string): DepartmentRuleKind => {
-  if (departmentId === 'engineering' || departmentId === 'product') {
+export const getDepartmentRuleKind = (
+  departmentId?: string,
+  departments?: Department[]
+): DepartmentRuleKind => {
+  if (!departmentId) return 'engineering';
+
+  if (departments) {
+    const found = departments.find(
+      (d) =>
+        d.id.toLowerCase() === departmentId.toLowerCase() ||
+        d.code.toLowerCase() === departmentId.toLowerCase()
+    );
+    if (found) {
+      const code = found.code.toLowerCase();
+      const id = found.id.toLowerCase();
+      const name = found.name.toLowerCase();
+      if (
+        code === 'dev' ||
+        code === 'prd' ||
+        id === 'engineering' ||
+        id === 'product' ||
+        name.includes('engineer') ||
+        name.includes('dev') ||
+        name.includes('product')
+      ) {
+        return 'engineering';
+      }
+      if (
+        code === 'mkt' ||
+        id === 'marketing' ||
+        name.includes('market') ||
+        name.includes('growth')
+      ) {
+        return 'marketing';
+      }
+      if (
+        code === 'sls' ||
+        id === 'sales' ||
+        name.includes('sale') ||
+        name.includes('cs')
+      ) {
+        return 'sales';
+      }
+      if (
+        code === 'ops' ||
+        id === 'operations' ||
+        name.includes('operat') ||
+        name.includes('hr')
+      ) {
+        return 'operations';
+      }
+    }
+  }
+
+  const val = departmentId.toLowerCase();
+  if (
+    val === 'engineering' ||
+    val === 'product' ||
+    val === 'dev' ||
+    val === 'prd' ||
+    val.includes('eng') ||
+    val.includes('dev')
+  ) {
     return 'engineering';
   }
-  if (departmentId === 'marketing') {
+  if (val === 'marketing' || val === 'mkt' || val.includes('market')) {
     return 'marketing';
   }
-  if (departmentId === 'sales') {
+  if (val === 'sales' || val === 'sls' || val.includes('sale') || val.includes('cs')) {
     return 'sales';
   }
-  if (departmentId === 'operations') {
+  if (val === 'operations' || val === 'ops' || val.includes('operat')) {
     return 'operations';
   }
-  return 'general';
+  return 'engineering';
 };
 
 // Engineering Options
