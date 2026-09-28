@@ -2,16 +2,15 @@ import React from 'react';
 import { useTickets } from '../../context/TicketContext';
 import { cn } from '../../lib/utils';
 import {
-  Kanban,
-  ListTodo,
+  Layers,
+  Table,
+  HelpCircle,
   BarChart3,
   Plus,
-  Layers,
   X,
   Database,
   RotateCcw,
 } from 'lucide-react';
-import { getDepartmentIcon } from '../common/DepartmentBadge';
 
 interface MobileNavProps {
   onOpenSupabaseGuide: () => void;
@@ -36,29 +35,29 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSupabaseGuide }) => 
       {/* Bottom Navigation Bar for Mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 px-3 py-1.5 flex items-center justify-around safe-area-bottom">
         <button
-          onClick={() => setActiveView('kanban')}
+          onClick={() => setActiveView('console')}
           className={cn(
             'flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-mono transition-colors',
-            activeView === 'kanban'
+            activeView === 'console'
               ? 'text-white font-medium'
               : 'text-zinc-400 hover:text-zinc-200'
           )}
         >
-          <Kanban className="w-4 h-4" />
-          <span>Board</span>
+          <Layers className="w-4 h-4" />
+          <span>Console</span>
         </button>
 
         <button
-          onClick={() => setActiveView('list')}
+          onClick={() => setActiveView('table')}
           className={cn(
             'flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-mono transition-colors',
-            activeView === 'list'
+            activeView === 'table'
               ? 'text-white font-medium'
               : 'text-zinc-400 hover:text-zinc-200'
           )}
         >
-          <ListTodo className="w-4 h-4" />
-          <span>List</span>
+          <Table className="w-4 h-4" />
+          <span>Table</span>
         </button>
 
         {/* Center Quick Action: New Ticket */}
@@ -71,24 +70,24 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSupabaseGuide }) => 
         </button>
 
         <button
-          onClick={() => setActiveView('metrics')}
+          onClick={() => setActiveView('portal')}
           className={cn(
             'flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-mono transition-colors',
-            activeView === 'metrics'
+            activeView === 'portal'
               ? 'text-white font-medium'
               : 'text-zinc-400 hover:text-zinc-200'
           )}
         >
-          <BarChart3 className="w-4 h-4" />
-          <span>Metrics</span>
+          <HelpCircle className="w-4 h-4" />
+          <span>Portal</span>
         </button>
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-mono text-zinc-400 hover:text-zinc-200"
         >
-          <Layers className="w-4 h-4" />
-          <span>Depts</span>
+          <BarChart3 className="w-4 h-4" />
+          <span>Queues</span>
         </button>
       </nav>
 
@@ -107,7 +106,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSupabaseGuide }) => 
               <div className="flex items-center gap-2">
                 <span className="font-mono font-bold text-white text-base">NUTS</span>
                 <span className="text-[10px] font-mono text-zinc-500 border border-zinc-800 px-1 rounded">
-                  MOBILE
+                  SERVICE DESK
                 </span>
               </div>
               <button
@@ -121,7 +120,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSupabaseGuide }) => 
             {/* Department List */}
             <div className="flex-1 overflow-y-auto py-4 space-y-1">
               <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
-                Filter by Department
+                Department Queues
               </p>
 
               <button
@@ -165,7 +164,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSupabaseGuide }) => 
                       />
                       <span>{dept.name}</span>
                     </div>
-                    <span className="text-[10px]">{count}</span>
+                    <span className="text-[10px]">[{dept.code}] {count}</span>
                   </button>
                 );
               })}
@@ -194,7 +193,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSupabaseGuide }) => 
                 className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-[11px] font-mono text-zinc-500 hover:text-zinc-300"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Reset Demo Data</span>
+                <span>Reset Demo Tickets</span>
               </button>
             </div>
           </div>

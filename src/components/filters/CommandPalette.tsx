@@ -72,32 +72,42 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onOpenSupabaseGu
       },
     },
     {
-      id: 'view-kanban',
-      label: 'Go to Kanban Board',
-      icon: Kanban,
+      id: 'view-console',
+      label: 'Go to Ticketing Console',
+      icon: Layers,
       category: 'Navigation',
       action: () => {
-        setActiveView('kanban');
+        setActiveView('console');
         setIsCommandPaletteOpen(false);
       },
     },
     {
-      id: 'view-list',
-      label: 'Go to List / Table View',
+      id: 'view-table',
+      label: 'Go to Table & Queue View',
       icon: ListTodo,
       category: 'Navigation',
       action: () => {
-        setActiveView('list');
+        setActiveView('table');
+        setIsCommandPaletteOpen(false);
+      },
+    },
+    {
+      id: 'view-portal',
+      label: 'Go to Employee Service Portal',
+      icon: Plus,
+      category: 'Navigation',
+      action: () => {
+        setActiveView('portal');
         setIsCommandPaletteOpen(false);
       },
     },
     {
       id: 'view-metrics',
-      label: 'Go to Metrics & SLA Dashboard',
+      label: 'Go to SLA & Performance Dashboard',
       icon: BarChart3,
       category: 'Navigation',
       action: () => {
-        setActiveView('metrics');
+        setActiveView('sla_metrics');
         setIsCommandPaletteOpen(false);
       },
     },

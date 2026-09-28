@@ -1,9 +1,8 @@
 -- ====================================================================
--- NUTS (Neuro Unified Ticketing System) - Initial Supabase Schema
+-- NUTS (Neuro Unified Ticketing System) - Service Desk Schema
 -- Migration: 20260928000000_init_nuts_schema.sql
 -- ====================================================================
 
--- Enable UUID extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. DEPARTMENTS TABLE
@@ -23,13 +22,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT NOT NULL,
     name TEXT NOT NULL,
     avatar TEXT,
-    role TEXT NOT NULL DEFAULT 'Member',
+    role TEXT NOT NULL DEFAULT 'Team Member',
     department_id TEXT REFERENCES public.departments(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3. TICKETS TABLE
+-- 3. TICKETS TABLE (Service Desk Model)
 CREATE TABLE IF NOT EXISTS public.tickets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ticket_number SERIAL,
@@ -37,11 +36,19 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     title TEXT NOT NULL,
     description TEXT DEFAULT '',
     department_id TEXT NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('backlog', 'todo', 'in_progress', 'in_review', 'done', 'cancelled')),
+    requester_department_id TEXT REFERENCES public.departments(id) ON DELETE SET NULL,
+    type TEXT NOT NULL DEFAULT 'service_request' CHECK (type IN ('incident', 'service_request', 'bug', 'feature', 'question')),
+    status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'open', 'in_progress', 'pending', 'escalated', 'resolved', 'closed')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('critical', 'high', 'medium', 'low')),
     assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reporter_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     due_date TIMESTAMPTZ,
+    sla_deadline TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
+    sla_breached BOOLEAN NOT NULL DEFAULT FALSE,
+    resolution_reason TEXT CHECK (resolution_reason IN ('resolved_fixed', 'resolved_explained', 'duplicate', 'wont_fix', 'cannot_reproduce')),
+    resolution_notes TEXT,
+    resolved_at TIMESTAMPTZ,
+    first_response_at TIMESTAMPTZ,
     estimate_hours NUMERIC(6, 2),
     tags TEXT[] DEFAULT '{}',
     custom_fields JSONB DEFAULT '{}'::jsonb,
@@ -49,11 +56,11 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indexing for fast queries
-CREATE INDEX IF NOT EXISTS idx_tickets_department ON public.tickets(department_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_status ON public.tickets(status);
-CREATE INDEX IF NOT EXISTS idx_tickets_priority ON public.tickets(priority);
-CREATE INDEX IF NOT EXISTS idx_tickets_assignee ON public.tickets(assignee_id);
+-- Indexes for lightning-fast queue queries
+CREATE INDEX IF NOT EXISTS idx_tickets_department_status ON public.tickets(department_id, status);
+CREATE INDEX IF NOT EXISTS idx_tickets_assignee_status ON public.tickets(assignee_id, status);
+CREATE INDEX IF NOT EXISTS idx_tickets_sla ON public.tickets(sla_deadline) WHERE status NOT IN ('resolved', 'closed');
+CREATE INDEX IF NOT EXISTS idx_tickets_reporter ON public.tickets(reporter_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON public.tickets(created_at DESC);
 
 -- 4. TICKET CHECKLISTS
@@ -68,19 +75,20 @@ CREATE TABLE IF NOT EXISTS public.ticket_checklists (
 
 CREATE INDEX IF NOT EXISTS idx_ticket_checklists_ticket ON public.ticket_checklists(ticket_id);
 
--- 5. TICKET COMMENTS
+-- 5. TICKET COMMENTS (Thread: Public Responses vs Private Internal Notes)
 CREATE TABLE IF NOT EXISTS public.ticket_comments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
     author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+    is_resolution BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket ON public.ticket_comments(ticket_id);
 
--- 6. TICKET ACTIVITY LOG
+-- 6. TICKET ACTIVITY LOG (Audit Trail)
 CREATE TABLE IF NOT EXISTS public.ticket_activities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
@@ -107,7 +115,7 @@ BEFORE UPDATE ON public.tickets
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
--- 8. FUNCTION & TRIGGER: Auto-generate Ticket Code (e.g. DEV-1, MKT-2)
+-- 8. FUNCTION & TRIGGER: Auto-generate Ticket Code (e.g. DEV-101, MKT-45)
 CREATE OR REPLACE FUNCTION public.generate_ticket_code()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -120,7 +128,7 @@ BEGIN
             dept_code := 'NUTS';
         END IF;
         
-        SELECT COALESCE(MAX(SUBSTRING(code FROM '[0-9]+')::INT), 0) + 1 INTO next_num
+        SELECT COALESCE(MAX(SUBSTRING(code FROM '[0-9]+')::INT), 100) + 1 INTO next_num
         FROM public.tickets
         WHERE department_id = NEW.department_id;
 
@@ -146,7 +154,7 @@ BEGIN
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
         COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'),
-        'Member'
+        'Team Member'
     );
     RETURN NEW;
 END;
@@ -165,7 +173,6 @@ ALTER TABLE public.ticket_checklists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_activities ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated users full read/write for team internal operations
 CREATE POLICY "Allow authenticated read departments" ON public.departments FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow authenticated read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow authenticated update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);

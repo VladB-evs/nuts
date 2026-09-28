@@ -5,10 +5,10 @@ import { Sidebar } from './components/layout/Sidebar';
 import { DepartmentTabs } from './components/layout/DepartmentTabs';
 import { MobileNav } from './components/layout/MobileNav';
 import { FilterBar } from './components/filters/FilterBar';
-import { KanbanView } from './components/views/KanbanView';
+import { TicketingConsoleView } from './components/views/TicketingConsoleView';
 import { ListView } from './components/views/ListView';
+import { ServicePortalView } from './components/views/ServicePortalView';
 import { MetricsView } from './components/views/MetricsView';
-import { TicketDetailModal } from './components/tickets/TicketDetailModal';
 import { CreateTicketModal } from './components/tickets/CreateTicketModal';
 import { CommandPalette } from './components/filters/CommandPalette';
 import { SupabaseGuideModal } from './components/views/SupabaseGuideModal';
@@ -25,21 +25,22 @@ const AppContent: React.FC = () => {
       {/* Horizontal Department Switcher Tabs */}
       <DepartmentTabs />
 
-      {/* Main Body: Sidebar + Dynamic View */}
+      {/* Main Body: Sidebar + Dynamic Workspace */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
+        {/* Desktop Sidebar with Smart Queues */}
         <Sidebar onOpenSupabaseGuide={() => setIsSupabaseGuideOpen(true)} />
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0 overflow-hidden bg-zinc-950/30">
-          {/* Filter Bar (Search, Status, Priority, Assignee, View Toggles) */}
-          <FilterBar />
+        <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0 overflow-hidden bg-zinc-950/40">
+          {/* Filter Bar (Queue Indicator, Search, Status, Priority, Type) */}
+          {(activeView === 'console' || activeView === 'table') && <FilterBar />}
 
           {/* View Container */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {activeView === 'kanban' && <KanbanView />}
-            {activeView === 'list' && <ListView />}
-            {activeView === 'metrics' && <MetricsView />}
+            {activeView === 'console' && <TicketingConsoleView />}
+            {activeView === 'table' && <ListView />}
+            {activeView === 'portal' && <ServicePortalView />}
+            {activeView === 'sla_metrics' && <MetricsView />}
           </div>
         </main>
       </div>
@@ -49,7 +50,6 @@ const AppContent: React.FC = () => {
 
       {/* Modals & Dialogs */}
       <CreateTicketModal />
-      <TicketDetailModal />
       <CommandPalette onOpenSupabaseGuide={() => setIsSupabaseGuideOpen(true)} />
       <SupabaseGuideModal
         isOpen={isSupabaseGuideOpen}

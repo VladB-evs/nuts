@@ -1,8 +1,32 @@
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 
-export type TicketStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled';
+export type TicketStatus =
+  | 'new'
+  | 'open'
+  | 'in_progress'
+  | 'pending'
+  | 'escalated'
+  | 'resolved'
+  | 'closed';
 
-export type ViewMode = 'kanban' | 'list' | 'metrics';
+export type TicketType = 'incident' | 'service_request' | 'bug' | 'feature' | 'question';
+
+export type ResolutionReason =
+  | 'resolved_fixed'
+  | 'resolved_explained'
+  | 'duplicate'
+  | 'wont_fix'
+  | 'cannot_reproduce';
+
+export type QueueId =
+  | 'triage'
+  | 'my_tickets'
+  | 'all_open'
+  | 'sla_risk'
+  | 'pending_requester'
+  | 'resolved_closed';
+
+export type ViewMode = 'console' | 'table' | 'portal' | 'sla_metrics';
 
 export interface UserProfile {
   id: string;
@@ -17,7 +41,7 @@ export interface Department {
   id: string;
   name: string;
   code: string; // e.g. "DEV", "MKT", "SLS", "PRD", "OPS"
-  color: string; // Accent color hex or tailwind class
+  color: string; // Accent color hex
   icon: string; // Lucide icon identifier
   description: string;
 }
@@ -34,7 +58,8 @@ export interface TicketComment {
   author: UserProfile;
   content: string;
   createdAt: string;
-  isInternal?: boolean;
+  isInternal?: boolean; // Internal note vs public response to requester
+  isResolution?: boolean;
 }
 
 export interface TicketActivity {
@@ -93,20 +118,27 @@ export interface Ticket {
   code: string; // e.g. "DEV-101", "MKT-42"
   title: string;
   description: string;
-  departmentId: string;
+  departmentId: string; // Department the ticket is assigned to
   status: TicketStatus;
   priority: Priority;
+  type: TicketType;
   assignee: UserProfile | null;
-  reporter: UserProfile;
+  reporter: UserProfile; // Submitter / Requester
+  requesterDepartmentId: string; // Submitter's home department
   tags: string[];
   createdAt: string;
   updatedAt: string;
   dueDate?: string;
+  slaDeadline: string; // Required for SLA calculation
+  slaBreached?: boolean;
   estimateHours?: number;
   checklist: ChecklistItem[];
   comments: TicketComment[];
   activities: TicketActivity[];
   customFields?: TicketCustomFields;
+  resolutionReason?: ResolutionReason;
+  resolutionNotes?: string;
+  resolvedAt?: string;
 }
 
 export interface FilterState {
@@ -115,5 +147,6 @@ export interface FilterState {
   status: TicketStatus | 'all';
   priority: Priority | 'all';
   assigneeId: string | 'all';
-  tag: string | 'all';
+  type: TicketType | 'all';
+  queue: QueueId | 'all';
 }

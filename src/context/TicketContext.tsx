@@ -7,6 +7,8 @@ import {
   TicketStatus,
   ViewMode,
   FilterState,
+  QueueId,
+  ResolutionReason,
 } from '../types';
 import {
   INITIAL_DEPARTMENTS,
@@ -22,6 +24,8 @@ interface TicketContextType {
   setCurrentUser: (user: UserProfile) => void;
   selectedDepartment: string;
   setSelectedDepartment: (id: string) => void;
+  activeQueue: QueueId;
+  setActiveQueue: (queue: QueueId) => void;
   activeView: ViewMode;
   setActiveView: (view: ViewMode) => void;
   filters: FilterState;
@@ -37,12 +41,16 @@ interface TicketContextType {
   toggleDarkMode: () => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (open: boolean) => void;
-  
-  // Ticket Actions
+
+  // Ticket Operations
   createTicket: (ticketData: Partial<Ticket>) => Ticket;
   updateTicket: (id: string, updates: Partial<Ticket>) => void;
   deleteTicket: (id: string) => void;
-  moveTicketStatus: (id: string, newStatus: TicketStatus) => void;
+  changeStatus: (id: string, newStatus: TicketStatus) => void;
+  assignTicketToMe: (id: string) => void;
+  assignTicket: (id: string, user: UserProfile | null) => void;
+  transferDepartment: (id: string, targetDeptId: string, transferNote?: string) => void;
+  resolveTicket: (id: string, reason: ResolutionReason, notes?: string) => void;
   addComment: (ticketId: string, content: string, isInternal?: boolean) => void;
   toggleChecklistItem: (ticketId: string, itemId: string) => void;
   addChecklistItem: (ticketId: string, text: string) => void;
@@ -52,30 +60,32 @@ interface TicketContextType {
 
   // Computed
   filteredTickets: Ticket[];
+  queueCounts: Record<QueueId, number>;
   metrics: {
     total: number;
-    completed: number;
+    open: number;
     inProgress: number;
-    critical: number;
+    pending: number;
+    resolved: number;
+    slaBreached: number;
+    slaComplianceRate: number;
     byDepartment: { [deptId: string]: number };
   };
 }
 
 const TicketContext = createContext<TicketContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY_TICKETS = 'nuts_tickets_store_v1';
-const LOCAL_STORAGE_KEY_DEPTS = 'nuts_departments_store_v1';
-const LOCAL_STORAGE_KEY_THEME = 'nuts_theme_preference_v1';
+const LOCAL_STORAGE_KEY_TICKETS = 'nuts_tickets_store_v2';
+const LOCAL_STORAGE_KEY_DEPTS = 'nuts_departments_store_v2';
+const LOCAL_STORAGE_KEY_THEME = 'nuts_theme_preference_v2';
 
 export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Theme state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY_THEME);
     if (saved !== null) return saved === 'dark';
-    return true; // Default to dark mode for sleek monochrome aesthetic
+    return true; // Default to dark mode
   });
 
-  // Data states with LocalStorage persistence
   const [departments, setDepartments] = useState<Department[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_DEPTS);
@@ -95,25 +105,25 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [users] = useState<UserProfile[]>(INITIAL_USERS);
-  const [currentUser, setCurrentUser] = useState<UserProfile>(INITIAL_USERS[0]);
+  const [currentUser, setCurrentUser] = useState<UserProfile>(INITIAL_USERS[1]); // Alex Rivera
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [activeView, setActiveView] = useState<ViewMode>('kanban');
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [activeQueue, setActiveQueue] = useState<QueueId>('all_open');
+  const [activeView, setActiveView] = useState<ViewMode>('console');
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(() => INITIAL_TICKETS[0]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Filters
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     departmentId: 'all',
     status: 'all',
     priority: 'all',
     assigneeId: 'all',
-    tag: 'all',
+    type: 'all',
+    queue: 'all',
   });
 
-  // Apply dark mode class to <html>
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -125,7 +135,6 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [isDarkMode]);
 
-  // Save tickets & depts to localStorage
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
   }, [tickets]);
@@ -134,14 +143,11 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem(LOCAL_STORAGE_KEY_DEPTS, JSON.stringify(departments));
   }, [departments]);
 
-  // Keyboard shortcut listener for Cmd+K / Ctrl+K and 'C' to create ticket
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input or textarea
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
         return;
       }
-
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
@@ -150,7 +156,6 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsCreateModalOpen(true);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
@@ -164,25 +169,38 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       status: 'all',
       priority: 'all',
       assigneeId: 'all',
-      tag: 'all',
+      type: 'all',
+      queue: 'all',
     });
   };
 
   const resetToDefaultData = () => {
     setTickets(INITIAL_TICKETS);
     setDepartments(INITIAL_DEPARTMENTS);
+    setSelectedTicket(INITIAL_TICKETS[0]);
     localStorage.removeItem(LOCAL_STORAGE_KEY_TICKETS);
     localStorage.removeItem(LOCAL_STORAGE_KEY_DEPTS);
   };
 
   const createTicket = (ticketData: Partial<Ticket>): Ticket => {
-    const deptId = ticketData.departmentId || (selectedDepartment !== 'all' ? selectedDepartment : 'engineering');
+    const deptId =
+      ticketData.departmentId ||
+      (selectedDepartment !== 'all' ? selectedDepartment : 'engineering');
     const dept = departments.find((d) => d.id === deptId) || departments[0];
 
     const departmentTickets = tickets.filter((t) => t.departmentId === dept.id);
     const maxNum = departmentTickets.reduce((max, t) => Math.max(max, t.ticketNumber || 0), 100);
     const newNum = maxNum + 1;
     const ticketCode = `${dept.code}-${newNum}`;
+
+    // Default SLA: 24 hours from now for high, 4h for critical, 48h for medium/low
+    const slaOffsetHours =
+      ticketData.priority === 'critical'
+        ? 4
+        : ticketData.priority === 'high'
+        ? 24
+        : 48;
+    const defaultSla = new Date(Date.now() + slaOffsetHours * 60 * 60 * 1000).toISOString();
 
     const newTicket: Ticket = {
       id: `t-${Date.now()}`,
@@ -191,23 +209,26 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       title: ticketData.title || 'Untitled Ticket',
       description: ticketData.description || '',
       departmentId: dept.id,
-      status: ticketData.status || 'todo',
+      requesterDepartmentId: ticketData.requesterDepartmentId || currentUser.departmentId,
+      status: ticketData.status || 'new',
       priority: ticketData.priority || 'medium',
+      type: ticketData.type || 'service_request',
       assignee: ticketData.assignee || null,
-      reporter: currentUser,
+      reporter: ticketData.reporter || currentUser,
       tags: ticketData.tags || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       dueDate: ticketData.dueDate,
+      slaDeadline: ticketData.slaDeadline || defaultSla,
       estimateHours: ticketData.estimateHours,
       checklist: ticketData.checklist || [],
-      comments: [],
+      comments: ticketData.comments || [],
       activities: [
         {
           id: `act-${Date.now()}`,
           ticketId: `t-${Date.now()}`,
           actor: currentUser,
-          action: 'created ticket',
+          action: 'submitted ticket',
           timestamp: new Date().toISOString(),
         },
       ],
@@ -215,6 +236,7 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setTickets((prev) => [newTicket, ...prev]);
+    setSelectedTicket(newTicket);
     return newTicket;
   };
 
@@ -244,12 +266,11 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const moveTicketStatus = (id: string, newStatus: TicketStatus) => {
+  const changeStatus = (id: string, newStatus: TicketStatus) => {
     setTickets((prev) =>
       prev.map((ticket) => {
         if (ticket.id === id) {
-          if (newStatus === 'done' && ticket.status !== 'done') {
-            // Trigger confetti delight
+          if (newStatus === 'resolved' && ticket.status !== 'resolved') {
             try {
               confetti({
                 particleCount: 50,
@@ -258,7 +279,7 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 colors: ['#ffffff', '#a1a1aa', '#38bdf8', '#34d399'],
               });
             } catch {
-              // Ignore if canvas is not ready
+              // ignore
             }
           }
 
@@ -266,12 +287,160 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             ...ticket,
             status: newStatus,
             updatedAt: new Date().toISOString(),
+            resolvedAt: newStatus === 'resolved' ? new Date().toISOString() : ticket.resolvedAt,
             activities: [
               {
                 id: `act-${Date.now()}`,
                 ticketId: id,
                 actor: currentUser,
-                action: `moved to ${newStatus.replace('_', ' ').toUpperCase()}`,
+                action: `changed status to ${newStatus.replace('_', ' ').toUpperCase()}`,
+                timestamp: new Date().toISOString(),
+              },
+              ...ticket.activities,
+            ],
+          };
+
+          if (selectedTicket?.id === id) {
+            setSelectedTicket(updated);
+          }
+          return updated;
+        }
+        return ticket;
+      })
+    );
+  };
+
+  const assignTicketToMe = (id: string) => {
+    assignTicket(id, currentUser);
+  };
+
+  const assignTicket = (id: string, user: UserProfile | null) => {
+    setTickets((prev) =>
+      prev.map((ticket) => {
+        if (ticket.id === id) {
+          const updated: Ticket = {
+            ...ticket,
+            assignee: user,
+            status: ticket.status === 'new' && user ? 'open' : ticket.status,
+            updatedAt: new Date().toISOString(),
+            activities: [
+              {
+                id: `act-${Date.now()}`,
+                ticketId: id,
+                actor: currentUser,
+                action: user ? `assigned ticket to ${user.name}` : 'unassigned ticket',
+                timestamp: new Date().toISOString(),
+              },
+              ...ticket.activities,
+            ],
+          };
+          if (selectedTicket?.id === id) {
+            setSelectedTicket(updated);
+          }
+          return updated;
+        }
+        return ticket;
+      })
+    );
+  };
+
+  const transferDepartment = (id: string, targetDeptId: string, transferNote?: string) => {
+    const targetDept = departments.find((d) => d.id === targetDeptId);
+    if (!targetDept) return;
+
+    setTickets((prev) =>
+      prev.map((ticket) => {
+        if (ticket.id === id) {
+          const activities = [
+            {
+              id: `act-${Date.now()}`,
+              ticketId: id,
+              actor: currentUser,
+              action: `transferred ticket to ${targetDept.name}`,
+              details: transferNote,
+              timestamp: new Date().toISOString(),
+            },
+            ...ticket.activities,
+          ];
+
+          const comments = transferNote
+            ? [
+                ...ticket.comments,
+                {
+                  id: `cm-${Date.now()}`,
+                  ticketId: id,
+                  author: currentUser,
+                  content: `[Department Transfer to ${targetDept.name}]: ${transferNote}`,
+                  createdAt: new Date().toISOString(),
+                  isInternal: true,
+                },
+              ]
+            : ticket.comments;
+
+          const updated: Ticket = {
+            ...ticket,
+            departmentId: targetDeptId,
+            assignee: null, // Reset assignee so target team can triage
+            status: 'new', // Moves into target team's triage queue
+            updatedAt: new Date().toISOString(),
+            activities,
+            comments,
+          };
+
+          if (selectedTicket?.id === id) {
+            setSelectedTicket(updated);
+          }
+          return updated;
+        }
+        return ticket;
+      })
+    );
+  };
+
+  const resolveTicket = (id: string, reason: ResolutionReason, notes?: string) => {
+    try {
+      confetti({
+        particleCount: 60,
+        spread: 70,
+        origin: { y: 0.75 },
+        colors: ['#ffffff', '#38bdf8', '#34d399', '#f59e0b'],
+      });
+    } catch {
+      // ignore
+    }
+
+    setTickets((prev) =>
+      prev.map((ticket) => {
+        if (ticket.id === id) {
+          const comments = notes
+            ? [
+                ...ticket.comments,
+                {
+                  id: `cm-${Date.now()}`,
+                  ticketId: id,
+                  author: currentUser,
+                  content: `[Resolution - ${reason.replace('_', ' ').toUpperCase()}]: ${notes}`,
+                  createdAt: new Date().toISOString(),
+                  isResolution: true,
+                  isInternal: false,
+                },
+              ]
+            : ticket.comments;
+
+          const updated: Ticket = {
+            ...ticket,
+            status: 'resolved',
+            resolutionReason: reason,
+            resolutionNotes: notes,
+            resolvedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            comments,
+            activities: [
+              {
+                id: `act-${Date.now()}`,
+                ticketId: id,
+                actor: currentUser,
+                action: `resolved ticket (${reason.replace('_', ' ')})`,
                 timestamp: new Date().toISOString(),
               },
               ...ticket.activities,
@@ -395,68 +564,131 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newDepartment;
   };
 
-  // Filtered tickets computation
+  // Queue Counts calculation
+  const now = Date.now();
+  const queueCounts = useMemo<Record<QueueId, number>>(() => {
+    const deptScoped =
+      selectedDepartment === 'all'
+        ? tickets
+        : tickets.filter((t) => t.departmentId === selectedDepartment);
+
+    return {
+      triage: deptScoped.filter((t) => t.status === 'new' || !t.assignee).length,
+      my_tickets: deptScoped.filter(
+        (t) => t.assignee?.id === currentUser.id && t.status !== 'resolved' && t.status !== 'closed'
+      ).length,
+      all_open: deptScoped.filter((t) => t.status !== 'resolved' && t.status !== 'closed').length,
+      sla_risk: deptScoped.filter((t) => {
+        if (t.status === 'resolved' || t.status === 'closed') return false;
+        const deadline = new Date(t.slaDeadline).getTime();
+        return deadline - now < 4 * 60 * 60 * 1000; // Under 4 hours or breached
+      }).length,
+      pending_requester: deptScoped.filter((t) => t.status === 'pending').length,
+      resolved_closed: deptScoped.filter((t) => t.status === 'resolved' || t.status === 'closed')
+        .length,
+    };
+  }, [tickets, selectedDepartment, currentUser, now]);
+
+  // Filtered Tickets computation
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
-      // Department filter (from top bar or global filter)
-      const deptFilter = filters.departmentId !== 'all' ? filters.departmentId : selectedDepartment;
-      if (deptFilter !== 'all' && ticket.departmentId !== deptFilter) {
+      // Department filter
+      if (selectedDepartment !== 'all' && ticket.departmentId !== selectedDepartment) {
         return false;
       }
 
-      // Status filter
-      if (filters.status !== 'all' && ticket.status !== filters.status) {
-        return false;
+      // Queue filter
+      if (activeQueue === 'triage') {
+        if (ticket.status !== 'new' && ticket.assignee !== null) return false;
+      } else if (activeQueue === 'my_tickets') {
+        if (
+          ticket.assignee?.id !== currentUser.id ||
+          ticket.status === 'resolved' ||
+          ticket.status === 'closed'
+        )
+          return false;
+      } else if (activeQueue === 'all_open') {
+        if (ticket.status === 'resolved' || ticket.status === 'closed') return false;
+      } else if (activeQueue === 'sla_risk') {
+        if (ticket.status === 'resolved' || ticket.status === 'closed') return false;
+        const deadline = new Date(ticket.slaDeadline).getTime();
+        if (deadline - now >= 4 * 60 * 60 * 1000) return false;
+      } else if (activeQueue === 'pending_requester') {
+        if (ticket.status !== 'pending') return false;
+      } else if (activeQueue === 'resolved_closed') {
+        if (ticket.status !== 'resolved' && ticket.status !== 'closed') return false;
       }
 
-      // Priority filter
-      if (filters.priority !== 'all' && ticket.priority !== filters.priority) {
-        return false;
-      }
-
-      // Assignee filter
+      // Explicit Filter dropdowns
+      if (filters.status !== 'all' && ticket.status !== filters.status) return false;
+      if (filters.priority !== 'all' && ticket.priority !== filters.priority) return false;
+      if (filters.type !== 'all' && ticket.type !== filters.type) return false;
       if (filters.assigneeId !== 'all') {
-        if (filters.assigneeId === 'unassigned' && ticket.assignee !== null) {
+        if (filters.assigneeId === 'unassigned' && ticket.assignee !== null) return false;
+        if (filters.assigneeId !== 'unassigned' && ticket.assignee?.id !== filters.assigneeId)
           return false;
-        }
-        if (filters.assigneeId !== 'unassigned' && ticket.assignee?.id !== filters.assigneeId) {
-          return false;
-        }
       }
 
-      // Tag filter
-      if (filters.tag !== 'all' && !ticket.tags.includes(filters.tag)) {
-        return false;
-      }
-
-      // Text search (in title, description, code, or tags)
+      // Search keyword
       if (filters.search.trim()) {
         const query = filters.search.toLowerCase();
         const matchesTitle = ticket.title.toLowerCase().includes(query);
         const matchesCode = ticket.code.toLowerCase().includes(query);
         const matchesDesc = ticket.description.toLowerCase().includes(query);
-        const matchesTag = ticket.tags.some((t) => t.toLowerCase().includes(query));
+        const matchesReporter = ticket.reporter.name.toLowerCase().includes(query);
         const matchesAssignee = ticket.assignee?.name.toLowerCase().includes(query);
+        const matchesTag = ticket.tags.some((t) => t.toLowerCase().includes(query));
 
-        if (!matchesTitle && !matchesCode && !matchesDesc && !matchesTag && !matchesAssignee) {
+        if (
+          !matchesTitle &&
+          !matchesCode &&
+          !matchesDesc &&
+          !matchesReporter &&
+          !matchesAssignee &&
+          !matchesTag
+        ) {
           return false;
         }
       }
 
       return true;
     });
-  }, [tickets, selectedDepartment, filters]);
+  }, [tickets, selectedDepartment, activeQueue, filters, currentUser, now]);
 
-  // Overall metrics calculation
+  // Make sure selectedTicket remains pointing to a valid ticket when filters change
+  useEffect(() => {
+    if (!selectedTicket && filteredTickets.length > 0) {
+      setSelectedTicket(filteredTickets[0]);
+    } else if (
+      selectedTicket &&
+      !tickets.find((t) => t.id === selectedTicket.id) &&
+      filteredTickets.length > 0
+    ) {
+      setSelectedTicket(filteredTickets[0]);
+    }
+  }, [filteredTickets, selectedTicket, tickets]);
+
+  // Overall Service Desk metrics
   const metrics = useMemo(() => {
-    const deptTickets = selectedDepartment === 'all' 
-      ? tickets 
-      : tickets.filter((t) => t.departmentId === selectedDepartment);
+    const deptTickets =
+      selectedDepartment === 'all'
+        ? tickets
+        : tickets.filter((t) => t.departmentId === selectedDepartment);
 
     const total = deptTickets.length;
-    const completed = deptTickets.filter((t) => t.status === 'done').length;
+    const open = deptTickets.filter((t) => t.status === 'open' || t.status === 'new').length;
     const inProgress = deptTickets.filter((t) => t.status === 'in_progress').length;
-    const critical = deptTickets.filter((t) => t.priority === 'critical').length;
+    const pending = deptTickets.filter((t) => t.status === 'pending').length;
+    const resolved = deptTickets.filter((t) => t.status === 'resolved' || t.status === 'closed')
+      .length;
+
+    const slaBreached = deptTickets.filter((t) => {
+      if (t.status === 'resolved' || t.status === 'closed') return false;
+      return new Date(t.slaDeadline).getTime() < now;
+    }).length;
+
+    const slaComplianceRate =
+      total > 0 ? Math.round(((total - slaBreached) / total) * 100) : 100;
 
     const byDepartment: { [deptId: string]: number } = {};
     departments.forEach((d) => {
@@ -465,12 +697,15 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return {
       total,
-      completed,
+      open,
       inProgress,
-      critical,
+      pending,
+      resolved,
+      slaBreached,
+      slaComplianceRate,
       byDepartment,
     };
-  }, [tickets, departments, selectedDepartment]);
+  }, [tickets, departments, selectedDepartment, now]);
 
   return (
     <TicketContext.Provider
@@ -482,6 +717,8 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentUser,
         selectedDepartment,
         setSelectedDepartment,
+        activeQueue,
+        setActiveQueue,
         activeView,
         setActiveView,
         filters,
@@ -500,7 +737,11 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createTicket,
         updateTicket,
         deleteTicket,
-        moveTicketStatus,
+        changeStatus,
+        assignTicketToMe,
+        assignTicket,
+        transferDepartment,
+        resolveTicket,
         addComment,
         toggleChecklistItem,
         addChecklistItem,
@@ -508,6 +749,7 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addDepartment,
         resetToDefaultData,
         filteredTickets,
+        queueCounts,
         metrics,
       }}
     >

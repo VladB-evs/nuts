@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTickets } from '../../context/TicketContext';
-import { Priority, TicketStatus, TicketCustomFields } from '../../types';
+import { Priority, TicketStatus, TicketCustomFields, TicketType } from '../../types';
 import { Modal } from '../common/Modal';
 import { DepartmentFields } from './DepartmentFields';
 import { Sparkles, Plus, X } from 'lucide-react';
@@ -23,7 +23,8 @@ export const CreateTicketModal: React.FC = () => {
   const [description, setDescription] = useState('');
   const [departmentId, setDepartmentId] = useState(initialDeptId);
   const [priority, setPriority] = useState<Priority>('medium');
-  const [status, setStatus] = useState<TicketStatus>('todo');
+  const [status, setStatus] = useState<TicketStatus>('new');
+  const [type, setType] = useState<TicketType>('service_request');
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
   const [dueDate, setDueDate] = useState('');
   const [estimateHours, setEstimateHours] = useState<string>('');
@@ -37,7 +38,8 @@ export const CreateTicketModal: React.FC = () => {
     setDescription('');
     setDepartmentId(selectedDepartment !== 'all' ? selectedDepartment : 'engineering');
     setPriority('medium');
-    setStatus('todo');
+    setStatus('new');
+    setType('service_request');
     setAssigneeId('unassigned');
     setDueDate('');
     setEstimateHours('');
@@ -111,6 +113,7 @@ export const CreateTicketModal: React.FC = () => {
       departmentId,
       priority,
       status,
+      type,
       assignee,
       dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
       estimateHours: estimateHours ? Number(estimateHours) : undefined,
@@ -227,11 +230,10 @@ export const CreateTicketModal: React.FC = () => {
               onChange={(e) => setStatus(e.target.value as TicketStatus)}
               className="w-full px-3 py-2 text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-zinc-200 font-mono focus:outline-none focus:border-white cursor-pointer"
             >
-              <option value="backlog">Backlog</option>
-              <option value="todo">To Do</option>
+              <option value="new">New / Triage</option>
+              <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
-              <option value="in_review">In Review</option>
-              <option value="done">Done</option>
+              <option value="pending">Waiting on Info</option>
             </select>
           </div>
         </div>
