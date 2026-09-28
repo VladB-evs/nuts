@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS public.issues (
     department_id TEXT NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
     priority TEXT NOT NULL DEFAULT 'P2' CHECK (priority IN ('P0', 'P1', 'P2', 'P3')),
     status TEXT NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW', 'ASSIGNED', 'ACCEPTED', 'FIXED', 'VERIFIED', 'CLOSED')),
+    environment TEXT NOT NULL DEFAULT 'LOCAL' CHECK (environment IN ('LOCAL', 'STAGING', 'PROD')),
+    dev_scope TEXT CHECK (dev_scope IN ('frontend', 'backend', 'both')),
     assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reporter_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -41,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.issues (
 
 CREATE INDEX IF NOT EXISTS idx_issues_department ON public.issues(department_id);
 CREATE INDEX IF NOT EXISTS idx_issues_status ON public.issues(status);
+CREATE INDEX IF NOT EXISTS idx_issues_environment ON public.issues(environment);
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON public.issues(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_issues_created_at ON public.issues(created_at DESC);
 

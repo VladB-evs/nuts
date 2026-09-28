@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { Priority, Status } from '../types';
+import { Priority, Status, Environment, DevScope } from '../types';
 import { USERS } from '../data/mockData';
 import { formatDateTime, timeAgo } from '../lib/utils';
 import {
@@ -136,7 +136,20 @@ export const IssueDetail: React.FC = () => {
                 {selectedIssue.title}
               </h1>
             )}
-            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 font-mono">
+            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 font-mono flex-wrap">
+              <span className="font-bold text-gray-900 bg-gray-100 border border-gray-300 px-2 py-0.5 rounded text-[11px]">
+                {selectedIssue.environment}
+              </span>
+              {selectedIssue.devScope && (
+                <span className="font-medium text-gray-800 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded text-[11px]">
+                  {selectedIssue.devScope === 'both'
+                    ? 'Frontend + Backend'
+                    : selectedIssue.devScope === 'frontend'
+                    ? 'Frontend'
+                    : 'Backend'}
+                </span>
+              )}
+              <span>•</span>
               <span>Reported by {selectedIssue.reporter.name}</span>
               <span>•</span>
               <span>{formatDateTime(selectedIssue.createdAt)}</span>
@@ -273,6 +286,41 @@ export const IssueDetail: React.FC = () => {
               <option value="P1">P1 — Critical (High priority)</option>
               <option value="P2">P2 — Major (Regular queue)</option>
               <option value="P3">P3 — Minor (Low priority)</option>
+            </select>
+          </div>
+
+          {/* Environment */}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-mono text-gray-500">Environment Stage</label>
+            <select
+              value={selectedIssue.environment || 'LOCAL'}
+              onChange={(e) =>
+                updateIssue(selectedIssue.id, { environment: e.target.value as Environment })
+              }
+              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
+            >
+              <option value="LOCAL">LOCAL (Dev Machine)</option>
+              <option value="STAGING">STAGING (Pre-release / QA)</option>
+              <option value="PROD">PROD (Production)</option>
+            </select>
+          </div>
+
+          {/* Dev Scope */}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-mono text-gray-500">Development Layer</label>
+            <select
+              value={selectedIssue.devScope || 'none'}
+              onChange={(e) =>
+                updateIssue(selectedIssue.id, {
+                  devScope: e.target.value === 'none' ? undefined : (e.target.value as DevScope),
+                })
+              }
+              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
+            >
+              <option value="none">Not specified</option>
+              <option value="frontend">Frontend only</option>
+              <option value="backend">Backend only</option>
+              <option value="both">Both (Frontend + Backend)</option>
             </select>
           </div>
 

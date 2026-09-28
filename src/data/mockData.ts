@@ -51,6 +51,8 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'engineering',
     priority: 'P0',
     status: 'ASSIGNED',
+    environment: 'PROD',
+    devScope: 'both',
     assignee: USERS[1], // Alex Rivera
     reporter: USERS[3], // David Miller
     createdAt: '2026-09-28T09:15:00Z',
@@ -81,6 +83,7 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'marketing',
     priority: 'P1',
     status: 'ACCEPTED',
+    environment: 'STAGING',
     assignee: USERS[2], // Maya Chen
     reporter: USERS[0], // Liam Vance
     createdAt: '2026-09-27T14:00:00Z',
@@ -103,6 +106,7 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'sales',
     priority: 'P1',
     status: 'ASSIGNED',
+    environment: 'PROD',
     assignee: USERS[3], // David Miller
     reporter: USERS[3],
     createdAt: '2026-09-26T11:00:00Z',
@@ -118,6 +122,7 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'operations',
     priority: 'P3',
     status: 'NEW',
+    environment: 'LOCAL',
     assignee: USERS[4], // Elena
     reporter: USERS[1], // Alex
     createdAt: '2026-09-28T07:30:00Z',
@@ -133,6 +138,8 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'product',
     priority: 'P2',
     status: 'FIXED',
+    environment: 'STAGING',
+    devScope: 'frontend',
     assignee: USERS[0],
     reporter: USERS[1],
     createdAt: '2026-09-25T13:00:00Z',
@@ -156,6 +163,8 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'engineering',
     priority: 'P1',
     status: 'NEW',
+    environment: 'STAGING',
+    devScope: 'backend',
     assignee: null,
     reporter: USERS[1],
     createdAt: '2026-09-28T11:00:00Z',

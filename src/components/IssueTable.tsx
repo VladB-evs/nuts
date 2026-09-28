@@ -1,6 +1,6 @@
 import React from 'react';
 import { useIssues } from '../context/TicketContext';
-import { Priority, Status } from '../types';
+import { Priority, Status, Environment, DevScope } from '../types';
 import { Star, Plus } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
@@ -11,6 +11,8 @@ export const IssueTable: React.FC = () => {
     toggleStar,
     priorityFilter,
     setPriorityFilter,
+    envFilter,
+    setEnvFilter,
     departments,
     setIsCreateModalOpen,
   } = useIssues();
@@ -44,6 +46,54 @@ export const IssueTable: React.FC = () => {
     }
   };
 
+  const getEnvBadge = (env?: Environment) => {
+    switch (env) {
+      case 'PROD':
+        return (
+          <span className="font-mono text-[10px] font-semibold text-purple-800 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">
+            PROD
+          </span>
+        );
+      case 'STAGING':
+        return (
+          <span className="font-mono text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+            STAGING
+          </span>
+        );
+      case 'LOCAL':
+      default:
+        return (
+          <span className="font-mono text-[10px] font-medium text-gray-700 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
+            LOCAL
+          </span>
+        );
+    }
+  };
+
+  const getScopeBadge = (scope?: DevScope) => {
+    if (!scope) return null;
+    switch (scope) {
+      case 'both':
+        return (
+          <span className="font-mono text-[10px] font-medium text-gray-700 bg-gray-100 border border-gray-200 px-1 py-0.5 rounded" title="Frontend + Backend">
+            FE+BE
+          </span>
+        );
+      case 'frontend':
+        return (
+          <span className="font-mono text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0.5 rounded" title="Frontend">
+            FE
+          </span>
+        );
+      case 'backend':
+        return (
+          <span className="font-mono text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.5 rounded" title="Backend">
+            BE
+          </span>
+        );
+    }
+  };
+
   const getStatusBadge = (s: Status) => {
     const isDone = s === 'FIXED' || s === 'VERIFIED' || s === 'CLOSED';
     return (
@@ -64,26 +114,47 @@ export const IssueTable: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto bg-white flex flex-col">
       {/* Table Toolbar */}
-      <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/70 flex items-center justify-between text-xs select-none">
-        <div className="flex items-center gap-1.5">
-          <span className="text-gray-500 font-medium mr-1">Priority:</span>
-          {['ALL', 'P0', 'P1', 'P2', 'P3'].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPriorityFilter(p)}
-              className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors ${
-                priorityFilter === p
-                  ? 'bg-black text-white font-medium'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+      <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/70 flex flex-wrap items-center justify-between gap-2 text-xs select-none">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-500 font-medium mr-1">Priority:</span>
+            {['ALL', 'P0', 'P1', 'P2', 'P3'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPriorityFilter(p)}
+                className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors ${
+                  priorityFilter === p
+                    ? 'bg-black text-white font-medium'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-500 font-medium mr-1">Env:</span>
+            {['ALL', 'LOCAL', 'STAGING', 'PROD'].map((env) => (
+              <button
+                key={env}
+                onClick={() => setEnvFilter(env)}
+                className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors ${
+                  envFilter === env
+                    ? 'bg-black text-white font-medium'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {env}
+              </button>
+            ))}
+          </div>
         </div>
 
         <span className="font-mono text-[11px] text-gray-500">
-          {filteredIssues.length} issues
+          {filteredIssues.length} {filteredIssues.length === 1 ? 'issue' : 'issues'}
         </span>
       </div>
 
@@ -94,13 +165,15 @@ export const IssueTable: React.FC = () => {
             <thead>
               <tr className="border-b border-gray-200 bg-white text-gray-500 font-mono text-[11px] select-none">
                 <th className="py-2 px-3 w-8 text-center"></th>
-                <th className="py-2 px-3 w-20">ID</th>
-                <th className="py-2 px-3 w-16">PRI</th>
+                <th className="py-2 px-3 w-16">ID</th>
+                <th className="py-2 px-3 w-14">PRI</th>
                 <th className="py-2 px-3">TITLE</th>
-                <th className="py-2 px-3 w-32 hidden md:table-cell">COMPONENT</th>
-                <th className="py-2 px-3 w-28">STATUS</th>
-                <th className="py-2 px-3 w-36 hidden sm:table-cell">ASSIGNEE</th>
-                <th className="py-2 px-3 w-28 text-right hidden sm:table-cell">MODIFIED</th>
+                <th className="py-2 px-3 w-20 hidden sm:table-cell">ENV</th>
+                <th className="py-2 px-3 w-16 hidden lg:table-cell">LAYER</th>
+                <th className="py-2 px-3 w-28 hidden md:table-cell">COMPONENT</th>
+                <th className="py-2 px-3 w-24">STATUS</th>
+                <th className="py-2 px-3 w-32 hidden sm:table-cell">ASSIGNEE</th>
+                <th className="py-2 px-3 w-24 text-right hidden md:table-cell">MODIFIED</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -140,9 +213,24 @@ export const IssueTable: React.FC = () => {
 
                     {/* Title */}
                     <td className="py-2.5 px-3">
-                      <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {issue.title}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {issue.title}
+                        </span>
+                        <span className="sm:hidden font-mono text-[10px] text-gray-500">
+                          [{issue.environment}]
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Env */}
+                    <td className="py-2.5 px-3 hidden sm:table-cell">
+                      {getEnvBadge(issue.environment)}
+                    </td>
+
+                    {/* Dev Layer / Scope */}
+                    <td className="py-2.5 px-3 hidden lg:table-cell">
+                      {getScopeBadge(issue.devScope)}
                     </td>
 
                     {/* Component */}
@@ -159,7 +247,7 @@ export const IssueTable: React.FC = () => {
                     </td>
 
                     {/* Modified */}
-                    <td className="py-2.5 px-3 text-right text-gray-400 font-mono text-[11px] hidden sm:table-cell">
+                    <td className="py-2.5 px-3 text-right text-gray-400 font-mono text-[11px] hidden md:table-cell">
                       {formatDate(issue.updatedAt)}
                     </td>
                   </tr>

@@ -2,6 +2,10 @@ export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
 
 export type Status = 'NEW' | 'ASSIGNED' | 'ACCEPTED' | 'FIXED' | 'VERIFIED' | 'CLOSED';
 
+export type Environment = 'LOCAL' | 'STAGING' | 'PROD';
+
+export type DevScope = 'frontend' | 'backend' | 'both';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -35,6 +39,8 @@ export interface Issue {
   departmentId: string;
   priority: Priority;
   status: Status;
+  environment: Environment; // 'LOCAL' | 'STAGING' | 'PROD'
+  devScope?: DevScope; // 'frontend' | 'backend' | 'both'
   assignee: UserProfile | null;
   reporter: UserProfile;
   createdAt: string;

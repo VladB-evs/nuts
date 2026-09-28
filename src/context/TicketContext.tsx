@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Issue, Department, UserProfile, Priority, Status, NavView } from '../types';
+import { Issue, Department, UserProfile, Priority, Status, NavView, Environment, DevScope } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 
 interface IssueContextType {
@@ -17,6 +17,8 @@ interface IssueContextType {
   setSearchQuery: (query: string) => void;
   priorityFilter: string;
   setPriorityFilter: (priority: string) => void;
+  envFilter: string;
+  setEnvFilter: (env: string) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
 
@@ -26,6 +28,8 @@ interface IssueContextType {
     description: string;
     departmentId: string;
     priority: Priority;
+    environment?: Environment;
+    devScope?: DevScope;
     assigneeId?: string;
   }) => Issue;
   updateIssue: (id: string, updates: Partial<Issue>) => void;
@@ -73,6 +77,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
+  const [envFilter, setEnvFilter] = useState('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
@@ -88,6 +93,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     description: string;
     departmentId: string;
     priority: Priority;
+    environment?: Environment;
+    devScope?: DevScope;
     assigneeId?: string;
   }): Issue => {
     const dept = departments.find((d) => d.id === data.departmentId) || departments[0];
@@ -104,6 +111,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       departmentId: dept.id,
       priority: data.priority,
       status: assignee ? 'ASSIGNED' : 'NEW',
+      environment: data.environment || 'LOCAL',
+      devScope: data.devScope,
       assignee,
       reporter: currentUser,
       createdAt: new Date().toISOString(),
@@ -219,6 +228,11 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return false;
       }
 
+      // Environment Filter
+      if (envFilter !== 'ALL' && issue.environment !== envFilter) {
+        return false;
+      }
+
       // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -236,7 +250,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return true;
     });
-  }, [issues, selectedDepartment, navView, priorityFilter, searchQuery, currentUser]);
+  }, [issues, selectedDepartment, navView, priorityFilter, envFilter, searchQuery, currentUser]);
 
   const counts = useMemo(() => {
     const deptIssues = selectedDepartment === 'all'
@@ -271,6 +285,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSearchQuery,
         priorityFilter,
         setPriorityFilter,
+        envFilter,
+        setEnvFilter,
         isCreateModalOpen,
         setIsCreateModalOpen,
         createIssue,

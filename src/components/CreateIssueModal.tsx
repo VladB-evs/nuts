@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { Priority } from '../types';
+import { Priority, Environment, DevScope } from '../types';
 import { USERS } from '../data/mockData';
 import { X } from 'lucide-react';
 
@@ -19,6 +19,9 @@ export const CreateIssueModal: React.FC = () => {
     selectedDepartment !== 'all' ? selectedDepartment : 'engineering'
   );
   const [priority, setPriority] = useState<Priority>('P2');
+  const [environment, setEnvironment] = useState<Environment>('LOCAL');
+  const [isFrontend, setIsFrontend] = useState(true);
+  const [isBackend, setIsBackend] = useState(false);
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
 
   if (!isCreateModalOpen) return null;
@@ -27,18 +30,30 @@ export const CreateIssueModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    let devScope: DevScope | undefined = undefined;
+    if (isFrontend && isBackend) devScope = 'both';
+    else if (isFrontend) devScope = 'frontend';
+    else if (isBackend) devScope = 'backend';
+
     createIssue({
       title: title.trim(),
       description: description.trim(),
       departmentId,
       priority,
+      environment,
+      devScope,
       assigneeId: assigneeId !== 'unassigned' ? assigneeId : undefined,
     });
 
     setTitle('');
     setDescription('');
+    setIsFrontend(true);
+    setIsBackend(false);
+    setEnvironment('LOCAL');
     setIsCreateModalOpen(false);
   };
+
+  const isDev = departmentId === 'engineering';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -104,6 +119,67 @@ export const CreateIssueModal: React.FC = () => {
                 <option value="P2">P2 — Major</option>
                 <option value="P3">P3 — Minor</option>
               </select>
+            </div>
+          </div>
+
+          {/* Environment category: Local, Staging, or Prod */}
+          <div>
+            <label className="block text-gray-700 font-medium mb-1.5">
+              Environment Stage *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['LOCAL', 'STAGING', 'PROD'] as Environment[]).map((env) => (
+                <button
+                  type="button"
+                  key={env}
+                  onClick={() => setEnvironment(env)}
+                  className={`py-1.5 px-3 rounded border text-center font-mono font-medium transition-colors ${
+                    environment === env
+                      ? 'bg-black text-white border-black shadow-xs'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {env}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Development Scope: Frontend / Backend / Both */}
+          <div className="p-3 rounded-md border border-gray-200 bg-gray-50/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-800 font-semibold text-[11px] uppercase tracking-wider font-mono">
+                Development Layer {isDev ? '(Engineering)' : ''}
+              </span>
+              <span className="text-[11px] font-mono text-gray-500 font-medium">
+                {isFrontend && isBackend
+                  ? 'Both (Fullstack)'
+                  : isFrontend
+                  ? 'Frontend only'
+                  : isBackend
+                  ? 'Backend only'
+                  : 'Neither'}
+              </span>
+            </div>
+            <div className="flex items-center gap-6 pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={isFrontend}
+                  onChange={(e) => setIsFrontend(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer"
+                />
+                <span>Frontend</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={isBackend}
+                  onChange={(e) => setIsBackend(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer"
+                />
+                <span>Backend</span>
+              </label>
             </div>
           </div>
 
