@@ -1,5 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Issue, Department, UserProfile, Priority, Status, NavView, Environment, DevScope } from '../types';
+import {
+  Issue,
+  Department,
+  UserProfile,
+  Priority,
+  Status,
+  NavView,
+  Environment,
+  DevScope,
+  MarketingChannel,
+  DeliverableType,
+  DealSegment,
+  DealStage,
+  OpsCategory,
+  ImpactLevel,
+} from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 
 interface IssueContextType {
@@ -19,6 +34,8 @@ interface IssueContextType {
   setPriorityFilter: (priority: string) => void;
   envFilter: string;
   setEnvFilter: (env: string) => void;
+  subFilter: string;
+  setSubFilter: (filter: string) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
 
@@ -30,6 +47,12 @@ interface IssueContextType {
     priority: Priority;
     environment?: Environment;
     devScope?: DevScope;
+    marketingChannel?: MarketingChannel;
+    deliverableType?: DeliverableType;
+    dealSegment?: DealSegment;
+    dealStage?: DealStage;
+    opsCategory?: OpsCategory;
+    impactLevel?: ImpactLevel;
     assigneeId?: string;
   }) => Issue;
   updateIssue: (id: string, updates: Partial<Issue>) => void;
@@ -49,8 +72,8 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v3';
-const STORAGE_DEPTS = 'nuts_depts_v3';
+const STORAGE_KEY = 'nuts_issues_v4';
+const STORAGE_DEPTS = 'nuts_depts_v4';
 
 export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [departments, setDepartments] = useState<Department[]>(() => {
@@ -72,13 +95,18 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(USERS[1]); // Alex Rivera
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartmentState] = useState<string>('all');
   const [navView, setNavView] = useState<NavView>('open');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
-  const [envFilter, setEnvFilter] = useState('ALL');
+  const [subFilter, setSubFilter] = useState('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const setSelectedDepartment = (deptId: string) => {
+    setSelectedDepartmentState(deptId);
+    setSubFilter('ALL');
+  };
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(issues));
@@ -95,12 +123,20 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     priority: Priority;
     environment?: Environment;
     devScope?: DevScope;
+    marketingChannel?: MarketingChannel;
+    deliverableType?: DeliverableType;
+    dealSegment?: DealSegment;
+    dealStage?: DealStage;
+    opsCategory?: OpsCategory;
+    impactLevel?: ImpactLevel;
     assigneeId?: string;
   }): Issue => {
     const dept = departments.find((d) => d.id === data.departmentId) || departments[0];
     const maxNum = issues.reduce((max, i) => Math.max(max, i.number || 100), 100);
     const newNum = maxNum + 1;
     const assignee = USERS.find((u) => u.id === data.assigneeId) || null;
+
+    const isEng = dept.id === 'engineering' || dept.id === 'product';
 
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
@@ -111,8 +147,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       departmentId: dept.id,
       priority: data.priority,
       status: assignee ? 'ASSIGNED' : 'NEW',
-      environment: data.environment || 'LOCAL',
-      devScope: data.devScope,
+      environment: isEng ? (data.environment || 'LOCAL') : undefined,
+      devScope: isEng ? data.devScope : undefined,
+      marketingChannel: dept.id === 'marketing' ? data.marketingChannel : undefined,
+      deliverableType: dept.id === 'marketing' ? data.deliverableType : undefined,
+      dealSegment: dept.id === 'sales' ? data.dealSegment : undefined,
+      dealStage: dept.id === 'sales' ? data.dealStage : undefined,
+      opsCategory: dept.id === 'operations' ? data.opsCategory : undefined,
+      impactLevel: dept.id === 'operations' ? data.impactLevel : undefined,
       assignee,
       reporter: currentUser,
       createdAt: new Date().toISOString(),
@@ -228,9 +270,21 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return false;
       }
 
-      // Environment Filter
-      if (envFilter !== 'ALL' && issue.environment !== envFilter) {
-        return false;
+      // Department-specific SubFilter
+      if (subFilter !== 'ALL') {
+        const matches =
+          issue.environment === subFilter ||
+          issue.devScope === subFilter ||
+          issue.marketingChannel === subFilter ||
+          issue.deliverableType === subFilter ||
+          issue.dealSegment === subFilter ||
+          issue.dealStage === subFilter ||
+          issue.opsCategory === subFilter ||
+          issue.impactLevel === subFilter;
+
+        if (!matches) {
+          return false;
+        }
       }
 
       // Search Query
@@ -242,15 +296,31 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const matchesDesc = issue.description.toLowerCase().includes(q);
         const matchesAssignee = issue.assignee?.name.toLowerCase().includes(q);
         const matchesReporter = issue.reporter.name.toLowerCase().includes(q);
+        const matchesDeptTag =
+          issue.environment?.toLowerCase().includes(q) ||
+          issue.marketingChannel?.toLowerCase().includes(q) ||
+          issue.deliverableType?.toLowerCase().includes(q) ||
+          issue.dealSegment?.toLowerCase().includes(q) ||
+          issue.dealStage?.toLowerCase().includes(q) ||
+          issue.opsCategory?.toLowerCase().includes(q) ||
+          issue.impactLevel?.toLowerCase().includes(q);
 
-        if (!matchesCode && !matchesNum && !matchesTitle && !matchesDesc && !matchesAssignee && !matchesReporter) {
+        if (
+          !matchesCode &&
+          !matchesNum &&
+          !matchesTitle &&
+          !matchesDesc &&
+          !matchesAssignee &&
+          !matchesReporter &&
+          !matchesDeptTag
+        ) {
           return false;
         }
       }
 
       return true;
     });
-  }, [issues, selectedDepartment, navView, priorityFilter, envFilter, searchQuery, currentUser]);
+  }, [issues, selectedDepartment, navView, priorityFilter, subFilter, searchQuery, currentUser]);
 
   const counts = useMemo(() => {
     const deptIssues = selectedDepartment === 'all'
@@ -285,8 +355,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSearchQuery,
         priorityFilter,
         setPriorityFilter,
-        envFilter,
-        setEnvFilter,
+        envFilter: subFilter,
+        setEnvFilter: setSubFilter,
+        subFilter,
+        setSubFilter,
         isCreateModalOpen,
         setIsCreateModalOpen,
         createIssue,

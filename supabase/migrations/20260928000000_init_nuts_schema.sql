@@ -33,8 +33,18 @@ CREATE TABLE IF NOT EXISTS public.issues (
     department_id TEXT NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
     priority TEXT NOT NULL DEFAULT 'P2' CHECK (priority IN ('P0', 'P1', 'P2', 'P3')),
     status TEXT NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW', 'ASSIGNED', 'ACCEPTED', 'FIXED', 'VERIFIED', 'CLOSED')),
-    environment TEXT NOT NULL DEFAULT 'LOCAL' CHECK (environment IN ('LOCAL', 'STAGING', 'PROD')),
+    -- Engineering rules
+    environment TEXT CHECK (environment IN ('LOCAL', 'STAGING', 'PROD')),
     dev_scope TEXT CHECK (dev_scope IN ('frontend', 'backend', 'both')),
+    -- Marketing rules
+    marketing_channel TEXT,
+    deliverable_type TEXT,
+    -- Sales rules
+    deal_segment TEXT,
+    deal_stage TEXT,
+    -- Operations rules
+    ops_category TEXT,
+    impact_level TEXT,
     assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reporter_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -1,6 +1,27 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { Priority, Status, Environment, DevScope } from '../types';
+import {
+  Priority,
+  Status,
+  Environment,
+  DevScope,
+  MarketingChannel,
+  DeliverableType,
+  DealSegment,
+  DealStage,
+  OpsCategory,
+  ImpactLevel,
+} from '../types';
+import {
+  getDepartmentRuleKind,
+  getDepartmentBadges,
+  MARKETING_CHANNELS,
+  DELIVERABLE_TYPES,
+  DEAL_SEGMENTS,
+  DEAL_STAGES,
+  OPS_CATEGORIES,
+  IMPACT_LEVELS,
+} from '../lib/departmentRules';
 import { USERS } from '../data/mockData';
 import { formatDateTime, timeAgo } from '../lib/utils';
 import {
@@ -33,6 +54,7 @@ export const IssueDetail: React.FC = () => {
   if (!selectedIssue) return null;
 
   const currentDept = departments.find((d) => d.id === selectedIssue.departmentId);
+  const ruleKind = getDepartmentRuleKind(selectedIssue.departmentId);
 
   const handlePostComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,18 +159,18 @@ export const IssueDetail: React.FC = () => {
               </h1>
             )}
             <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 font-mono flex-wrap">
-              <span className="font-bold text-gray-900 bg-gray-100 border border-gray-300 px-2 py-0.5 rounded text-[11px]">
-                {selectedIssue.environment}
+              <span className="font-semibold text-gray-800 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded text-[11px]">
+                {currentDept?.name || selectedIssue.departmentId}
               </span>
-              {selectedIssue.devScope && (
-                <span className="font-medium text-gray-800 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded text-[11px]">
-                  {selectedIssue.devScope === 'both'
-                    ? 'Frontend + Backend'
-                    : selectedIssue.devScope === 'frontend'
-                    ? 'Frontend'
-                    : 'Backend'}
+              {getDepartmentBadges(selectedIssue).map((badge, idx) => (
+                <span
+                  key={idx}
+                  className={`font-semibold border px-2 py-0.5 rounded text-[11px] ${badge.badgeClass}`}
+                  title={badge.tooltip}
+                >
+                  {badge.label}
                 </span>
-              )}
+              ))}
               <span>•</span>
               <span>Reported by {selectedIssue.reporter.name}</span>
               <span>•</span>
@@ -289,40 +311,169 @@ export const IssueDetail: React.FC = () => {
             </select>
           </div>
 
-          {/* Environment */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Environment Stage</label>
-            <select
-              value={selectedIssue.environment || 'LOCAL'}
-              onChange={(e) =>
-                updateIssue(selectedIssue.id, { environment: e.target.value as Environment })
-              }
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-            >
-              <option value="LOCAL">LOCAL (Dev Machine)</option>
-              <option value="STAGING">STAGING (Pre-release / QA)</option>
-              <option value="PROD">PROD (Production)</option>
-            </select>
-          </div>
+          {/* Department Specific Properties */}
+          {ruleKind === 'engineering' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Environment Stage</label>
+                <select
+                  value={selectedIssue.environment || 'LOCAL'}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, { environment: e.target.value as Environment })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
+                >
+                  <option value="LOCAL">LOCAL (Dev Machine)</option>
+                  <option value="STAGING">STAGING (Pre-release / QA)</option>
+                  <option value="PROD">PROD (Production)</option>
+                </select>
+              </div>
 
-          {/* Dev Scope */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Development Layer</label>
-            <select
-              value={selectedIssue.devScope || 'none'}
-              onChange={(e) =>
-                updateIssue(selectedIssue.id, {
-                  devScope: e.target.value === 'none' ? undefined : (e.target.value as DevScope),
-                })
-              }
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-            >
-              <option value="none">Not specified</option>
-              <option value="frontend">Frontend only</option>
-              <option value="backend">Backend only</option>
-              <option value="both">Both (Frontend + Backend)</option>
-            </select>
-          </div>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Development Layer</label>
+                <select
+                  value={selectedIssue.devScope || 'none'}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      devScope: e.target.value === 'none' ? undefined : (e.target.value as DevScope),
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
+                >
+                  <option value="none">Not specified</option>
+                  <option value="frontend">Frontend only</option>
+                  <option value="backend">Backend only</option>
+                  <option value="both">Both (Frontend + Backend)</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {ruleKind === 'marketing' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Marketing Channel</label>
+                <select
+                  value={selectedIssue.marketingChannel || MARKETING_CHANNELS[0]}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      marketingChannel: e.target.value as MarketingChannel,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
+                >
+                  {MARKETING_CHANNELS.map((ch) => (
+                    <option key={ch} value={ch}>
+                      {ch}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Deliverable Type</label>
+                <select
+                  value={selectedIssue.deliverableType || DELIVERABLE_TYPES[0]}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      deliverableType: e.target.value as DeliverableType,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
+                >
+                  {DELIVERABLE_TYPES.map((dt) => (
+                    <option key={dt} value={dt}>
+                      {dt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {ruleKind === 'sales' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Deal Segment</label>
+                <select
+                  value={selectedIssue.dealSegment || DEAL_SEGMENTS[0]}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      dealSegment: e.target.value as DealSegment,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
+                >
+                  {DEAL_SEGMENTS.map((seg) => (
+                    <option key={seg} value={seg}>
+                      {seg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Deal Stage</label>
+                <select
+                  value={selectedIssue.dealStage || DEAL_STAGES[0]}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      dealStage: e.target.value as DealStage,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
+                >
+                  {DEAL_STAGES.map((stg) => (
+                    <option key={stg} value={stg}>
+                      {stg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {ruleKind === 'operations' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Ops Category</label>
+                <select
+                  value={selectedIssue.opsCategory || OPS_CATEGORIES[0]}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      opsCategory: e.target.value as OpsCategory,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
+                >
+                  {OPS_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">Impact Level</label>
+                <select
+                  value={selectedIssue.impactLevel || IMPACT_LEVELS[0]}
+                  onChange={(e) =>
+                    updateIssue(selectedIssue.id, {
+                      impactLevel: e.target.value as ImpactLevel,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
+                >
+                  {IMPACT_LEVELS.map((imp) => (
+                    <option key={imp} value={imp}>
+                      {imp}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
 
           {/* Component / Department */}
           <div className="space-y-1.5">

@@ -83,7 +83,8 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'marketing',
     priority: 'P1',
     status: 'ACCEPTED',
-    environment: 'STAGING',
+    marketingChannel: 'Product Launch',
+    deliverableType: 'Copy & Blog',
     assignee: USERS[2], // Maya Chen
     reporter: USERS[0], // Liam Vance
     createdAt: '2026-09-27T14:00:00Z',
@@ -106,7 +107,8 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'sales',
     priority: 'P1',
     status: 'ASSIGNED',
-    environment: 'PROD',
+    dealSegment: 'Enterprise',
+    dealStage: 'Contract Negotiation',
     assignee: USERS[3], // David Miller
     reporter: USERS[3],
     createdAt: '2026-09-26T11:00:00Z',
@@ -122,7 +124,8 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'operations',
     priority: 'P3',
     status: 'NEW',
-    environment: 'LOCAL',
+    opsCategory: 'IT & Access',
+    impactLevel: 'Team-specific',
     assignee: USERS[4], // Elena
     reporter: USERS[1], // Alex
     createdAt: '2026-09-28T07:30:00Z',
