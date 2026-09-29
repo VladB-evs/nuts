@@ -3,6 +3,7 @@ import { useIssues } from '../context/TicketContext';
 import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
+import { UserHoverCard } from './UserHoverCard';
 import { Star, Plus } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
@@ -250,20 +251,24 @@ export const IssueTable: React.FC = () => {
                     <td className="py-2.5 px-3">{getStatusBadge(issue.status)}</td>
 
                     {/* Assignee */}
-                    <td className="py-2.5 px-3 text-gray-700 hidden sm:table-cell">
+                    <td
+                      className="py-2.5 px-3 text-gray-700 hidden sm:table-cell"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {issue.assignee ? (
-                        <div
-                          className="flex items-center gap-1.5 truncate"
-                          title={`${issue.assignee.name} ${issue.assignee.nickname ? `(@${issue.assignee.nickname})` : ''} — ${issue.assignee.role || issue.assignee.department}`}
-                        >
-                          <UserAvatar user={issue.assignee} size="xs" />
-                          <span className="truncate">{issue.assignee.name}</span>
-                          {issue.assignee.nickname && (
-                            <span className="text-[10px] text-gray-400 font-mono hidden xl:inline">
-                              @{issue.assignee.nickname}
+                        <UserHoverCard user={issue.assignee}>
+                          <div className="flex items-center gap-1.5 truncate group/assignee hover:text-black">
+                            <UserAvatar user={issue.assignee} size="xs" />
+                            <span className="truncate group-hover/assignee:underline decoration-dotted decoration-gray-400">
+                              {issue.assignee.name}
                             </span>
-                          )}
-                        </div>
+                            {issue.assignee.nickname && (
+                              <span className="text-[10px] text-gray-400 font-mono hidden xl:inline">
+                                @{issue.assignee.nickname}
+                              </span>
+                            )}
+                          </div>
+                        </UserHoverCard>
                       ) : (
                         <span className="text-gray-400 font-mono">—</span>
                       )}

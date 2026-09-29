@@ -25,6 +25,7 @@ import {
   IMPACT_LEVELS,
 } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
+import { UserHoverCard } from './UserHoverCard';
 import { formatDateTime, timeAgo } from '../lib/utils';
 import {
   ArrowLeft,
@@ -201,13 +202,19 @@ export const IssueDetail: React.FC = () => {
               <span>•</span>
               <div className="inline-flex items-center gap-1.5 font-sans">
                 <span className="text-gray-400 font-mono text-[11px]">Reported by</span>
-                <UserAvatar user={selectedIssue.reporter} size="xs" />
-                <span className="font-semibold text-gray-900">{selectedIssue.reporter.name}</span>
-                {selectedIssue.reporter.nickname && (
-                  <span className="text-gray-400 font-mono text-[10px]">
-                    @{selectedIssue.reporter.nickname}
-                  </span>
-                )}
+                <UserHoverCard user={selectedIssue.reporter}>
+                  <div className="inline-flex items-center gap-1.5 hover:text-black group/reporter">
+                    <UserAvatar user={selectedIssue.reporter} size="xs" />
+                    <span className="font-semibold text-gray-900 group-hover/reporter:underline decoration-dotted decoration-gray-400">
+                      {selectedIssue.reporter.name}
+                    </span>
+                    {selectedIssue.reporter.nickname && (
+                      <span className="text-gray-400 font-mono text-[10px]">
+                        @{selectedIssue.reporter.nickname}
+                      </span>
+                    )}
+                  </div>
+                </UserHoverCard>
                 {selectedIssue.reporter.role && (
                   <span className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1 py-0.2 rounded font-mono">
                     {selectedIssue.reporter.role}
@@ -292,15 +299,19 @@ export const IssueDetail: React.FC = () => {
                       >
                         <div className="flex items-center justify-between text-gray-500 font-mono text-[11px] flex-wrap gap-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <UserAvatar user={comment.author} size="xs" />
-                            <span className="font-semibold text-gray-900 font-sans">
-                              {comment.author.name}
-                            </span>
-                            {comment.author.nickname && (
-                              <span className="text-gray-400 font-mono text-[10px]">
-                                @{comment.author.nickname}
-                              </span>
-                            )}
+                            <UserHoverCard user={comment.author}>
+                              <div className="inline-flex items-center gap-1.5 hover:text-black group/author">
+                                <UserAvatar user={comment.author} size="xs" />
+                                <span className="font-semibold text-gray-900 font-sans group-hover/author:underline decoration-dotted decoration-gray-400">
+                                  {comment.author.name}
+                                </span>
+                                {comment.author.nickname && (
+                                  <span className="text-gray-400 font-mono text-[10px]">
+                                    @{comment.author.nickname}
+                                  </span>
+                                )}
+                              </div>
+                            </UserHoverCard>
                             <span className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.2 rounded font-mono">
                               {comment.author.role ? `${comment.author.role} • ${comment.author.department}` : comment.author.department}
                             </span>
@@ -330,19 +341,25 @@ export const IssueDetail: React.FC = () => {
                       className="px-3.5 py-2.5 rounded-md border border-gray-200 bg-gray-50/70 text-xs flex items-start gap-2.5 transition-colors hover:bg-gray-50"
                     >
                       <div className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5">
-                        <UserAvatar user={hist.actor} size="xs" />
+                        <UserHoverCard user={hist.actor}>
+                          <UserAvatar user={hist.actor} size="xs" />
+                        </UserHoverCard>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between text-[11px] font-mono text-gray-500 mb-1 flex-wrap gap-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-semibold text-gray-900 font-sans">
-                              {hist.actor.name}
-                            </span>
-                            {hist.actor.nickname && (
-                              <span className="text-gray-400 font-mono text-[10px]">
-                                @{hist.actor.nickname}
-                              </span>
-                            )}
+                            <UserHoverCard user={hist.actor}>
+                              <div className="inline-flex items-center gap-1 hover:text-black group/actor">
+                                <span className="font-semibold text-gray-900 font-sans group-hover/actor:underline decoration-dotted decoration-gray-400">
+                                  {hist.actor.name}
+                                </span>
+                                {hist.actor.nickname && (
+                                  <span className="text-gray-400 font-mono text-[10px]">
+                                    @{hist.actor.nickname}
+                                  </span>
+                                )}
+                              </div>
+                            </UserHoverCard>
                             <span className="text-gray-400 text-[10px]">
                               ({hist.actor.role ? `${hist.actor.role}, ${hist.actor.department}` : hist.actor.department})
                             </span>
@@ -654,24 +671,26 @@ export const IssueDetail: React.FC = () => {
           <div className="space-y-1.5">
             <label className="block text-[11px] font-mono text-gray-500">Assignee</label>
             {selectedIssue.assignee && (
-              <div className="p-2 bg-white border border-gray-200 rounded flex items-center gap-2 mb-1.5 shadow-2xs">
-                <UserAvatar user={selectedIssue.assignee} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold text-gray-900 text-xs truncate">
-                      {selectedIssue.assignee.name}
-                    </span>
-                    {selectedIssue.assignee.nickname && (
-                      <span className="text-gray-400 font-mono text-[10px]">
-                        @{selectedIssue.assignee.nickname}
+              <UserHoverCard user={selectedIssue.assignee} className="w-full">
+                <div className="w-full p-2 bg-white border border-gray-200 rounded flex items-center gap-2 mb-1.5 shadow-2xs hover:border-gray-400 transition-colors cursor-pointer">
+                  <UserAvatar user={selectedIssue.assignee} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold text-gray-900 text-xs truncate">
+                        {selectedIssue.assignee.name}
                       </span>
-                    )}
+                      {selectedIssue.assignee.nickname && (
+                        <span className="text-gray-400 font-mono text-[10px]">
+                          @{selectedIssue.assignee.nickname}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">
+                      {selectedIssue.assignee.role || 'Member'} • {selectedIssue.assignee.department}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-gray-500 font-mono truncate">
-                    {selectedIssue.assignee.role || 'Member'} • {selectedIssue.assignee.department}
-                  </p>
                 </div>
-              </div>
+              </UserHoverCard>
             )}
             <select
               value={selectedIssue.assignee?.id || 'unassigned'}
@@ -697,15 +716,19 @@ export const IssueDetail: React.FC = () => {
           <div className="pt-4 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-gray-400">Reporter:</span>
-              <UserAvatar user={selectedIssue.reporter} size="xs" />
-              <span className="font-semibold text-gray-800 font-sans">
-                {selectedIssue.reporter.name}
-              </span>
-              {selectedIssue.reporter.nickname && (
-                <span className="text-gray-400 font-mono text-[10px]">
-                  @{selectedIssue.reporter.nickname}
-                </span>
-              )}
+              <UserHoverCard user={selectedIssue.reporter}>
+                <div className="inline-flex items-center gap-1.5 hover:text-black group/rep">
+                  <UserAvatar user={selectedIssue.reporter} size="xs" />
+                  <span className="font-semibold text-gray-800 font-sans group-hover/rep:underline decoration-dotted decoration-gray-400">
+                    {selectedIssue.reporter.name}
+                  </span>
+                  {selectedIssue.reporter.nickname && (
+                    <span className="text-gray-400 font-mono text-[10px]">
+                      @{selectedIssue.reporter.nickname}
+                    </span>
+                  )}
+                </div>
+              </UserHoverCard>
             </div>
             <p>Created: {formatDateTime(selectedIssue.createdAt)}</p>
             <p>Modified: {formatDateTime(selectedIssue.updatedAt)}</p>
