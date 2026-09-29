@@ -486,7 +486,7 @@ export const IssueDetail: React.FC = () => {
           </div>
 
           {/* Department Specific Properties */}
-          {currentDept?.customFields && currentDept.customFields.length > 0 ? (
+          {currentDept?.customFields && currentDept.customFields.length > 0 &&
             currentDept.customFields.map((field) => {
               const currentVal =
                 selectedIssue.customAttributes?.[field.id] !== undefined
@@ -560,12 +560,7 @@ export const IssueDetail: React.FC = () => {
                   />
                 </div>
               );
-            })
-          ) : (
-            <div className="p-3 border border-dashed border-gray-200 rounded text-center text-gray-400 text-[11px]">
-              <span>No custom properties configured.</span>
-            </div>
-          )}
+            })}
 
           {/* Department */}
           <div className="space-y-1.5">
