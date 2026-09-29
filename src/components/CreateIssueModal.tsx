@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { Priority, CustomFieldDefinition } from '../types';
-import { X, SlidersHorizontal, Settings2 } from 'lucide-react';
+import { X, SlidersHorizontal } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
   const {
@@ -11,7 +11,6 @@ export const CreateIssueModal: React.FC = () => {
     selectedDepartment,
     createIssue,
     users,
-    openDepartmentModal,
   } = useIssues();
 
   const [title, setTitle] = useState('');
@@ -153,18 +152,7 @@ export const CreateIssueModal: React.FC = () => {
           {/* Department and Priority */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-gray-700 font-medium">Component *</label>
-                <button
-                  type="button"
-                  onClick={() => openDepartmentModal(departmentId)}
-                  className="text-[10px] text-gray-500 hover:text-black flex items-center gap-1 font-mono"
-                  title="Customize this component's properties"
-                >
-                  <Settings2 className="w-2.5 h-2.5" />
-                  <span>Customize</span>
-                </button>
-              </div>
+              <label className="block text-gray-700 font-medium mb-1">Department *</label>
               <select
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
@@ -193,24 +181,16 @@ export const CreateIssueModal: React.FC = () => {
             </div>
           </div>
 
-          {/* DYNAMIC COMPONENT PROPERTIES */}
-          <div className="p-3 bg-gray-50/80 rounded border border-gray-200 space-y-3">
-            <div className="flex items-center justify-between pb-1 border-b border-gray-200">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-800 font-bold flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3 h-3 text-gray-600" />
-                {currentDept.name} Properties
-              </span>
-              <button
-                type="button"
-                onClick={() => openDepartmentModal(currentDept.id)}
-                className="text-[10px] font-mono text-gray-500 hover:text-black flex items-center gap-0.5"
-              >
-                <Settings2 className="w-2.5 h-2.5" />
-                <span>Edit Fields</span>
-              </button>
-            </div>
+          {/* DYNAMIC DEPARTMENT PROPERTIES */}
+          {currentDept?.customFields && currentDept.customFields.length > 0 && (
+            <div className="p-3 bg-gray-50/80 rounded border border-gray-200 space-y-3">
+              <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-800 font-bold flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3 h-3 text-gray-600" />
+                  {currentDept.name} Properties
+                </span>
+              </div>
 
-            {currentDept?.customFields && currentDept.customFields.length > 0 ? (
               <div className="space-y-3">
                 {currentDept.customFields.map((field: CustomFieldDefinition) => {
                   // Special UX for Engineering devScope: Frontend & Backend checkboxes
@@ -298,19 +278,8 @@ export const CreateIssueModal: React.FC = () => {
                   );
                 })}
               </div>
-            ) : (
-              <div className="py-2 text-center text-gray-500 text-[11px]">
-                No custom properties defined for {currentDept.name}.{' '}
-                <button
-                  type="button"
-                  onClick={() => openDepartmentModal(currentDept.id)}
-                  className="text-black font-semibold underline ml-1"
-                >
-                  Add properties
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-gray-700 font-medium mb-1">Assignee</label>

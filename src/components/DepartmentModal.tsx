@@ -164,7 +164,7 @@ export const DepartmentModal: React.FC = () => {
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-black" />
             <h2 className="text-sm font-semibold text-gray-900">
-              {isEditing ? `Customize Component: ${targetDept?.name || name}` : 'Create New Component'}
+              {isEditing ? `Department Settings: ${targetDept?.name || name}` : 'Create New Department'}
             </h2>
           </div>
           <button
@@ -180,7 +180,7 @@ export const DepartmentModal: React.FC = () => {
           {/* Basic Details */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1">
-              <label className="block text-gray-700 font-semibold">Component Name *</label>
+              <label className="block text-gray-700 font-semibold">Department Name *</label>
               <input
                 type="text"
                 required
@@ -216,7 +216,7 @@ export const DepartmentModal: React.FC = () => {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Short description of this component's scope"
+              placeholder="Short description of this department's scope"
               className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black"
             />
           </div>
@@ -226,10 +226,10 @@ export const DepartmentModal: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xs font-semibold text-gray-900 uppercase font-mono tracking-wider">
-                  Component Properties ({customFields.length})
+                  Custom Components & Fields ({customFields.length})
                 </h3>
                 <p className="text-[11px] text-gray-500">
-                  Custom fields available when creating or viewing tickets in this component.
+                  Custom components automatically display on each ticket of this department.
                 </p>
               </div>
               {!isAddingField && (
@@ -239,7 +239,7 @@ export const DepartmentModal: React.FC = () => {
                   className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 rounded transition-colors"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>Add Property</span>
+                  <span>Add Component</span>
                 </button>
               )}
             </div>
@@ -322,7 +322,7 @@ export const DepartmentModal: React.FC = () => {
               </div>
             ) : (
               <div className="p-4 border border-dashed border-gray-300 rounded-md text-center text-gray-500 text-[11px]">
-                No custom properties defined. Tickets in this component will only have standard fields (Title, Priority, Status, Assignee).
+                No custom properties defined. Tickets in this department will only have standard fields (Title, Priority, Status, Assignee).
               </div>
             )}
 
@@ -401,7 +401,7 @@ export const DepartmentModal: React.FC = () => {
             )}
           </div>
 
-          {/* Delete Component Section (Only for existing component) */}
+          {/* Delete Department Section (Only for existing department) */}
           {isEditing && (
             <div className="pt-3 border-t border-gray-200">
               {!showDeleteConfirm ? (
@@ -411,7 +411,7 @@ export const DepartmentModal: React.FC = () => {
                   className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-medium p-1 rounded hover:bg-red-50 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Component...</span>
+                  <span>Delete Department...</span>
                 </button>
               ) : (
                 <div className="p-3 border border-red-200 bg-red-50/60 rounded-md space-y-2">
@@ -420,7 +420,7 @@ export const DepartmentModal: React.FC = () => {
                     <div>
                       <span className="font-semibold block">Permanently delete {targetDept?.name}?</span>
                       <span className="text-[11px] text-red-700 block">
-                        This component contains {deptIssueCount} {deptIssueCount === 1 ? 'ticket' : 'tickets'}. Deleting the component will permanently remove it and all of its associated tickets.
+                        This department contains {deptIssueCount} {deptIssueCount === 1 ? 'ticket' : 'tickets'}. Deleting the department will permanently remove it and all of its associated tickets.
                       </span>
                     </div>
                   </div>
@@ -437,7 +437,7 @@ export const DepartmentModal: React.FC = () => {
                       onClick={handleDelete}
                       className="px-2.5 py-1 text-[11px] font-medium text-white bg-red-600 rounded hover:bg-red-700"
                     >
-                      Yes, Delete Component
+                      Yes, Delete Department
                     </button>
                   </div>
                 </div>
@@ -458,7 +458,7 @@ export const DepartmentModal: React.FC = () => {
               type="submit"
               className="px-4 py-1.5 text-xs font-medium bg-black text-white rounded hover:bg-gray-800 transition-colors shadow-2xs"
             >
-              {isEditing ? 'Save Changes' : 'Create Component'}
+              {isEditing ? 'Save Changes' : 'Create Department'}
             </button>
           </div>
         </form>

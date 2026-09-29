@@ -4,7 +4,7 @@ import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
-import { Star, Plus, Settings2 } from 'lucide-react';
+import { Star, Plus } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
 export const IssueTable: React.FC = () => {
@@ -21,7 +21,6 @@ export const IssueTable: React.FC = () => {
     currentUser,
     navView,
     setIsCreateModalOpen,
-    openDepartmentModal,
   } = useIssues();
 
   const getPriorityBadge = (p: Priority) => {
@@ -120,7 +119,7 @@ export const IssueTable: React.FC = () => {
   const getViewHeader = () => {
     if (selectedDepartment !== 'all') {
       return {
-        title: `${selectedDeptObj?.name || selectedDepartment} Component`,
+        title: `${selectedDeptObj?.name || selectedDepartment}`,
         badge: selectedDeptObj?.code,
         subtitle: `Showing issues in ${selectedDeptObj?.name || selectedDepartment}`,
       };
@@ -184,16 +183,6 @@ export const IssueTable: React.FC = () => {
             {viewHeader.subtitle}
           </span>
         </div>
-        {selectedDepartment !== 'all' && (
-          <button
-            onClick={() => openDepartmentModal(selectedDepartment)}
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono text-gray-600 hover:text-black border border-gray-200 rounded hover:bg-gray-50 transition-colors"
-            title="Configure component properties"
-          >
-            <Settings2 className="w-3 h-3" />
-            <span>Customize</span>
-          </button>
-        )}
       </div>
 
       {/* Table Toolbar */}
@@ -257,7 +246,7 @@ export const IssueTable: React.FC = () => {
                 <th className="py-2 px-3 w-14">PRI</th>
                 <th className="py-2 px-3">TITLE</th>
                 {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
-                  <th className="py-2 px-3 w-28 hidden md:table-cell">COMPONENT</th>
+                  <th className="py-2 px-3 w-28 hidden md:table-cell">DEPARTMENT</th>
                 )}
                 <th className="py-2 px-3 w-48 hidden sm:table-cell">ATTRIBUTES</th>
                 <th className="py-2 px-3 w-24">STATUS</th>

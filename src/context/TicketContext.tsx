@@ -329,6 +329,17 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (data.opsCategory && !customAttrs.opsCategory) customAttrs.opsCategory = data.opsCategory;
     if (data.impactLevel && !customAttrs.impactLevel) customAttrs.impactLevel = data.impactLevel;
 
+    // Ensure all defined custom fields for this department have a default value
+    if (dept.customFields) {
+      dept.customFields.forEach((field) => {
+        if (customAttrs[field.id] === undefined || customAttrs[field.id] === null || customAttrs[field.id] === '') {
+          customAttrs[field.id] =
+            field.defaultValue ||
+            (field.options && field.options.length > 0 ? field.options[0] : 'Unset');
+        }
+      });
+    }
+
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
       number: newNum,
@@ -569,6 +580,42 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return d;
       })
     );
+
+    // Automatically populate custom fields on each ticket of that department if missing
+    if (updates.customFields) {
+      const activeFields = updates.customFields;
+      setIssues((prev) =>
+        prev.map((iss) => {
+          if (iss.departmentId === deptId) {
+            const updatedAttrs = { ...(iss.customAttributes || {}) };
+            let modified = false;
+            activeFields.forEach((field) => {
+              if (
+                updatedAttrs[field.id] === undefined ||
+                updatedAttrs[field.id] === null ||
+                updatedAttrs[field.id] === ''
+              ) {
+                updatedAttrs[field.id] =
+                  field.defaultValue ||
+                  (field.options && field.options.length > 0 ? field.options[0] : 'Unset');
+                modified = true;
+              }
+            });
+            if (modified) {
+              const updated = {
+                ...iss,
+                customAttributes: updatedAttrs,
+              };
+              if (selectedIssue && selectedIssue.id === iss.id) {
+                setSelectedIssue(updated);
+              }
+              return updated;
+            }
+          }
+          return iss;
+        })
+      );
+    }
 
     // If department code changed, update issue codes for that department
     if (updates.code) {

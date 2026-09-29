@@ -116,19 +116,28 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Components / Departments */}
+      {/* Departments */}
       <div className="flex-1 overflow-y-auto space-y-0.5">
         <div className="flex items-center justify-between px-2 pb-1">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Components
+            Departments
           </span>
-          <button
-            onClick={() => openDepartmentModal()}
-            className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors"
-            title="Add and configure new component"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => openDepartmentModal(selectedDepartment !== 'all' ? selectedDepartment : undefined)}
+              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors"
+              title="Department Settings"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => openDepartmentModal()}
+              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors"
+              title="Add new department"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         <button
@@ -144,7 +153,7 @@ export const Sidebar: React.FC = () => {
         >
           <div className="flex items-center gap-2">
             <Folder className="w-3.5 h-3.5 text-gray-400" />
-            <span>All Components</span>
+            <span>All Departments</span>
           </div>
           <span className="text-[11px] text-gray-400 font-mono">{issues.length}</span>
         </button>
@@ -175,7 +184,7 @@ export const Sidebar: React.FC = () => {
                 <span>{count}</span>
                 <button
                   type="button"
-                  title={`Customize ${dept.name}`}
+                  title={`Department Settings: ${dept.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     openDepartmentModal(dept.id);

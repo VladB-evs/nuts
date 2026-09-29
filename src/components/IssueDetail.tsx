@@ -49,7 +49,6 @@ export const IssueDetail: React.FC = () => {
     departments,
     currentUser,
     users,
-    openDepartmentModal,
   } = useIssues();
 
   const [commentText, setCommentText] = useState('');
@@ -497,17 +496,7 @@ export const IssueDetail: React.FC = () => {
               if (field.type === 'select') {
                 return (
                   <div key={field.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
-                      <button
-                        type="button"
-                        onClick={() => openDepartmentModal(currentDept.id)}
-                        className="text-[10px] text-gray-400 hover:text-black font-mono"
-                        title="Edit component properties"
-                      >
-                        Edit
-                      </button>
-                    </div>
+                    <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
                     <select
                       value={currentVal}
                       onChange={(e) => {
@@ -548,16 +537,7 @@ export const IssueDetail: React.FC = () => {
 
               return (
                 <div key={field.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
-                    <button
-                      type="button"
-                      onClick={() => openDepartmentModal(currentDept.id)}
-                      className="text-[10px] text-gray-400 hover:text-black font-mono"
-                    >
-                      Edit
-                    </button>
-                  </div>
+                  <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
                   <input
                     type="text"
                     defaultValue={currentVal}
@@ -584,29 +564,12 @@ export const IssueDetail: React.FC = () => {
           ) : (
             <div className="p-3 border border-dashed border-gray-200 rounded text-center text-gray-400 text-[11px]">
               <span>No custom properties configured.</span>
-              <button
-                type="button"
-                onClick={() => openDepartmentModal(selectedIssue.departmentId)}
-                className="block mx-auto mt-1 text-black font-medium hover:underline text-[11px]"
-              >
-                + Add Component Properties
-              </button>
             </div>
           )}
 
-          {/* Component / Department */}
+          {/* Department */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-[11px] font-mono text-gray-500">Component</label>
-              <button
-                type="button"
-                onClick={() => openDepartmentModal(selectedIssue.departmentId)}
-                className="text-[10px] text-gray-400 hover:text-black font-mono"
-                title="Customize this component"
-              >
-                Customize
-              </button>
-            </div>
+            <label className="block text-[11px] font-mono text-gray-500">Department</label>
             <select
               value={selectedIssue.departmentId}
               onChange={(e) => {

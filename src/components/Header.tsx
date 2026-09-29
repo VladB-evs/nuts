@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { UserAvatar } from './UserAvatar';
-import { Search, Plus, Database, Check, UserCog, ChevronDown } from 'lucide-react';
+import { Search, Plus, Database, Check, UserCog, ChevronDown, Settings2 } from 'lucide-react';
 
 interface HeaderProps {
   onOpenSupabase: () => void;
@@ -17,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
     setIsCreateModalOpen,
     setSelectedIssue,
     setIsProfileModalOpen,
+    openDepartmentModal,
   } = useIssues();
 
   const [userDropdown, setUserDropdown] = useState(false);
@@ -63,6 +64,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
         >
           <Database className="w-3.5 h-3.5 text-gray-500" />
           <span className="font-mono text-[11px]">Supabase SQL</span>
+        </button>
+
+        {/* Department Settings */}
+        <button
+          onClick={() => openDepartmentModal()}
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
+          title="Department Settings & Custom Components"
+        >
+          <Settings2 className="w-3.5 h-3.5 text-gray-500" />
+          <span className="font-mono text-[11px]">Departments</span>
         </button>
 
         {/* New Issue Button */}
@@ -125,6 +136,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
                   >
                     <UserCog className="w-3.5 h-3.5" />
                     <span>Edit Profile & Avatar</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUserDropdown(false);
+                      openDepartmentModal();
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200 rounded font-medium text-xs transition-colors"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>Department Settings</span>
                   </button>
                 </div>
 

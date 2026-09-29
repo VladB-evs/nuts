@@ -193,10 +193,15 @@ export const getDepartmentBadges = (issue: Issue, departments?: Department[]): B
     const dept = departments.find((d) => d.id === issue.departmentId);
     if (dept?.customFields && dept.customFields.length > 0) {
       dept.customFields.forEach((field, idx) => {
-        const val =
+        let val =
           issue.customAttributes?.[field.id] !== undefined
             ? issue.customAttributes[field.id]
             : (issue as any)[field.id];
+
+        // If val is not set, automatically display the default value or first option on each ticket
+        if (val === undefined || val === null || val === '') {
+          val = field.defaultValue || (field.options && field.options.length > 0 ? field.options[0] : 'Unset');
+        }
 
         if (val !== undefined && val !== null && val !== '') {
           let badgeClass = BADGE_COLOR_PALETTE[idx % BADGE_COLOR_PALETTE.length];
@@ -215,6 +220,8 @@ export const getDepartmentBadges = (issue: Issue, departments?: Department[]): B
             badgeClass = 'text-emerald-700 bg-emerald-50 border-emerald-200 font-medium';
           } else if (valUpper.includes('BOTH')) {
             badgeClass = 'text-gray-800 bg-gray-100 border-gray-300 font-medium';
+          } else if (valUpper === 'UNSET' || valUpper === '—') {
+            badgeClass = 'text-gray-500 bg-gray-50 border-gray-200 font-mono';
           }
 
           badges.push({
