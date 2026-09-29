@@ -5,7 +5,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. DEPARTMENTS / COMPONENTS (Fully Customizable)
+-- 1. DEPARTMENTS (Fully Customizable)
 -- Uses JSONB for custom_fields so teams can dynamically add/remove/reorder
 -- custom ticket fields without requiring database DDL schema migrations.
 CREATE TABLE IF NOT EXISTS public.departments (
@@ -313,7 +313,7 @@ FOR ALL
 TO authenticated
 USING (true);
 
--- 10.5 DEPARTMENTS POLICIES (Manage & Customize Components)
+-- 10.5 DEPARTMENTS POLICIES (Manage & Customize Departments)
 ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow authenticated read departments"
@@ -328,7 +328,7 @@ FOR ALL
 TO authenticated
 USING (true);
 
--- 11. DEFAULT DEPARTMENTS SEED (With initial customizable properties)
+-- 11. DEFAULT DEPARTMENTS SEED (Only Engineering by default; companies can create their own)
 INSERT INTO public.departments (id, name, code, description, custom_fields)
 VALUES 
     (
@@ -340,47 +340,8 @@ VALUES
             {"id": "environment", "name": "Environment Stage", "type": "select", "options": ["LOCAL", "STAGING", "PROD"], "defaultValue": "LOCAL"},
             {"id": "devScope", "name": "Development Layer", "type": "select", "options": ["Frontend only", "Backend only", "Both (Frontend + Backend)"]}
         ]'::jsonb
-    ),
-    (
-        'marketing',
-        'Marketing',
-        'MKT',
-        'Growth, product launches, advertising, and content',
-        '[
-            {"id": "marketingChannel", "name": "Marketing Channel", "type": "select", "options": ["Social Media", "Content & SEO", "Email & Newsletter", "Paid Ads", "Brand & Design", "Product Launch"]},
-            {"id": "deliverableType", "name": "Deliverable Type", "type": "select", "options": ["Copy & Blog", "Graphics & Assets", "Video & Motion", "Landing Page", "Campaign Plan"]}
-        ]'::jsonb
-    ),
-    (
-        'sales',
-        'Sales & CS',
-        'SLS',
-        'Enterprise pipeline, client relationships, and retention',
-        '[
-            {"id": "dealSegment", "name": "Deal Segment", "type": "select", "options": ["Enterprise", "Mid-Market", "SMB / Startup", "Strategic Partner"]},
-            {"id": "dealStage", "name": "Deal Stage", "type": "select", "options": ["Lead / Prospect", "Discovery & Demo", "Proposal & Pricing", "Contract Negotiation", "Closed-Won Review"]}
-        ]'::jsonb
-    ),
-    (
-        'product',
-        'Product',
-        'PRD',
-        'Product specifications, roadmap, and user experience design',
-        '[
-            {"id": "environment", "name": "Environment Stage", "type": "select", "options": ["LOCAL", "STAGING", "PROD"]},
-            {"id": "devScope", "name": "Development Layer", "type": "select", "options": ["Frontend only", "Backend only", "Both (Frontend + Backend)"]}
-        ]'::jsonb
-    ),
-    (
-        'operations',
-        'Operations',
-        'OPS',
-        'Internal IT, workplace, compliance, and team enablement',
-        '[
-            {"id": "opsCategory", "name": "Ops Category", "type": "select", "options": ["IT & Access", "Finance & Billing", "Legal & Contracts", "People & HR", "Office & Facilities", "Security & Compliance"]},
-            {"id": "impactLevel", "name": "Impact Level", "type": "select", "options": ["Company-wide", "Team-specific", "Individual"]}
-        ]'::jsonb
     )
 ON CONFLICT (id) DO UPDATE SET
     custom_fields = EXCLUDED.custom_fields,
     description = EXCLUDED.description;
+

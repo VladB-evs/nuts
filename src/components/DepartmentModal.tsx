@@ -226,10 +226,10 @@ export const DepartmentModal: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xs font-semibold text-gray-900 uppercase font-mono tracking-wider">
-                  Custom Components & Fields ({customFields.length})
+                  Custom Fields & Properties ({customFields.length})
                 </h3>
                 <p className="text-[11px] text-gray-500">
-                  Custom components automatically display on each ticket of this department.
+                  Custom fields automatically display on each ticket of this department.
                 </p>
               </div>
               {!isAddingField && (
@@ -239,7 +239,7 @@ export const DepartmentModal: React.FC = () => {
                   className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 rounded transition-colors"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>Add Component</span>
+                  <span>Add Property</span>
                 </button>
               )}
             </div>

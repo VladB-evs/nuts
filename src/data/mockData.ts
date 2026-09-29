@@ -22,112 +22,6 @@ export const INITIAL_DEPARTMENTS: Department[] = [
       },
     ],
   },
-  {
-    id: 'marketing',
-    name: 'Marketing',
-    code: 'MKT',
-    description: 'Growth, product launches, advertising, and content',
-    customFields: [
-      {
-        id: 'marketingChannel',
-        name: 'Marketing Channel',
-        type: 'select',
-        options: [
-          'Social Media',
-          'Content & SEO',
-          'Email & Newsletter',
-          'Paid Ads',
-          'Brand & Design',
-          'Product Launch',
-        ],
-      },
-      {
-        id: 'deliverableType',
-        name: 'Deliverable Type',
-        type: 'select',
-        options: [
-          'Copy & Blog',
-          'Graphics & Assets',
-          'Video & Motion',
-          'Landing Page',
-          'Campaign Plan',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'sales',
-    name: 'Sales & CS',
-    code: 'SLS',
-    description: 'Enterprise pipeline, client relationships, and retention',
-    customFields: [
-      {
-        id: 'dealSegment',
-        name: 'Deal Segment',
-        type: 'select',
-        options: ['Enterprise', 'Mid-Market', 'SMB / Startup', 'Strategic Partner'],
-      },
-      {
-        id: 'dealStage',
-        name: 'Deal Stage',
-        type: 'select',
-        options: [
-          'Lead / Prospect',
-          'Discovery & Demo',
-          'Proposal & Pricing',
-          'Contract Negotiation',
-          'Closed-Won Review',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'product',
-    name: 'Product',
-    code: 'PRD',
-    description: 'Product specifications, roadmap, and user experience design',
-    customFields: [
-      {
-        id: 'environment',
-        name: 'Environment Stage',
-        type: 'select',
-        options: ['LOCAL', 'STAGING', 'PROD'],
-      },
-      {
-        id: 'devScope',
-        name: 'Development Layer',
-        type: 'select',
-        options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'],
-      },
-    ],
-  },
-  {
-    id: 'operations',
-    name: 'Operations',
-    code: 'OPS',
-    description: 'Internal IT, workplace, compliance, and team enablement',
-    customFields: [
-      {
-        id: 'opsCategory',
-        name: 'Ops Category',
-        type: 'select',
-        options: [
-          'IT & Access',
-          'Finance & Billing',
-          'Legal & Contracts',
-          'People & HR',
-          'Office & Facilities',
-          'Security & Compliance',
-        ],
-      },
-      {
-        id: 'impactLevel',
-        name: 'Impact Level',
-        type: 'select',
-        options: ['Company-wide', 'Team-specific', 'Individual'],
-      },
-    ],
-  },
 ];
 
 export const USERS: UserProfile[] = [
@@ -154,8 +48,8 @@ export const USERS: UserProfile[] = [
     name: 'Maya Chen',
     nickname: 'maya',
     email: 'maya@nuts.internal',
-    department: 'Marketing',
-    role: 'Lead Growth Marketer',
+    department: 'Engineering',
+    role: 'Lead UI/UX Engineer',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
   },
   {
@@ -163,8 +57,8 @@ export const USERS: UserProfile[] = [
     name: 'David Miller',
     nickname: 'dmiller',
     email: 'david@nuts.internal',
-    department: 'Sales & CS',
-    role: 'Enterprise Account Executive',
+    department: 'Engineering',
+    role: 'Infrastructure & Backend Engineer',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
   },
   {
@@ -172,8 +66,8 @@ export const USERS: UserProfile[] = [
     name: 'Elena Rostova',
     nickname: 'elena',
     email: 'elena@nuts.internal',
-    department: 'Operations',
-    role: 'Director of Operations',
+    department: 'Engineering',
+    role: 'DevOps & Security Lead',
     avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
   },
 ];
@@ -203,7 +97,7 @@ export const INITIAL_ISSUES: Issue[] = [
       {
         id: 'c1',
         author: USERS[3],
-        text: 'Reported by two prospects today during product trials. High priority for closing the demo cycle.',
+        text: 'Reported by two team members during testing. High priority for closing the release verification.',
         createdAt: '2026-09-28T09:20:00Z',
       },
       {
@@ -247,18 +141,18 @@ export const INITIAL_ISSUES: Issue[] = [
   {
     id: 'iss-102',
     number: 102,
-    code: 'MKT-42',
-    title: 'Q4 Product Hunt launch hero screenshots and copy',
-    description: 'Prepare high-resolution 1270x760 product imagery, tagline copy, and hunter intro comments for the launch post.',
-    departmentId: 'marketing',
+    code: 'DEV-102',
+    title: 'Landing page responsive layout shifts and hero asset optimization',
+    description: 'Prepare high-resolution WebP responsive imagery, layout shift prevention (CLS < 0.05), and typography hierarchy.',
+    departmentId: 'engineering',
     priority: 'P1',
     status: 'ACCEPTED',
     customAttributes: {
-      marketingChannel: 'Product Launch',
-      deliverableType: 'Copy & Blog',
+      environment: 'STAGING',
+      devScope: 'Frontend only',
     },
-    marketingChannel: 'Product Launch',
-    deliverableType: 'Copy & Blog',
+    environment: 'STAGING',
+    devScope: 'frontend',
     assignee: USERS[2], // Maya Chen
     reporter: USERS[0], // Liam Vance
     createdAt: '2026-09-27T14:00:00Z',
@@ -267,7 +161,7 @@ export const INITIAL_ISSUES: Issue[] = [
       {
         id: 'c3',
         author: USERS[2],
-        text: 'Draft copy is ready in the shared drive. Generating the final screenshots today.',
+        text: 'Draft design system assets integrated. Verifying Core Web Vitals score on mobile breakpoints.',
         createdAt: '2026-09-28T08:00:00Z',
       },
     ],
@@ -278,7 +172,7 @@ export const INITIAL_ISSUES: Issue[] = [
         field: 'Issue',
         oldValue: '',
         newValue: 'Created',
-        message: 'Created issue MKT-42 in Marketing',
+        message: 'Created issue DEV-102 in Engineering',
         createdAt: '2026-09-27T14:00:00Z',
       },
       {
@@ -290,32 +184,23 @@ export const INITIAL_ISSUES: Issue[] = [
         message: 'Status changed from NEW to ACCEPTED',
         createdAt: '2026-09-28T08:00:00Z',
       },
-      {
-        id: 'h-102-3',
-        actor: USERS[2],
-        field: 'Marketing Channel',
-        oldValue: 'Social Media',
-        newValue: 'Product Launch',
-        message: 'Changed Marketing Channel from "Social Media" to "Product Launch"',
-        createdAt: '2026-09-28T08:00:00Z',
-      },
     ],
   },
   {
     id: 'iss-103',
     number: 103,
-    code: 'SLS-88',
-    title: 'Acme Corp vendor security evaluation questionnaire review',
-    description: 'Review SOC2 compliance questions and data retention clauses for $85k contract sign-off.',
-    departmentId: 'sales',
+    code: 'DEV-103',
+    title: 'Enterprise SSO SAML metadata parsing and token exchange review',
+    description: 'Review Okta / Azure AD SAML assertion encryption and ACS endpoint clock skew tolerance.',
+    departmentId: 'engineering',
     priority: 'P1',
     status: 'ASSIGNED',
     customAttributes: {
-      dealSegment: 'Enterprise',
-      dealStage: 'Contract Negotiation',
+      environment: 'PROD',
+      devScope: 'Backend only',
     },
-    dealSegment: 'Enterprise',
-    dealStage: 'Contract Negotiation',
+    environment: 'PROD',
+    devScope: 'backend',
     assignee: USERS[3], // David Miller
     reporter: USERS[3],
     createdAt: '2026-09-26T11:00:00Z',
@@ -328,16 +213,16 @@ export const INITIAL_ISSUES: Issue[] = [
         field: 'Issue',
         oldValue: '',
         newValue: 'Created',
-        message: 'Created issue SLS-88 in Sales & CS',
+        message: 'Created issue DEV-103 in Engineering',
         createdAt: '2026-09-26T11:00:00Z',
       },
       {
         id: 'h-103-2',
         actor: USERS[3],
-        field: 'Deal Stage',
-        oldValue: 'Discovery & Demo',
-        newValue: 'Contract Negotiation',
-        message: 'Changed Deal Stage from "Discovery & Demo" to "Contract Negotiation"',
+        field: 'Status',
+        oldValue: 'NEW',
+        newValue: 'ASSIGNED',
+        message: 'Status changed from NEW to ASSIGNED',
         createdAt: '2026-09-27T16:00:00Z',
       },
     ],
@@ -345,20 +230,20 @@ export const INITIAL_ISSUES: Issue[] = [
   {
     id: 'iss-104',
     number: 104,
-    code: 'OPS-14',
-    title: 'Order replacement MacBook charger and USB-C docks for London office',
-    description: 'Two 96W USB-C chargers and Anker multiport hubs needed for engineering visitors.',
-    departmentId: 'operations',
+    code: 'DEV-104',
+    title: 'Local development docker compose setup with hot-reload support',
+    description: 'Provide an out-of-the-box local development container setup for rapid onboarding of new engineers.',
+    departmentId: 'engineering',
     priority: 'P3',
     status: 'NEW',
     customAttributes: {
-      opsCategory: 'IT & Access',
-      impactLevel: 'Team-specific',
+      environment: 'LOCAL',
+      devScope: 'Both (Frontend + Backend)',
     },
-    opsCategory: 'IT & Access',
-    impactLevel: 'Team-specific',
-    assignee: USERS[4], // Elena
-    reporter: USERS[1], // Alex
+    environment: 'LOCAL',
+    devScope: 'both',
+    assignee: USERS[4], // Elena Rostova
+    reporter: USERS[1], // Alex Rivera
     createdAt: '2026-09-28T07:30:00Z',
     updatedAt: '2026-09-28T07:30:00Z',
     comments: [],
@@ -369,7 +254,7 @@ export const INITIAL_ISSUES: Issue[] = [
         field: 'Issue',
         oldValue: '',
         newValue: 'Created',
-        message: 'Created issue OPS-14 in Operations',
+        message: 'Created issue DEV-104 in Engineering',
         createdAt: '2026-09-28T07:30:00Z',
       },
     ],
@@ -377,10 +262,10 @@ export const INITIAL_ISSUES: Issue[] = [
   {
     id: 'iss-105',
     number: 105,
-    code: 'PRD-19',
-    title: 'Clarify multi-tenant workspace switching UX requirements',
-    description: 'Users with multiple organizations need a quick switcher in the top navigation. Write functional spec.',
-    departmentId: 'product',
+    code: 'DEV-105',
+    title: 'Multi-tenant workspace switching UX requirements and backend spec',
+    description: 'Users with multiple organizations need a quick switcher in the top navigation. Functional spec and API contract.',
+    departmentId: 'engineering',
     priority: 'P2',
     status: 'FIXED',
     customAttributes: {
@@ -389,15 +274,15 @@ export const INITIAL_ISSUES: Issue[] = [
     },
     environment: 'STAGING',
     devScope: 'frontend',
-    assignee: USERS[0],
-    reporter: USERS[1],
+    assignee: USERS[0], // Liam Vance
+    reporter: USERS[1], // Alex Rivera
     createdAt: '2026-09-25T13:00:00Z',
     updatedAt: '2026-09-27T18:00:00Z',
     comments: [
       {
         id: 'c4',
         author: USERS[0],
-        text: 'Spec completed and attached to the design Figma. Marking FIXED.',
+        text: 'Spec completed and merged into the main development branch. Marking FIXED.',
         createdAt: '2026-09-27T18:00:00Z',
         statusChange: 'Status changed from ACCEPTED to FIXED',
       },
@@ -409,7 +294,7 @@ export const INITIAL_ISSUES: Issue[] = [
         field: 'Issue',
         oldValue: '',
         newValue: 'Created',
-        message: 'Created issue PRD-19 in Product',
+        message: 'Created issue DEV-105 in Engineering',
         createdAt: '2026-09-25T13:00:00Z',
       },
       {
@@ -432,6 +317,10 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'engineering',
     priority: 'P1',
     status: 'NEW',
+    customAttributes: {
+      environment: 'STAGING',
+      devScope: 'Backend only',
+    },
     environment: 'STAGING',
     devScope: 'backend',
     assignee: null,
@@ -454,16 +343,20 @@ export const INITIAL_ISSUES: Issue[] = [
   {
     id: 'iss-107',
     number: 107,
-    code: 'OPS-15',
+    code: 'DEV-107',
     title: 'Configure Cloudflare Zero Trust gateway & SSO tunnel for remote team',
-    description: 'Engineering assistance needed to route internal dev subdomains through Cloudflare Zero Trust WARP client.',
-    departmentId: 'operations',
+    description: 'Route internal dev subdomains through Cloudflare Zero Trust WARP client with mutual TLS.',
+    departmentId: 'engineering',
     priority: 'P1',
     status: 'ASSIGNED',
-    opsCategory: 'Security & Compliance',
-    impactLevel: 'Company-wide',
-    assignee: USERS[1], // Alex Rivera (Engineering) assigned to an Operations ticket!
-    reporter: USERS[4], // Elena Rostova (Operations)
+    customAttributes: {
+      environment: 'PROD',
+      devScope: 'Backend only',
+    },
+    environment: 'PROD',
+    devScope: 'backend',
+    assignee: USERS[1], // Alex Rivera
+    reporter: USERS[4], // Elena Rostova
     createdAt: '2026-09-28T12:00:00Z',
     updatedAt: '2026-09-28T12:00:00Z',
     comments: [
@@ -481,7 +374,7 @@ export const INITIAL_ISSUES: Issue[] = [
         field: 'Issue',
         oldValue: '',
         newValue: 'Created',
-        message: 'Created issue OPS-15 in Operations',
+        message: 'Created issue DEV-107 in Engineering',
         createdAt: '2026-09-28T12:00:00Z',
       },
       {

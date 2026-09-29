@@ -307,7 +307,7 @@ export const IssueTable: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Component (shown when viewing all departments or cross-department assigned_to_me) */}
+                    {/* Department (shown when viewing all departments or cross-department assigned_to_me) */}
                     {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
                       <td className="py-2.5 px-3 font-mono text-gray-600 hidden md:table-cell truncate">
                         <span className="font-semibold text-gray-700 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded text-[10px]">

@@ -92,10 +92,10 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v8';
-const STORAGE_DEPTS = 'nuts_depts_v8';
-const STORAGE_USERS = 'nuts_users_v8';
-const STORAGE_CURRENT_USER = 'nuts_current_user_v8';
+const STORAGE_KEY = 'nuts_issues_v9';
+const STORAGE_DEPTS = 'nuts_depts_v9';
+const STORAGE_USERS = 'nuts_users_v9';
+const STORAGE_CURRENT_USER = 'nuts_current_user_v9';
 
 const getFieldLabel = (key: string): string => {
   const labels: Record<string, string> = {
