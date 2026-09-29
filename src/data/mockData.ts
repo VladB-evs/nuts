@@ -8,6 +8,13 @@ export const INITIAL_DEPARTMENTS: Department[] = [
     description: 'Core software, infrastructure, and web applications',
     customFields: [
       {
+        id: 'issueType',
+        name: 'Issue Type',
+        type: 'select',
+        options: ['Bug', 'Feature'],
+        defaultValue: 'Bug',
+      },
+      {
         id: 'environment',
         name: 'Environment Stage',
         type: 'select',
@@ -83,9 +90,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P0',
     status: 'ASSIGNED',
     customAttributes: {
+      issueType: 'Bug',
       environment: 'PROD',
       devScope: 'Both (Frontend + Backend)',
     },
+    issueType: 'Bug',
     environment: 'PROD',
     devScope: 'both',
     assignee: USERS[1], // Alex Rivera
@@ -148,9 +157,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P1',
     status: 'ACCEPTED',
     customAttributes: {
+      issueType: 'Feature',
       environment: 'STAGING',
       devScope: 'Frontend only',
     },
+    issueType: 'Feature',
     environment: 'STAGING',
     devScope: 'frontend',
     assignee: USERS[2], // Maya Chen
@@ -196,9 +207,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P1',
     status: 'ASSIGNED',
     customAttributes: {
+      issueType: 'Feature',
       environment: 'PROD',
       devScope: 'Backend only',
     },
+    issueType: 'Feature',
     environment: 'PROD',
     devScope: 'backend',
     assignee: USERS[3], // David Miller
@@ -237,9 +250,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P3',
     status: 'NEW',
     customAttributes: {
+      issueType: 'Feature',
       environment: 'LOCAL',
       devScope: 'Both (Frontend + Backend)',
     },
+    issueType: 'Feature',
     environment: 'LOCAL',
     devScope: 'both',
     assignee: USERS[4], // Elena Rostova
@@ -269,9 +284,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P2',
     status: 'FIXED',
     customAttributes: {
+      issueType: 'Feature',
       environment: 'STAGING',
       devScope: 'Frontend only',
     },
+    issueType: 'Feature',
     environment: 'STAGING',
     devScope: 'frontend',
     assignee: USERS[0], // Liam Vance
@@ -318,9 +335,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P1',
     status: 'NEW',
     customAttributes: {
+      issueType: 'Bug',
       environment: 'STAGING',
       devScope: 'Backend only',
     },
+    issueType: 'Bug',
     environment: 'STAGING',
     devScope: 'backend',
     assignee: null,
@@ -350,9 +369,11 @@ export const INITIAL_ISSUES: Issue[] = [
     priority: 'P1',
     status: 'ASSIGNED',
     customAttributes: {
+      issueType: 'Feature',
       environment: 'PROD',
       devScope: 'Backend only',
     },
+    issueType: 'Feature',
     environment: 'PROD',
     devScope: 'backend',
     assignee: USERS[1], // Alex Rivera

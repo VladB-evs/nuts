@@ -80,8 +80,12 @@ export const IssueTable: React.FC = () => {
         (f) => f.type === 'select' && f.options && f.options.length > 0
       );
       if (firstSelectField && firstSelectField.options) {
+        const label =
+          firstSelectField.id === 'issueType'
+            ? 'Type'
+            : firstSelectField.name.split(' ')[0] || 'Filter';
         return {
-          label: firstSelectField.name.split(' ')[0] || 'Filter',
+          label,
           options: ['ALL', ...firstSelectField.options],
         };
       }
@@ -89,7 +93,7 @@ export const IssueTable: React.FC = () => {
 
     switch (currentDeptKind) {
       case 'engineering':
-        return { label: 'Env', options: ['ALL', 'LOCAL', 'STAGING', 'PROD'] };
+        return { label: 'Type', options: ['ALL', 'Bug', 'Feature'] };
       case 'marketing':
         return {
           label: 'Channel',

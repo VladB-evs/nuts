@@ -6,6 +6,7 @@ import {
   Priority,
   Status,
   NavView,
+  IssueType,
   Environment,
   DevScope,
   MarketingChannel,
@@ -58,6 +59,7 @@ interface IssueContextType {
     departmentId: string;
     priority: Priority;
     customAttributes?: Record<string, any>;
+    issueType?: IssueType;
     environment?: Environment;
     devScope?: DevScope;
     marketingChannel?: MarketingChannel;
@@ -92,10 +94,10 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v9';
-const STORAGE_DEPTS = 'nuts_depts_v9';
-const STORAGE_USERS = 'nuts_users_v9';
-const STORAGE_CURRENT_USER = 'nuts_current_user_v9';
+const STORAGE_KEY = 'nuts_issues_v10';
+const STORAGE_DEPTS = 'nuts_depts_v10';
+const STORAGE_USERS = 'nuts_users_v10';
+const STORAGE_CURRENT_USER = 'nuts_current_user_v10';
 
 const getFieldLabel = (key: string): string => {
   const labels: Record<string, string> = {
@@ -105,6 +107,7 @@ const getFieldLabel = (key: string): string => {
     priority: 'Priority',
     status: 'Status',
     assignee: 'Assignee',
+    issueType: 'Issue Type',
     environment: 'Environment Stage',
     devScope: 'Development Layer',
     marketingChannel: 'Marketing Channel',
@@ -294,6 +297,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     departmentId: string;
     priority: Priority;
     customAttributes?: Record<string, any>;
+    issueType?: IssueType;
     environment?: Environment;
     devScope?: DevScope;
     marketingChannel?: MarketingChannel;
@@ -313,6 +317,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const customAttrs: Record<string, any> = { ...(data.customAttributes || {}) };
 
     // Synchronize legacy fields into customAttributes if not set
+    if (data.issueType && !customAttrs.issueType) customAttrs.issueType = data.issueType;
     if (data.environment && !customAttrs.environment) customAttrs.environment = data.environment;
     if (data.devScope && !customAttrs.devScope) {
       customAttrs.devScope =
@@ -350,6 +355,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       priority: data.priority,
       status: assignee ? 'ASSIGNED' : 'NEW',
       customAttributes: customAttrs,
+      issueType: (customAttrs.issueType as IssueType) || data.issueType || 'Bug',
       environment: (customAttrs.environment as Environment) || data.environment,
       devScope: data.devScope,
       marketingChannel: (customAttrs.marketingChannel as MarketingChannel) || data.marketingChannel,

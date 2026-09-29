@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.issues (
     status TEXT NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW', 'ASSIGNED', 'ACCEPTED', 'FIXED', 'VERIFIED', 'CLOSED')),
     custom_attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
     -- Engineering rules (backward compatibility)
+    issue_type TEXT CHECK (issue_type IN ('Bug', 'Feature')),
     environment TEXT CHECK (environment IN ('LOCAL', 'STAGING', 'PROD')),
     dev_scope TEXT CHECK (dev_scope IN ('frontend', 'backend', 'both')),
     -- Marketing rules (backward compatibility)
@@ -337,6 +338,7 @@ VALUES
         'DEV',
         'Core software, infrastructure, and web applications',
         '[
+            {"id": "issueType", "name": "Issue Type", "type": "select", "options": ["Bug", "Feature"], "defaultValue": "Bug"},
             {"id": "environment", "name": "Environment Stage", "type": "select", "options": ["LOCAL", "STAGING", "PROD"], "defaultValue": "LOCAL"},
             {"id": "devScope", "name": "Development Layer", "type": "select", "options": ["Frontend only", "Backend only", "Both (Frontend + Backend)"]}
         ]'::jsonb

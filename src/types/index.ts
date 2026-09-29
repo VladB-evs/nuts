@@ -7,6 +7,7 @@ export type Status = 'NEW' | 'ASSIGNED' | 'ACCEPTED' | 'FIXED' | 'VERIFIED' | 'C
 // ====================================================================
 
 // 1. Engineering / Tech
+export type IssueType = 'Bug' | 'Feature';
 export type Environment = 'LOCAL' | 'STAGING' | 'PROD';
 export type DevScope = 'frontend' | 'backend' | 'both';
 
@@ -121,6 +122,7 @@ export interface Issue {
   customAttributes?: Record<string, any>;
 
   // Engineering Specific Rules (backward compatible)
+  issueType?: IssueType; // 'Bug' | 'Feature'
   environment?: Environment; // 'LOCAL' | 'STAGING' | 'PROD'
   devScope?: DevScope; // 'frontend' | 'backend' | 'both'
 

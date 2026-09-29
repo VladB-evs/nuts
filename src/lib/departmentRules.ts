@@ -208,7 +208,11 @@ export const getDepartmentBadges = (issue: Issue, departments?: Department[]): B
 
           // Semantic color overrides for familiar values
           const valUpper = String(val).toUpperCase();
-          if (valUpper === 'PROD') {
+          if (valUpper === 'BUG') {
+            badgeClass = 'text-rose-700 bg-rose-50 border-rose-200 font-medium';
+          } else if (valUpper === 'FEATURE') {
+            badgeClass = 'text-indigo-700 bg-indigo-50 border-indigo-200 font-medium';
+          } else if (valUpper === 'PROD') {
             badgeClass = 'text-purple-800 bg-purple-50 border-purple-200 font-medium';
           } else if (valUpper === 'STAGING') {
             badgeClass = 'text-amber-800 bg-amber-50 border-amber-200 font-medium';
@@ -243,6 +247,17 @@ export const getDepartmentBadges = (issue: Issue, departments?: Department[]): B
   const kind = getDepartmentRuleKind(issue.departmentId, departments);
 
   if (kind === 'engineering') {
+    if (issue.issueType) {
+      badges.push({
+        label: issue.issueType,
+        badgeClass:
+          issue.issueType === 'Bug'
+            ? 'text-rose-700 bg-rose-50 border-rose-200 font-medium'
+            : 'text-indigo-700 bg-indigo-50 border-indigo-200 font-medium',
+        tooltip: `Type: ${issue.issueType}`,
+        type: 'issueType',
+      });
+    }
     if (issue.environment) {
       const colorClass =
         issue.environment === 'PROD'

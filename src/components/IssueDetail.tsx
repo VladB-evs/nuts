@@ -491,7 +491,7 @@ export const IssueDetail: React.FC = () => {
               const currentVal =
                 selectedIssue.customAttributes?.[field.id] !== undefined
                   ? selectedIssue.customAttributes[field.id]
-                  : (selectedIssue as any)[field.id] ?? field.options?.[0] ?? '';
+                  : (selectedIssue as any)[field.id] ?? field.defaultValue ?? field.options?.[0] ?? '';
 
               if (field.type === 'select') {
                 return (
@@ -507,6 +507,7 @@ export const IssueDetail: React.FC = () => {
                             [field.id]: newVal,
                           },
                         };
+                        if (field.id === 'issueType') updates.issueType = newVal;
                         if (field.id === 'environment') updates.environment = newVal;
                         if (field.id === 'marketingChannel') updates.marketingChannel = newVal;
                         if (field.id === 'deliverableType') updates.deliverableType = newVal;
