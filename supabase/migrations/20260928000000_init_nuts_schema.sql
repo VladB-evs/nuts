@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.issue_history (
 
 CREATE INDEX IF NOT EXISTS idx_issue_history_issue_created ON public.issue_history(issue_id, created_at DESC);
 
--- 5. AUTO-UPDATE UPDATED_AT TRIGGER
+-- 6. AUTO-UPDATE UPDATED_AT TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -98,7 +98,7 @@ BEFORE UPDATE ON public.issues
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
--- 6. AUTO-GENERATE ISSUE CODE (e.g. DEV-101, MKT-102)
+-- 7. AUTO-GENERATE ISSUE CODE (e.g. DEV-101, MKT-102)
 CREATE OR REPLACE FUNCTION public.generate_issue_code()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -127,7 +127,57 @@ BEFORE INSERT ON public.issues
 FOR EACH ROW
 EXECUTE FUNCTION public.generate_issue_code();
 
--- 7. NEW USER TRIGGER
+-- 8. AUTOMATIC PROPERTY CHANGE TRACKING TRIGGER
+CREATE OR REPLACE FUNCTION public.track_issue_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+    actor UUID := auth.uid();
+BEGIN
+    IF (OLD.priority IS DISTINCT FROM NEW.priority) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Priority', OLD.priority, NEW.priority, 'Changed Priority from ' || OLD.priority || ' to ' || NEW.priority);
+    END IF;
+
+    IF (OLD.status IS DISTINCT FROM NEW.status) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Status', OLD.status, NEW.status, 'Status changed from ' || OLD.status || ' to ' || NEW.status);
+    END IF;
+
+    IF (OLD.title IS DISTINCT FROM NEW.title) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Title', OLD.title, NEW.title, 'Updated title to "' || NEW.title || '"');
+    END IF;
+
+    IF (OLD.assignee_id IS DISTINCT FROM NEW.assignee_id) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Assignee', OLD.assignee_id::text, NEW.assignee_id::text, 'Reassigned ticket');
+    END IF;
+
+    IF (OLD.department_id IS DISTINCT FROM NEW.department_id) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Department', OLD.department_id, NEW.department_id, 'Moved to department ' || NEW.department_id);
+    END IF;
+
+    IF (OLD.environment IS DISTINCT FROM NEW.environment) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Environment Stage', OLD.environment, NEW.environment, 'Changed Environment Stage from ' || COALESCE(OLD.environment, 'None') || ' to ' || COALESCE(NEW.environment, 'None'));
+    END IF;
+
+    IF (OLD.dev_scope IS DISTINCT FROM NEW.dev_scope) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Development Layer', OLD.dev_scope, NEW.dev_scope, 'Changed Development Layer from ' || COALESCE(OLD.dev_scope, 'None') || ' to ' || COALESCE(NEW.dev_scope, 'None'));
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_track_issue_changes ON public.issues;
+CREATE TRIGGER trigger_track_issue_changes
+AFTER UPDATE ON public.issues
+FOR EACH ROW EXECUTE FUNCTION public.track_issue_changes();
+
+-- 9. NEW USER TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -147,7 +197,7 @@ CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 8. ROW LEVEL SECURITY (RLS)
+-- 10. ROW LEVEL SECURITY (RLS)
 ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.issues ENABLE ROW LEVEL SECURITY;
@@ -166,7 +216,7 @@ CREATE POLICY "Allow authenticated delete issues" ON public.issues FOR DELETE TO
 CREATE POLICY "Allow authenticated manage comments" ON public.comments FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow authenticated manage issue_history" ON public.issue_history FOR ALL TO authenticated USING (true);
 
--- 9. DEFAULT DEPARTMENTS SEED
+-- 11. DEFAULT DEPARTMENTS SEED
 INSERT INTO public.departments (id, name, code)
 VALUES 
     ('engineering', 'Engineering', 'DEV'),
