@@ -309,4 +309,48 @@ export const INITIAL_ISSUES: Issue[] = [
       },
     ],
   },
+  {
+    id: 'iss-107',
+    number: 107,
+    code: 'OPS-15',
+    title: 'Configure Cloudflare Zero Trust gateway & SSO tunnel for remote team',
+    description: 'Engineering assistance needed to route internal dev subdomains through Cloudflare Zero Trust WARP client.',
+    departmentId: 'operations',
+    priority: 'P1',
+    status: 'ASSIGNED',
+    opsCategory: 'Security & Compliance',
+    impactLevel: 'Company-wide',
+    assignee: USERS[1], // Alex Rivera (Engineering) assigned to an Operations ticket!
+    reporter: USERS[4], // Elena Rostova (Operations)
+    createdAt: '2026-09-28T12:00:00Z',
+    updatedAt: '2026-09-28T12:00:00Z',
+    comments: [
+      {
+        id: 'c5',
+        author: USERS[4],
+        text: 'Alex, could you review the DNS routing and gateway tunnel configuration?',
+        createdAt: '2026-09-28T12:05:00Z',
+      },
+    ],
+    history: [
+      {
+        id: 'h-107-1',
+        actor: USERS[4],
+        field: 'Issue',
+        oldValue: '',
+        newValue: 'Created',
+        message: 'Created issue OPS-15 in Operations',
+        createdAt: '2026-09-28T12:00:00Z',
+      },
+      {
+        id: 'h-107-2',
+        actor: USERS[4],
+        field: 'Assignee',
+        oldValue: 'None',
+        newValue: 'Alex Rivera',
+        message: 'Assigned to Alex Rivera',
+        createdAt: '2026-09-28T12:00:00Z',
+      },
+    ],
+  },
 ];

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useIssues } from '../context/TicketContext';
 import { Priority, Status } from '../types';
-import { getDepartmentRuleKind, getDepartmentBadges } from '../lib/departmentRules';
+import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
 import { Star, Plus } from 'lucide-react';
@@ -18,6 +18,8 @@ export const IssueTable: React.FC = () => {
     subFilter,
     setSubFilter,
     departments,
+    currentUser,
+    navView,
     setIsCreateModalOpen,
   } = useIssues();
 
@@ -97,8 +99,79 @@ export const IssueTable: React.FC = () => {
 
   const subFilterConfig = getSubFilterOptions();
 
+  const userDeptId = getUserDepartmentId(currentUser, departments);
+  const userDept = departments.find((d) => d.id === userDeptId);
+  const selectedDeptObj = departments.find((d) => d.id === selectedDepartment);
+
+  const getViewHeader = () => {
+    if (selectedDepartment !== 'all') {
+      return {
+        title: `${selectedDeptObj?.name || selectedDepartment} Component`,
+        badge: selectedDeptObj?.code,
+        subtitle: `Showing issues in ${selectedDeptObj?.name || selectedDepartment}`,
+      };
+    }
+    if (navView === 'open') {
+      return {
+        title: `Open Issues in ${userDept?.name || currentUser.department}`,
+        badge: userDept?.code || 'DEV',
+        subtitle: `Showing all open tickets in your assigned department (${userDept?.name || currentUser.department})`,
+      };
+    }
+    if (navView === 'assigned_to_me') {
+      return {
+        title: 'Assigned to Me',
+        badge: 'ALL DEPTS',
+        subtitle: 'Showing all open tickets assigned to you across all departments',
+      };
+    }
+    if (navView === 'reported_by_me') {
+      return {
+        title: 'Reported by Me',
+        subtitle: 'Showing tickets reported by you',
+      };
+    }
+    if (navView === 'starred') {
+      return {
+        title: 'Starred Issues',
+        subtitle: 'Showing your bookmarked tickets',
+      };
+    }
+    if (navView === 'closed') {
+      return {
+        title: `Closed / Fixed Issues (${userDept?.name || currentUser.department})`,
+        badge: userDept?.code,
+        subtitle: 'Showing resolved and closed tickets',
+      };
+    }
+    return {
+      title: 'Issues',
+      subtitle: '',
+    };
+  };
+
+  const viewHeader = getViewHeader();
+
   return (
     <div className="flex-1 overflow-y-auto bg-white flex flex-col">
+      {/* Contextual View Header Bar */}
+      <div className="px-4 py-2 border-b border-gray-200 bg-white flex items-center justify-between select-none">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="font-bold text-xs text-gray-900 font-mono tracking-tight">
+            {viewHeader.title}
+          </h2>
+          {viewHeader.badge && (
+            <span className="font-mono text-[10px] font-semibold bg-gray-100 border border-gray-300 text-gray-800 px-1.5 py-0.2 rounded">
+              {viewHeader.badge}
+            </span>
+          )}
+          <span className="text-gray-300 hidden sm:inline">•</span>
+          <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">
+            {viewHeader.subtitle}
+          </span>
+        </div>
+      </div>
+
       {/* Table Toolbar */}
       <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/70 flex flex-wrap items-center justify-between gap-2 text-xs select-none">
         <div className="flex flex-wrap items-center gap-4">
@@ -159,7 +232,7 @@ export const IssueTable: React.FC = () => {
                 <th className="py-2 px-3 w-16">ID</th>
                 <th className="py-2 px-3 w-14">PRI</th>
                 <th className="py-2 px-3">TITLE</th>
-                {selectedDepartment === 'all' && (
+                {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
                   <th className="py-2 px-3 w-28 hidden md:table-cell">COMPONENT</th>
                 )}
                 <th className="py-2 px-3 w-48 hidden sm:table-cell">ATTRIBUTES</th>
@@ -221,10 +294,12 @@ export const IssueTable: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Component (shown when viewing all departments) */}
-                    {selectedDepartment === 'all' && (
+                    {/* Component (shown when viewing all departments or cross-department assigned_to_me) */}
+                    {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
                       <td className="py-2.5 px-3 font-mono text-gray-600 hidden md:table-cell truncate">
-                        {dept?.name || issue.departmentId}
+                        <span className="font-semibold text-gray-700 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded text-[10px]">
+                          {dept?.name || issue.departmentId}
+                        </span>
                       </td>
                     )}
 

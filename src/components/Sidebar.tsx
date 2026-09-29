@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { NavView } from '../types';
+import { getUserDepartmentId } from '../lib/departmentRules';
 import {
   Inbox,
   UserCheck,
@@ -16,6 +17,7 @@ export const Sidebar: React.FC = () => {
     navView,
     setNavView,
     departments,
+    currentUser,
     selectedDepartment,
     setSelectedDepartment,
     counts,
@@ -28,12 +30,47 @@ export const Sidebar: React.FC = () => {
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptCode, setNewDeptCode] = useState('');
 
-  const views: { id: NavView; label: string; icon: any; count: number }[] = [
-    { id: 'open', label: 'Open Issues', icon: Inbox, count: counts.open },
-    { id: 'assigned_to_me', label: 'Assigned to me', icon: UserCheck, count: counts.assignedToMe },
-    { id: 'reported_by_me', label: 'Reported by me', icon: FileText, count: counts.reportedByMe },
-    { id: 'starred', label: 'Starred', icon: Star, count: counts.starred },
-    { id: 'closed', label: 'Closed / Fixed', icon: CheckCircle2, count: counts.closed },
+  const userDeptId = getUserDepartmentId(currentUser, departments);
+  const userDept = departments.find((d) => d.id === userDeptId);
+
+  const views: { id: NavView; label: string; badge?: string; tooltip: string; icon: any; count: number }[] = [
+    {
+      id: 'open',
+      label: 'Open Issues',
+      badge: userDept?.code || 'DEV',
+      tooltip: `Open issues in your assigned department (${userDept?.name || currentUser.department})`,
+      icon: Inbox,
+      count: counts.open,
+    },
+    {
+      id: 'assigned_to_me',
+      label: 'Assigned to me',
+      badge: 'ALL',
+      tooltip: 'All tickets assigned to you across all departments',
+      icon: UserCheck,
+      count: counts.assignedToMe,
+    },
+    {
+      id: 'reported_by_me',
+      label: 'Reported by me',
+      tooltip: 'Tickets reported by you',
+      icon: FileText,
+      count: counts.reportedByMe,
+    },
+    {
+      id: 'starred',
+      label: 'Starred',
+      tooltip: 'Starred tickets',
+      icon: Star,
+      count: counts.starred,
+    },
+    {
+      id: 'closed',
+      label: 'Closed / Fixed',
+      tooltip: `Closed/Fixed issues in your department (${userDept?.name || currentUser.department})`,
+      icon: CheckCircle2,
+      count: counts.closed,
+    },
   ];
 
   const handleCreateDept = (e: React.FormEvent) => {
@@ -54,25 +91,38 @@ export const Sidebar: React.FC = () => {
         </div>
         {views.map((v) => {
           const Icon = v.icon;
-          const isSelected = navView === v.id;
+          const isSelected = navView === v.id && selectedDepartment === 'all';
           return (
             <button
               key={v.id}
               onClick={() => {
                 setNavView(v.id);
+                setSelectedDepartment('all');
                 setSelectedIssue(null);
               }}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors ${
+              title={v.tooltip}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group ${
                 isSelected
                   ? 'bg-gray-100 font-semibold text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-black' : 'text-gray-400'}`} />
-                <span>{v.label}</span>
+              <div className="flex items-center gap-2 truncate">
+                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-black' : 'text-gray-400'}`} />
+                <span className="truncate">{v.label}</span>
+                {v.badge && (
+                  <span
+                    className={`font-mono text-[9px] px-1 py-0.2 rounded border ${
+                      isSelected
+                        ? 'bg-white text-gray-800 border-gray-300 font-bold'
+                        : 'bg-gray-50 text-gray-400 border-gray-200'
+                    }`}
+                  >
+                    {v.badge}
+                  </span>
+                )}
               </div>
-              <span className="text-[11px] text-gray-400 font-mono">{v.count}</span>
+              <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-1.5">{v.count}</span>
             </button>
           );
         })}

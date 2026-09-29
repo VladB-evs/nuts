@@ -17,6 +17,7 @@ import {
   HistoryEntry,
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
+import { getUserDepartmentId } from '../lib/departmentRules';
 
 interface IssueContextType {
   issues: Issue[];
@@ -77,10 +78,10 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v6';
-const STORAGE_DEPTS = 'nuts_depts_v6';
-const STORAGE_USERS = 'nuts_users_v6';
-const STORAGE_CURRENT_USER = 'nuts_current_user_v6';
+const STORAGE_KEY = 'nuts_issues_v7';
+const STORAGE_DEPTS = 'nuts_depts_v7';
+const STORAGE_USERS = 'nuts_users_v7';
+const STORAGE_CURRENT_USER = 'nuts_current_user_v7';
 
 const getFieldLabel = (key: string): string => {
   const labels: Record<string, string> = {
@@ -461,24 +462,36 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Filtered Issues computation
   const filteredIssues = useMemo(() => {
-    return issues.filter((issue) => {
-      // Department
-      if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) {
-        return false;
-      }
+    const userDeptId = getUserDepartmentId(currentUser, departments);
 
-      // Nav View
+    return issues.filter((issue) => {
+      // Nav View Filter
       if (navView === 'open') {
+        // "Opened issues will show all the opened issues in the department I am assigned to."
         if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
+
+        if (selectedDepartment === 'all') {
+          if (userDeptId && issue.departmentId !== userDeptId) return false;
+        } else {
+          if (issue.departmentId !== selectedDepartment) return false;
+        }
       } else if (navView === 'assigned_to_me') {
+        // "and assigned to me will show all the tickets that are assigned to me even of the tickets are from other departments."
         if (issue.assignee?.id !== currentUser.id) return false;
         if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
       } else if (navView === 'reported_by_me') {
         if (issue.reporter.id !== currentUser.id) return false;
+        if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
       } else if (navView === 'starred') {
         if (!issue.starred) return false;
+        if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
       } else if (navView === 'closed') {
         if (issue.status !== 'FIXED' && issue.status !== 'CLOSED') return false;
+        if (selectedDepartment === 'all') {
+          if (userDeptId && issue.departmentId !== userDeptId) return false;
+        } else {
+          if (issue.departmentId !== selectedDepartment) return false;
+        }
       }
 
       // Priority Filter
@@ -542,23 +555,44 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return true;
     });
-  }, [issues, selectedDepartment, navView, priorityFilter, subFilter, searchQuery, currentUser]);
+  }, [issues, selectedDepartment, navView, priorityFilter, subFilter, searchQuery, currentUser, departments]);
 
   const counts = useMemo(() => {
-    const deptIssues = selectedDepartment === 'all'
-      ? issues
-      : issues.filter((i) => i.departmentId === selectedDepartment);
+    const userDeptId = getUserDepartmentId(currentUser, departments);
+
+    // "Opened issues will show all the opened issues in the department I am assigned to."
+    const openInUserDept = issues.filter(
+      (i) =>
+        (userDeptId ? i.departmentId === userDeptId : true) &&
+        i.status !== 'FIXED' &&
+        i.status !== 'CLOSED'
+    ).length;
+
+    // "and assigned to me will show all the tickets that are assigned to me even of the tickets are from other departments."
+    const assignedToMe = issues.filter(
+      (i) =>
+        i.assignee?.id === currentUser.id &&
+        i.status !== 'FIXED' &&
+        i.status !== 'CLOSED'
+    ).length;
+
+    const reportedByMe = issues.filter((i) => i.reporter.id === currentUser.id).length;
+    const starred = issues.filter((i) => i.starred).length;
+
+    const closedInUserDept = issues.filter(
+      (i) =>
+        (userDeptId ? i.departmentId === userDeptId : true) &&
+        (i.status === 'FIXED' || i.status === 'CLOSED')
+    ).length;
 
     return {
-      open: deptIssues.filter((i) => i.status !== 'FIXED' && i.status !== 'CLOSED').length,
-      assignedToMe: deptIssues.filter(
-        (i) => i.assignee?.id === currentUser.id && i.status !== 'FIXED' && i.status !== 'CLOSED'
-      ).length,
-      reportedByMe: deptIssues.filter((i) => i.reporter.id === currentUser.id).length,
-      starred: deptIssues.filter((i) => i.starred).length,
-      closed: deptIssues.filter((i) => i.status === 'FIXED' || i.status === 'CLOSED').length,
+      open: openInUserDept,
+      assignedToMe,
+      reportedByMe,
+      starred,
+      closed: closedInUserDept,
     };
-  }, [issues, selectedDepartment, currentUser]);
+  }, [issues, departments, currentUser]);
 
   return (
     <IssueContext.Provider

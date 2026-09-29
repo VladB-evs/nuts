@@ -1,6 +1,7 @@
 import {
   Department,
   Issue,
+  UserProfile,
   Environment,
   DevScope,
   MarketingChannel,
@@ -10,6 +11,30 @@ import {
   OpsCategory,
   ImpactLevel,
 } from '../types';
+
+export const getUserDepartmentId = (
+  user?: UserProfile | null,
+  departments: Department[] = []
+): string => {
+  if (!user || !user.department) return departments[0]?.id || 'engineering';
+  const target = user.department.trim().toLowerCase();
+
+  const matched = departments.find((d) => {
+    const dId = d.id.toLowerCase();
+    const dName = d.name.toLowerCase();
+    const dCode = d.code.toLowerCase();
+    return (
+      dId === target ||
+      dName === target ||
+      dCode === target ||
+      target.includes(dName) ||
+      target.includes(dId) ||
+      dName.includes(target)
+    );
+  });
+
+  return matched ? matched.id : departments[0]?.id || 'engineering';
+};
 
 export type DepartmentRuleKind = 'engineering' | 'marketing' | 'sales' | 'operations' | 'general';
 
