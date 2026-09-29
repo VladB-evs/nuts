@@ -21,8 +21,12 @@ import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 interface IssueContextType {
   issues: Issue[];
   departments: Department[];
+  users: UserProfile[];
   currentUser: UserProfile;
   setCurrentUser: (user: UserProfile) => void;
+  updateUserProfile: (userId: string, updates: Partial<UserProfile>) => void;
+  isProfileModalOpen: boolean;
+  setIsProfileModalOpen: (open: boolean) => void;
   selectedDepartment: string;
   setSelectedDepartment: (deptId: string) => void;
   navView: NavView;
@@ -73,8 +77,10 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v5';
-const STORAGE_DEPTS = 'nuts_depts_v5';
+const STORAGE_KEY = 'nuts_issues_v6';
+const STORAGE_DEPTS = 'nuts_depts_v6';
+const STORAGE_USERS = 'nuts_users_v6';
+const STORAGE_CURRENT_USER = 'nuts_current_user_v6';
 
 const getFieldLabel = (key: string): string => {
   const labels: Record<string, string> = {
@@ -98,6 +104,9 @@ const getFieldLabel = (key: string): string => {
 
 const formatValueForHistory = (key: string, val: any, departments?: Department[]): string => {
   if (val === null || val === undefined || val === '') return 'None';
+  if (key === 'assignee' && typeof val === 'object' && 'name' in val) {
+    return val.nickname ? `${val.name} (@${val.nickname})` : val.name;
+  }
   if (typeof val === 'object' && 'name' in val) return val.name;
   if (key === 'departmentId' && departments) {
     const dept = departments.find((d) => d.id === val);
@@ -121,6 +130,34 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_USERS);
+      return saved ? JSON.parse(saved) : USERS;
+    } catch {
+      return USERS;
+    }
+  });
+
+  const [currentUser, setCurrentUserState] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_CURRENT_USER);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const matched = USERS.find((u) => u.id === parsed.id);
+        return { ...matched, ...parsed };
+      }
+      return USERS[1]; // Alex Rivera
+    } catch {
+      return USERS[1];
+    }
+  });
+
+  const setCurrentUser = (user: UserProfile) => {
+    setCurrentUserState(user);
+    localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+  };
+
   const [issues, setIssues] = useState<Issue[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -130,7 +167,6 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [currentUser, setCurrentUser] = useState<UserProfile>(USERS[1]); // Alex Rivera
   const [selectedDepartment, setSelectedDepartmentState] = useState<string>('all');
   const [navView, setNavView] = useState<NavView>('open');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
@@ -138,6 +174,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [subFilter, setSubFilter] = useState('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const setSelectedDepartment = (deptId: string) => {
     setSelectedDepartmentState(deptId);
@@ -151,6 +188,78 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem(STORAGE_DEPTS, JSON.stringify(departments));
   }, [departments]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+  }, [users]);
+
+  const updateUserProfile = (userId: string, updates: Partial<UserProfile>) => {
+    setUsers((prevUsers) => {
+      const nextUsers = prevUsers.map((u) => {
+        if (u.id === userId) {
+          return { ...u, ...updates };
+        }
+        return u;
+      });
+      localStorage.setItem(STORAGE_USERS, JSON.stringify(nextUsers));
+      return nextUsers;
+    });
+
+    setCurrentUserState((prev) => {
+      if (prev.id === userId) {
+        const next = { ...prev, ...updates };
+        localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(next));
+        return next;
+      }
+      return prev;
+    });
+
+    setIssues((prevIssues) =>
+      prevIssues.map((iss) => {
+        let changed = false;
+        let newAssignee = iss.assignee;
+        let newReporter = iss.reporter;
+        let newComments = iss.comments;
+        let newHistory = iss.history;
+
+        if (iss.assignee && iss.assignee.id === userId) {
+          newAssignee = { ...iss.assignee, ...updates };
+          changed = true;
+        }
+        if (iss.reporter && iss.reporter.id === userId) {
+          newReporter = { ...iss.reporter, ...updates };
+          changed = true;
+        }
+        if (iss.comments && iss.comments.some((c) => c.author.id === userId)) {
+          newComments = iss.comments.map((c) =>
+            c.author.id === userId ? { ...c, author: { ...c.author, ...updates } } : c
+          );
+          changed = true;
+        }
+        if (iss.history && iss.history.some((h) => h.actor.id === userId)) {
+          newHistory = iss.history.map((h) =>
+            h.actor.id === userId ? { ...h, actor: { ...h.actor, ...updates } } : h
+          );
+          changed = true;
+        }
+
+        if (changed) {
+          const updated: Issue = {
+            ...iss,
+            assignee: newAssignee,
+            reporter: newReporter,
+            comments: newComments,
+            history: newHistory,
+          };
+          if (selectedIssue && selectedIssue.id === iss.id) {
+            setSelectedIssue(updated);
+          }
+          return updated;
+        }
+        return iss;
+      })
+    );
+  };
 
   const createIssue = (data: {
     title: string;
@@ -170,7 +279,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const dept = departments.find((d) => d.id === data.departmentId) || departments[0];
     const maxNum = issues.reduce((max, i) => Math.max(max, i.number || 100), 100);
     const newNum = maxNum + 1;
-    const assignee = USERS.find((u) => u.id === data.assigneeId) || null;
+    const assignee = users.find((u) => u.id === data.assigneeId) || null;
 
     const isEng = dept.id === 'engineering' || dept.id === 'product';
     const now = new Date().toISOString();
@@ -401,8 +510,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const matchesNum = String(issue.number).includes(q);
         const matchesTitle = issue.title.toLowerCase().includes(q);
         const matchesDesc = issue.description.toLowerCase().includes(q);
-        const matchesAssignee = issue.assignee?.name.toLowerCase().includes(q);
-        const matchesReporter = issue.reporter.name.toLowerCase().includes(q);
+        const matchesAssignee =
+          issue.assignee?.name.toLowerCase().includes(q) ||
+          issue.assignee?.nickname?.toLowerCase().includes(q) ||
+          issue.assignee?.role?.toLowerCase().includes(q);
+        const matchesReporter =
+          issue.reporter.name.toLowerCase().includes(q) ||
+          issue.reporter.nickname?.toLowerCase().includes(q) ||
+          issue.reporter.role?.toLowerCase().includes(q);
         const matchesDeptTag =
           issue.environment?.toLowerCase().includes(q) ||
           issue.marketingChannel?.toLowerCase().includes(q) ||
@@ -450,8 +565,12 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       value={{
         issues,
         departments,
+        users,
         currentUser,
         setCurrentUser,
+        updateUserProfile,
+        isProfileModalOpen,
+        setIsProfileModalOpen,
         selectedDepartment,
         setSelectedDepartment,
         navView,

@@ -2,6 +2,7 @@ import React from 'react';
 import { useIssues } from '../context/TicketContext';
 import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges } from '../lib/departmentRules';
+import { UserAvatar } from './UserAvatar';
 import { Star, Plus } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
@@ -249,8 +250,23 @@ export const IssueTable: React.FC = () => {
                     <td className="py-2.5 px-3">{getStatusBadge(issue.status)}</td>
 
                     {/* Assignee */}
-                    <td className="py-2.5 px-3 text-gray-700 hidden sm:table-cell truncate">
-                      {issue.assignee?.name || <span className="text-gray-400 font-mono">—</span>}
+                    <td className="py-2.5 px-3 text-gray-700 hidden sm:table-cell">
+                      {issue.assignee ? (
+                        <div
+                          className="flex items-center gap-1.5 truncate"
+                          title={`${issue.assignee.name} ${issue.assignee.nickname ? `(@${issue.assignee.nickname})` : ''} — ${issue.assignee.role || issue.assignee.department}`}
+                        >
+                          <UserAvatar user={issue.assignee} size="xs" />
+                          <span className="truncate">{issue.assignee.name}</span>
+                          {issue.assignee.nickname && (
+                            <span className="text-[10px] text-gray-400 font-mono hidden xl:inline">
+                              @{issue.assignee.nickname}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 font-mono">—</span>
+                      )}
                     </td>
 
                     {/* Modified */}

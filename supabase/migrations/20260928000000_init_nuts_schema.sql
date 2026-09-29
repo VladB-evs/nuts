@@ -14,14 +14,22 @@ CREATE TABLE IF NOT EXISTS public.departments (
 );
 
 -- 2. USER PROFILES (Linked with Supabase Auth)
+-- Stores nicknames, department-specific roles, and external avatar image links
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT NOT NULL,
     name TEXT NOT NULL,
-    department TEXT DEFAULT 'Engineering',
+    nickname TEXT UNIQUE,
+    role TEXT NOT NULL DEFAULT 'Member',
+    department TEXT NOT NULL DEFAULT 'Engineering',
+    avatar_url TEXT, -- External image link only (no storage upload/bucket required)
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_profiles_department ON public.profiles(department);
+CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON public.profiles(nickname);
 
 -- 3. ISSUES / TICKETS
 CREATE TABLE IF NOT EXISTS public.issues (
@@ -95,6 +103,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS set_issues_updated_at ON public.issues;
 CREATE TRIGGER set_issues_updated_at
 BEFORE UPDATE ON public.issues
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS set_profiles_updated_at ON public.profiles;
+CREATE TRIGGER set_profiles_updated_at
+BEFORE UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
@@ -178,15 +192,29 @@ AFTER UPDATE ON public.issues
 FOR EACH ROW EXECUTE FUNCTION public.track_issue_changes();
 
 -- 9. NEW USER TRIGGER
+-- Automatically sets up new user profile with role, nickname, and avatar from auth metadata
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, name, department)
+    INSERT INTO public.profiles (
+        id,
+        email,
+        name,
+        nickname,
+        role,
+        department,
+        avatar_url,
+        is_admin
+    )
     VALUES (
         NEW.id,
         NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-        'Engineering'
+        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+        LOWER(COALESCE(NEW.raw_user_meta_data->>'nickname', split_part(NEW.email, '@', 1))),
+        COALESCE(NEW.raw_user_meta_data->>'role', 'Member'),
+        COALESCE(NEW.raw_user_meta_data->>'department', 'Engineering'),
+        NEW.raw_user_meta_data->>'avatar_url',
+        COALESCE((NEW.raw_user_meta_data->>'is_admin')::boolean, FALSE)
     );
     RETURN NEW;
 END;
@@ -204,17 +232,78 @@ ALTER TABLE public.issues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.issue_history ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow authenticated read departments" ON public.departments FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+-- 10.1 DEPARTMENTS POLICIES
+CREATE POLICY "Allow authenticated read departments"
+ON public.departments
+FOR SELECT
+TO authenticated
+USING (true);
 
-CREATE POLICY "Allow authenticated read issues" ON public.issues FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated insert issues" ON public.issues FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
-CREATE POLICY "Allow authenticated update issues" ON public.issues FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "Allow authenticated delete issues" ON public.issues FOR DELETE TO authenticated USING (true);
+-- 10.2 PROFILES & ROLES VISIBILITY POLICIES
+-- Any authenticated organization member can view teammates' profiles, roles, and nicknames
+CREATE POLICY "Allow authenticated team members to view all profiles and roles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (true);
 
-CREATE POLICY "Allow authenticated manage comments" ON public.comments FOR ALL TO authenticated USING (true);
-CREATE POLICY "Allow authenticated manage issue_history" ON public.issue_history FOR ALL TO authenticated USING (true);
+-- Users can update their own personal info (name, nickname, external avatar link)
+CREATE POLICY "Allow users to update their own profile details"
+ON public.profiles
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
+
+-- Admins or Team Leads can manage and update any profile (e.g. promoting roles or moving departments)
+CREATE POLICY "Allow admins to manage all member roles and profiles"
+ON public.profiles
+FOR ALL
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid() AND (is_admin = TRUE OR role ILIKE '%Admin%' OR role ILIKE '%Lead%')
+    )
+);
+
+-- 10.3 ISSUES POLICIES
+CREATE POLICY "Allow authenticated read issues"
+ON public.issues
+FOR SELECT
+TO authenticated
+USING (true);
+
+CREATE POLICY "Allow authenticated insert issues"
+ON public.issues
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Allow authenticated update issues"
+ON public.issues
+FOR UPDATE
+TO authenticated
+USING (true);
+
+CREATE POLICY "Allow authenticated delete issues"
+ON public.issues
+FOR DELETE
+TO authenticated
+USING (true);
+
+-- 10.4 COMMENTS & AUDIT HISTORY POLICIES
+CREATE POLICY "Allow authenticated manage comments"
+ON public.comments
+FOR ALL
+TO authenticated
+USING (true);
+
+CREATE POLICY "Allow authenticated manage issue_history"
+ON public.issue_history
+FOR ALL
+TO authenticated
+USING (true);
 
 -- 11. DEFAULT DEPARTMENTS SEED
 INSERT INTO public.departments (id, name, code)

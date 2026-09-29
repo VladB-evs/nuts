@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Copy, Check, X } from 'lucide-react';
+import { Database, Copy, Check, X, ShieldCheck, UserCheck } from 'lucide-react';
 
 interface SupabaseModalProps {
   isOpen: boolean;
@@ -33,9 +33,9 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
           </button>
         </div>
 
-        <div className="p-5 space-y-4 text-gray-700 leading-relaxed">
+        <div className="p-5 space-y-4 text-gray-700 leading-relaxed max-h-[80vh] overflow-y-auto">
           <p>
-            When you're ready to deploy your Supabase database and enable email/password authentication, your production SQL migration is ready in the repository:
+            When you're ready to deploy your Supabase database and enable email/password authentication, your production SQL migration is ready:
           </p>
 
           <div className="p-3 bg-gray-50 border border-gray-200 rounded font-mono text-[11px] flex items-center justify-between">
@@ -49,12 +49,34 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
             </button>
           </div>
 
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded space-y-2 text-[11px]">
+            <div className="flex items-center gap-1.5 font-semibold text-gray-900">
+              <UserCheck className="w-3.5 h-3.5 text-black" />
+              <span>Profiles & Roles Included</span>
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-gray-600">
+              <li><code className="bg-white px-1 border rounded text-gray-800">nickname</code> (unique team handle)</li>
+              <li><code className="bg-white px-1 border rounded text-gray-800">role</code> (e.g. Lead Growth Marketer, Senior FE Engineer)</li>
+              <li><code className="bg-white px-1 border rounded text-gray-800">avatar_url</code> (external image links — no upload/storage buckets)</li>
+            </ul>
+
+            <div className="flex items-center gap-1.5 font-semibold text-gray-900 pt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Row Level Security (RLS)</span>
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-gray-600">
+              <li>Team members can see all profiles and department roles.</li>
+              <li>Users can edit their own profile (name, nickname, avatar link).</li>
+              <li>Admins/Leads can manage roles and member privileges.</li>
+            </ul>
+          </div>
+
           <div className="space-y-2 text-xs">
-            <p className="font-medium text-gray-900">How to run:</p>
+            <p className="font-medium text-gray-900">How to deploy:</p>
             <ol className="list-decimal list-inside space-y-1 text-gray-600">
               <li>Open your Supabase project dashboard → SQL Editor.</li>
-              <li>Paste the contents of <code className="bg-gray-100 px-1 rounded text-black">20260928000000_init_nuts_schema.sql</code> and click Run.</li>
-              <li>Add your <code className="bg-gray-100 px-1 rounded text-black">VITE_SUPABASE_URL</code> and <code className="bg-gray-100 px-1 rounded text-black">VITE_SUPABASE_ANON_KEY</code> to your <code className="bg-gray-100 px-1 rounded text-black">.env</code> file.</li>
+              <li>Paste the contents of <code className="bg-gray-100 px-1 rounded text-black font-mono">20260928000000_init_nuts_schema.sql</code> and click Run.</li>
+              <li>Add your <code className="bg-gray-100 px-1 rounded text-black font-mono">VITE_SUPABASE_URL</code> and <code className="bg-gray-100 px-1 rounded text-black font-mono">VITE_SUPABASE_ANON_KEY</code> to your <code className="bg-gray-100 px-1 rounded text-black font-mono">.env</code> file.</li>
             </ol>
           </div>
 

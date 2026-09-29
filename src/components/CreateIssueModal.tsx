@@ -21,7 +21,6 @@ import {
   OPS_CATEGORIES,
   IMPACT_LEVELS,
 } from '../lib/departmentRules';
-import { USERS } from '../data/mockData';
 import { X, SlidersHorizontal } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
@@ -31,6 +30,7 @@ export const CreateIssueModal: React.FC = () => {
     departments,
     selectedDepartment,
     createIssue,
+    users,
   } = useIssues();
 
   const [title, setTitle] = useState('');
@@ -420,9 +420,9 @@ export const CreateIssueModal: React.FC = () => {
               className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
             >
               <option value="unassigned">Unassigned</option>
-              {USERS.map((u) => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} ({u.department})
+                  {u.name} {u.nickname ? `(@${u.nickname})` : ''} — {u.role || u.department}
                 </option>
               ))}
             </select>

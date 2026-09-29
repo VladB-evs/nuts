@@ -24,7 +24,7 @@ import {
   OPS_CATEGORIES,
   IMPACT_LEVELS,
 } from '../lib/departmentRules';
-import { USERS } from '../data/mockData';
+import { UserAvatar } from './UserAvatar';
 import { formatDateTime, timeAgo } from '../lib/utils';
 import {
   ArrowLeft,
@@ -47,6 +47,7 @@ export const IssueDetail: React.FC = () => {
     deleteIssue,
     departments,
     currentUser,
+    users,
   } = useIssues();
 
   const [commentText, setCommentText] = useState('');
@@ -198,7 +199,21 @@ export const IssueDetail: React.FC = () => {
                 </span>
               ))}
               <span>•</span>
-              <span>Reported by {selectedIssue.reporter.name}</span>
+              <div className="inline-flex items-center gap-1.5 font-sans">
+                <span className="text-gray-400 font-mono text-[11px]">Reported by</span>
+                <UserAvatar user={selectedIssue.reporter} size="xs" />
+                <span className="font-semibold text-gray-900">{selectedIssue.reporter.name}</span>
+                {selectedIssue.reporter.nickname && (
+                  <span className="text-gray-400 font-mono text-[10px]">
+                    @{selectedIssue.reporter.nickname}
+                  </span>
+                )}
+                {selectedIssue.reporter.role && (
+                  <span className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1 py-0.2 rounded font-mono">
+                    {selectedIssue.reporter.role}
+                  </span>
+                )}
+              </div>
               <span>•</span>
               <span>{formatDateTime(selectedIssue.createdAt)}</span>
             </div>
@@ -273,26 +288,34 @@ export const IssueDetail: React.FC = () => {
                     return (
                       <div
                         key={item.id}
-                        className="p-3.5 rounded-md border border-gray-200 bg-white text-xs space-y-1.5 shadow-2xs"
+                        className="p-3.5 rounded-md border border-gray-200 bg-white text-xs space-y-2 shadow-2xs"
                       >
-                        <div className="flex items-center justify-between text-gray-500 font-mono text-[11px] flex-wrap gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">
+                        <div className="flex items-center justify-between text-gray-500 font-mono text-[11px] flex-wrap gap-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <UserAvatar user={comment.author} size="xs" />
+                            <span className="font-semibold text-gray-900 font-sans">
                               {comment.author.name}
                             </span>
-                            <span>({comment.author.department})</span>
+                            {comment.author.nickname && (
+                              <span className="text-gray-400 font-mono text-[10px]">
+                                @{comment.author.nickname}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.2 rounded font-mono">
+                              {comment.author.role ? `${comment.author.role} • ${comment.author.department}` : comment.author.department}
+                            </span>
                             {comment.statusChange && (
-                              <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
+                              <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium text-[10px] font-mono">
                                 {comment.statusChange}
                               </span>
                             )}
                           </div>
-                          <span title={formatDateTime(comment.createdAt)}>
+                          <span title={formatDateTime(comment.createdAt)} className="text-gray-400 text-[10px]">
                             {timeAgo(comment.createdAt)}
                           </span>
                         </div>
                         {comment.text && (
-                          <p className="text-gray-800 leading-relaxed font-sans pl-1 whitespace-pre-wrap">
+                          <p className="text-gray-800 leading-relaxed font-sans pl-6 whitespace-pre-wrap">
                             {comment.text}
                           </p>
                         )}
@@ -306,17 +329,22 @@ export const IssueDetail: React.FC = () => {
                       key={item.id}
                       className="px-3.5 py-2.5 rounded-md border border-gray-200 bg-gray-50/70 text-xs flex items-start gap-2.5 transition-colors hover:bg-gray-50"
                     >
-                      <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center shrink-0 mt-0.5 text-gray-600">
-                        <History className="w-3 h-3" />
+                      <div className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5">
+                        <UserAvatar user={hist.actor} size="xs" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between text-[11px] font-mono text-gray-500 mb-1 flex-wrap gap-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-semibold text-gray-900">
+                            <span className="font-semibold text-gray-900 font-sans">
                               {hist.actor.name}
                             </span>
-                            <span className="text-gray-400">
-                              ({hist.actor.department})
+                            {hist.actor.nickname && (
+                              <span className="text-gray-400 font-mono text-[10px]">
+                                @{hist.actor.nickname}
+                              </span>
+                            )}
+                            <span className="text-gray-400 text-[10px]">
+                              ({hist.actor.role ? `${hist.actor.role}, ${hist.actor.department}` : hist.actor.department})
                             </span>
                             <span className="text-gray-600">
                               {hist.field === 'Issue'
@@ -625,31 +653,60 @@ export const IssueDetail: React.FC = () => {
           {/* Assignee */}
           <div className="space-y-1.5">
             <label className="block text-[11px] font-mono text-gray-500">Assignee</label>
+            {selectedIssue.assignee && (
+              <div className="p-2 bg-white border border-gray-200 rounded flex items-center gap-2 mb-1.5 shadow-2xs">
+                <UserAvatar user={selectedIssue.assignee} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-900 text-xs truncate">
+                      {selectedIssue.assignee.name}
+                    </span>
+                    {selectedIssue.assignee.nickname && (
+                      <span className="text-gray-400 font-mono text-[10px]">
+                        @{selectedIssue.assignee.nickname}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-mono truncate">
+                    {selectedIssue.assignee.role || 'Member'} • {selectedIssue.assignee.department}
+                  </p>
+                </div>
+              </div>
+            )}
             <select
               value={selectedIssue.assignee?.id || 'unassigned'}
               onChange={(e) => {
-                const u = USERS.find((user) => user.id === e.target.value) || null;
+                const u = users.find((user) => user.id === e.target.value) || null;
                 updateIssue(selectedIssue.id, {
                   assignee: u,
                   status: selectedIssue.status === 'NEW' && u ? 'ASSIGNED' : selectedIssue.status,
                 });
               }}
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer text-xs"
             >
               <option value="unassigned">Unassigned</option>
-              {USERS.map((u) => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} ({u.department})
+                  {u.name} {u.nickname ? `(@${u.nickname})` : ''} — {u.role || u.department}
                 </option>
               ))}
             </select>
           </div>
 
           {/* Meta Info */}
-          <div className="pt-4 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-1.5">
-            <p>
-              Reporter: <strong className="text-gray-800">{selectedIssue.reporter.name}</strong>
-            </p>
+          <div className="pt-4 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Reporter:</span>
+              <UserAvatar user={selectedIssue.reporter} size="xs" />
+              <span className="font-semibold text-gray-800 font-sans">
+                {selectedIssue.reporter.name}
+              </span>
+              {selectedIssue.reporter.nickname && (
+                <span className="text-gray-400 font-mono text-[10px]">
+                  @{selectedIssue.reporter.nickname}
+                </span>
+              )}
+            </div>
             <p>Created: {formatDateTime(selectedIssue.createdAt)}</p>
             <p>Modified: {formatDateTime(selectedIssue.updatedAt)}</p>
             <p>

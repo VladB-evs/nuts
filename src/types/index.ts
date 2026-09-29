@@ -61,9 +61,12 @@ export type ImpactLevel =
 export interface UserProfile {
   id: string;
   name: string;
+  nickname?: string;
   email: string;
   avatar?: string;
+  avatarUrl?: string;
   department: string;
+  role?: string;
 }
 
 export interface Department {

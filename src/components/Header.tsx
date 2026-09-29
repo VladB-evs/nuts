@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { USERS } from '../data/mockData';
-import { Search, Plus, Database, Check } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
+import { Search, Plus, Database, Check, UserCog, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
   onOpenSupabase: () => void;
@@ -13,8 +13,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
     setSearchQuery,
     currentUser,
     setCurrentUser,
+    users,
     setIsCreateModalOpen,
     setSelectedIssue,
+    setIsProfileModalOpen,
   } = useIssues();
 
   const [userDropdown, setUserDropdown] = useState(false);
@@ -43,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search issues by ID, title, or assignee..."
+            placeholder="Search by ID, title, @nickname, role, or assignee..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-gray-500 transition-colors"
@@ -57,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
         <button
           onClick={onOpenSupabase}
           className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-          title="Supabase Migration Info"
+          title="Supabase Migration & RLS Info"
         >
           <Database className="w-3.5 h-3.5 text-gray-500" />
           <span className="font-mono text-[11px]">Supabase SQL</span>
@@ -72,16 +74,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
           <span>New Issue</span>
         </button>
 
-        {/* Current user switch */}
+        {/* Current user & Profile Switcher */}
         <div className="relative">
           <button
             onClick={() => setUserDropdown(!userDropdown)}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-colors text-xs text-gray-700"
+            className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-colors text-xs text-gray-700"
           >
-            <div className="w-6 h-6 rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center font-medium text-[11px] text-gray-800">
-              {currentUser.name[0]}
+            <UserAvatar user={currentUser} size="sm" />
+            <div className="hidden md:flex flex-col text-left leading-tight">
+              <span className="font-medium text-gray-900 text-xs">
+                {currentUser.name}
+              </span>
+              <span className="text-[10px] text-gray-500 font-mono">
+                {currentUser.nickname ? `@${currentUser.nickname}` : currentUser.department}
+              </span>
             </div>
-            <span className="hidden md:inline font-medium">{currentUser.name}</span>
+            <ChevronDown className="w-3 h-3 text-gray-400 ml-0.5" />
           </button>
 
           {userDropdown && (
@@ -90,26 +98,76 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
                 className="fixed inset-0 z-40"
                 onClick={() => setUserDropdown(false)}
               />
-              <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-1 text-xs">
-                <div className="px-2.5 py-1.5 border-b border-gray-100 text-gray-500 text-[10px] uppercase font-mono">
+              <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2 text-xs animate-fade-in">
+                {/* Active Profile Info */}
+                <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-md mb-2 space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <UserAvatar user={currentUser} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900 truncate">{currentUser.name}</p>
+                      {currentUser.nickname && (
+                        <p className="text-[11px] text-gray-500 font-mono truncate">
+                          @{currentUser.nickname}
+                        </p>
+                      )}
+                      <p className="text-[10px] font-semibold text-gray-700 bg-white border border-gray-300 px-1.5 py-0.5 rounded inline-block mt-1 font-mono truncate max-w-full">
+                        {currentUser.role || 'Member'} • {currentUser.department}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setUserDropdown(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-black text-white hover:bg-gray-800 rounded font-medium text-xs transition-colors shadow-2xs"
+                  >
+                    <UserCog className="w-3.5 h-3.5" />
+                    <span>Edit Profile & Avatar</span>
+                  </button>
+                </div>
+
+                {/* Persona Switcher */}
+                <div className="px-2 py-1 text-gray-400 text-[10px] uppercase font-mono font-semibold">
                   Switch Persona
                 </div>
-                {USERS.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => {
-                      setCurrentUser(u);
-                      setUserDropdown(false);
-                    }}
-                    className="w-full flex items-center justify-between p-2 rounded hover:bg-gray-50 text-left"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">{u.name}</p>
-                      <p className="text-[10px] text-gray-500">{u.department}</p>
-                    </div>
-                    {currentUser.id === u.id && <Check className="w-3.5 h-3.5 text-black" />}
-                  </button>
-                ))}
+                <div className="max-h-56 overflow-y-auto space-y-0.5">
+                  {users.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => {
+                        setCurrentUser(u);
+                        setUserDropdown(false);
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded text-left transition-colors ${
+                        currentUser.id === u.id
+                          ? 'bg-gray-100 font-semibold text-gray-900'
+                          : 'hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <UserAvatar user={u} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1">
+                            <p className="font-medium text-gray-900 truncate">{u.name}</p>
+                            {u.nickname && (
+                              <span className="text-[10px] text-gray-400 font-mono">
+                                @{u.nickname}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-500 truncate">
+                            {u.role ? `${u.role} (${u.department})` : u.department}
+                          </p>
+                        </div>
+                      </div>
+                      {currentUser.id === u.id && (
+                        <Check className="w-3.5 h-3.5 text-black shrink-0 ml-1.5" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
