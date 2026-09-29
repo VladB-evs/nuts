@@ -1,27 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
-import {
-  Priority,
-  Environment,
-  DevScope,
-  MarketingChannel,
-  DeliverableType,
-  DealSegment,
-  DealStage,
-  OpsCategory,
-  ImpactLevel,
-} from '../types';
-import {
-  getDepartmentRuleKind,
-  ENVIRONMENTS,
-  MARKETING_CHANNELS,
-  DELIVERABLE_TYPES,
-  DEAL_SEGMENTS,
-  DEAL_STAGES,
-  OPS_CATEGORIES,
-  IMPACT_LEVELS,
-} from '../lib/departmentRules';
-import { X, SlidersHorizontal } from 'lucide-react';
+import { Priority, CustomFieldDefinition } from '../types';
+import { X, SlidersHorizontal, Settings2 } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
   const {
@@ -31,6 +11,7 @@ export const CreateIssueModal: React.FC = () => {
     selectedDepartment,
     createIssue,
     users,
+    openDepartmentModal,
   } = useIssues();
 
   const [title, setTitle] = useState('');
@@ -39,22 +20,12 @@ export const CreateIssueModal: React.FC = () => {
   const [priority, setPriority] = useState<Priority>('P2');
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
 
-  // Engineering specific fields
-  const [environment, setEnvironment] = useState<Environment>('LOCAL');
+  // Dynamic custom attribute values: { [fieldId]: value }
+  const [customValues, setCustomValues] = useState<Record<string, any>>({});
+
+  // Engineering specific layer checkboxes
   const [isFrontend, setIsFrontend] = useState(true);
   const [isBackend, setIsBackend] = useState(false);
-
-  // Marketing specific fields
-  const [marketingChannel, setMarketingChannel] = useState<MarketingChannel>('Social Media');
-  const [deliverableType, setDeliverableType] = useState<DeliverableType>('Copy & Blog');
-
-  // Sales specific fields
-  const [dealSegment, setDealSegment] = useState<DealSegment>('Enterprise');
-  const [dealStage, setDealStage] = useState<DealStage>('Discovery & Demo');
-
-  // Operations specific fields
-  const [opsCategory, setOpsCategory] = useState<OpsCategory>('IT & Access');
-  const [impactLevel, setImpactLevel] = useState<ImpactLevel>('Company-wide');
 
   // Synchronize department when modal opens based on which department view is active
   useEffect(() => {
@@ -67,20 +38,49 @@ export const CreateIssueModal: React.FC = () => {
     }
   }, [isCreateModalOpen, selectedDepartment, departments]);
 
+  // Synchronize initial custom fields whenever departmentId changes
+  useEffect(() => {
+    const dept = departments.find((d) => d.id === departmentId);
+    if (dept?.customFields && dept.customFields.length > 0) {
+      const initial: Record<string, any> = {};
+      dept.customFields.forEach((f) => {
+        if (f.defaultValue) {
+          initial[f.id] = f.defaultValue;
+        } else if (f.type === 'select' && f.options && f.options.length > 0) {
+          initial[f.id] = f.options[0];
+        } else {
+          initial[f.id] = '';
+        }
+      });
+      setCustomValues(initial);
+    } else {
+      setCustomValues({});
+    }
+    setIsFrontend(true);
+    setIsBackend(false);
+  }, [departmentId, departments]);
+
   if (!isCreateModalOpen) return null;
 
   const currentDept = departments.find((d) => d.id === departmentId) || departments[0];
-  const currentRuleKind = getDepartmentRuleKind(departmentId, departments);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    let devScope: DevScope | undefined = undefined;
-    if (currentRuleKind === 'engineering') {
-      if (isFrontend && isBackend) devScope = 'both';
-      else if (isFrontend) devScope = 'frontend';
-      else if (isBackend) devScope = 'backend';
+    const finalCustomAttrs = { ...customValues };
+
+    // If department has devScope field, compute from frontend/backend checkboxes
+    const hasDevScope = currentDept?.customFields?.some((f) => f.id === 'devScope');
+    if (hasDevScope) {
+      finalCustomAttrs.devScope =
+        isFrontend && isBackend
+          ? 'Both (Frontend + Backend)'
+          : isFrontend
+          ? 'Frontend only'
+          : isBackend
+          ? 'Backend only'
+          : 'None';
     }
 
     createIssue({
@@ -88,14 +88,15 @@ export const CreateIssueModal: React.FC = () => {
       description: description.trim(),
       departmentId,
       priority,
-      environment: currentRuleKind === 'engineering' ? environment : undefined,
-      devScope: currentRuleKind === 'engineering' ? devScope : undefined,
-      marketingChannel: currentRuleKind === 'marketing' ? marketingChannel : undefined,
-      deliverableType: currentRuleKind === 'marketing' ? deliverableType : undefined,
-      dealSegment: currentRuleKind === 'sales' ? dealSegment : undefined,
-      dealStage: currentRuleKind === 'sales' ? dealStage : undefined,
-      opsCategory: currentRuleKind === 'operations' ? opsCategory : undefined,
-      impactLevel: currentRuleKind === 'operations' ? impactLevel : undefined,
+      customAttributes: finalCustomAttrs,
+      environment: finalCustomAttrs.environment,
+      devScope: isFrontend && isBackend ? 'both' : isFrontend ? 'frontend' : isBackend ? 'backend' : undefined,
+      marketingChannel: finalCustomAttrs.marketingChannel,
+      deliverableType: finalCustomAttrs.deliverableType,
+      dealSegment: finalCustomAttrs.dealSegment,
+      dealStage: finalCustomAttrs.dealStage,
+      opsCategory: finalCustomAttrs.opsCategory,
+      impactLevel: finalCustomAttrs.impactLevel,
       assigneeId: assigneeId !== 'unassigned' ? assigneeId : undefined,
     });
 
@@ -103,7 +104,6 @@ export const CreateIssueModal: React.FC = () => {
     setDescription('');
     setIsFrontend(true);
     setIsBackend(false);
-    setEnvironment('LOCAL');
     setIsCreateModalOpen(false);
   };
 
@@ -116,7 +116,7 @@ export const CreateIssueModal: React.FC = () => {
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[90vh] flex flex-col font-sans">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export const CreateIssueModal: React.FC = () => {
           </div>
           <button
             onClick={() => setIsCreateModalOpen(false)}
-            className="text-gray-400 hover:text-black p-1 rounded"
+            className="text-gray-400 hover:text-black p-1 rounded hover:bg-gray-200 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -137,41 +137,53 @@ export const CreateIssueModal: React.FC = () => {
 
         {/* Body Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
+          {/* Issue Title */}
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Title *</label>
+            <label className="block text-gray-700 font-semibold mb-1">Issue Title *</label>
             <input
               type="text"
               required
-              autoFocus
-              placeholder="Brief summary of the issue or task..."
+              placeholder="Concise summary of the problem or request"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black font-sans text-xs"
+              className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black font-medium"
             />
           </div>
 
+          {/* Department and Priority */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-gray-700 font-medium mb-1">Department / Component *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-gray-700 font-medium">Component *</label>
+                <button
+                  type="button"
+                  onClick={() => openDepartmentModal(departmentId)}
+                  className="text-[10px] text-gray-500 hover:text-black flex items-center gap-1 font-mono"
+                  title="Customize this component's properties"
+                >
+                  <Settings2 className="w-2.5 h-2.5" />
+                  <span>Customize</span>
+                </button>
+              </div>
               <select
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
                 className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer font-medium"
               >
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name} ({dept.code})
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-gray-700 font-medium mb-1">Priority *</label>
+              <label className="block text-gray-700 font-medium mb-1">Priority</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer font-mono"
+                className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer font-mono"
               >
                 <option value="P0">P0 — Blocker</option>
                 <option value="P1">P1 — Critical</option>
@@ -181,243 +193,131 @@ export const CreateIssueModal: React.FC = () => {
             </div>
           </div>
 
-          {/* ======================================================== */}
-          {/* DEPARTMENT SPECIFIC RULES                                */}
-          {/* Automatically adapts when departmentId changes           */}
-          {/* ======================================================== */}
-
-          {/* 1. ENGINEERING / TECH RULES */}
-          {currentRuleKind === 'engineering' && (
-            <div className="space-y-3 p-3 bg-gray-50/90 rounded border border-gray-200 animate-fade-in">
-              <div className="flex items-center justify-between pb-1 border-b border-gray-200">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-800 font-bold flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3 h-3 text-gray-500" />
-                  {currentDept.name} Rules ({currentDept.code})
-                </span>
-                <span className="text-[10px] font-mono text-gray-500 bg-white border border-gray-200 px-1.5 py-0.2 rounded">
-                  Environment & Layer
-                </span>
-              </div>
-
-              {/* Environment Stage */}
-              <div>
-                <label className="block text-gray-700 font-medium mb-1.5 text-[11px]">
-                  Environment Stage *
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {ENVIRONMENTS.map((env) => (
-                    <button
-                      type="button"
-                      key={env}
-                      onClick={() => setEnvironment(env)}
-                      className={`py-1.5 px-3 rounded border text-center font-mono font-medium transition-colors ${
-                        environment === env
-                          ? 'bg-black text-white border-black shadow-xs'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {env}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dev Layer checkboxes */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-gray-700 font-medium text-[11px]">
-                    Development Layer
-                  </label>
-                  <span className="text-[11px] font-mono text-gray-500 font-medium">
-                    {isFrontend && isBackend
-                      ? 'Both (Fullstack)'
-                      : isFrontend
-                      ? 'Frontend only'
-                      : isBackend
-                      ? 'Backend only'
-                      : 'Neither'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-6 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={isFrontend}
-                      onChange={(e) => setIsFrontend(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer"
-                    />
-                    <span>Frontend</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={isBackend}
-                      onChange={(e) => setIsBackend(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer"
-                    />
-                    <span>Backend</span>
-                  </label>
-                </div>
-              </div>
+          {/* DYNAMIC COMPONENT PROPERTIES */}
+          <div className="p-3 bg-gray-50/80 rounded border border-gray-200 space-y-3">
+            <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-800 font-bold flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3 h-3 text-gray-600" />
+                {currentDept.name} Properties
+              </span>
+              <button
+                type="button"
+                onClick={() => openDepartmentModal(currentDept.id)}
+                className="text-[10px] font-mono text-gray-500 hover:text-black flex items-center gap-0.5"
+              >
+                <Settings2 className="w-2.5 h-2.5" />
+                <span>Edit Fields</span>
+              </button>
             </div>
-          )}
 
-          {/* 2. MARKETING RULES */}
-          {currentRuleKind === 'marketing' && (
-            <div className="space-y-3 p-3 bg-rose-50/30 rounded border border-rose-100 animate-fade-in">
-              <div className="flex items-center justify-between pb-1 border-b border-rose-100">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-rose-900 font-bold flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3 h-3 text-rose-600" />
-                  {currentDept.name} Rules ({currentDept.code})
-                </span>
-                <span className="text-[10px] font-mono text-rose-700 bg-white border border-rose-200 px-1.5 py-0.2 rounded">
-                  Channel & Deliverable
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1 text-[11px]">
-                    Channel / Area *
-                  </label>
-                  <select
-                    value={marketingChannel}
-                    onChange={(e) => setMarketingChannel(e.target.value as MarketingChannel)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {MARKETING_CHANNELS.map((ch) => (
-                      <option key={ch} value={ch}>
-                        {ch}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {currentDept?.customFields && currentDept.customFields.length > 0 ? (
+              <div className="space-y-3">
+                {currentDept.customFields.map((field: CustomFieldDefinition) => {
+                  // Special UX for Engineering devScope: Frontend & Backend checkboxes
+                  if (field.id === 'devScope') {
+                    return (
+                      <div key={field.id}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-gray-700 font-medium text-[11px]">
+                            {field.name}
+                          </label>
+                          <span className="text-[11px] font-mono text-gray-500 font-medium">
+                            {isFrontend && isBackend
+                              ? 'Both (Fullstack)'
+                              : isFrontend
+                              ? 'Frontend only'
+                              : isBackend
+                              ? 'Backend only'
+                              : 'None'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-6 pt-1">
+                          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-gray-800">
+                            <input
+                              type="checkbox"
+                              checked={isFrontend}
+                              onChange={(e) => setIsFrontend(e.target.checked)}
+                              className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer"
+                            />
+                            <span>Frontend</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-gray-800">
+                            <input
+                              type="checkbox"
+                              checked={isBackend}
+                              onChange={(e) => setIsBackend(e.target.checked)}
+                              className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer"
+                            />
+                            <span>Backend</span>
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  }
 
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1 text-[11px]">
-                    Deliverable Type *
-                  </label>
-                  <select
-                    value={deliverableType}
-                    onChange={(e) => setDeliverableType(e.target.value as DeliverableType)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {DELIVERABLE_TYPES.map((dt) => (
-                      <option key={dt} value={dt}>
-                        {dt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+                  // Standard select dropdown
+                  if (field.type === 'select') {
+                    return (
+                      <div key={field.id}>
+                        <label className="block text-gray-700 font-medium mb-1 text-[11px]">
+                          {field.name}
+                        </label>
+                        <select
+                          value={customValues[field.id] || field.options?.[0] || ''}
+                          onChange={(e) =>
+                            setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                          }
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
+                        >
+                          {(field.options || []).map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
 
-          {/* 3. SALES RULES */}
-          {currentRuleKind === 'sales' && (
-            <div className="space-y-3 p-3 bg-indigo-50/30 rounded border border-indigo-100 animate-fade-in">
-              <div className="flex items-center justify-between pb-1 border-b border-indigo-100">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-indigo-900 font-bold flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3 h-3 text-indigo-600" />
-                  {currentDept.name} Rules ({currentDept.code})
-                </span>
-                <span className="text-[10px] font-mono text-indigo-700 bg-white border border-indigo-200 px-1.5 py-0.2 rounded">
-                  Segment & Stage
-                </span>
+                  // Text input
+                  return (
+                    <div key={field.id}>
+                      <label className="block text-gray-700 font-medium mb-1 text-[11px]">
+                        {field.name}
+                      </label>
+                      <input
+                        type="text"
+                        value={customValues[field.id] || ''}
+                        onChange={(e) =>
+                          setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                        }
+                        placeholder={`Enter ${field.name.toLowerCase()}...`}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  );
+                })}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1 text-[11px]">
-                    Deal Segment *
-                  </label>
-                  <select
-                    value={dealSegment}
-                    onChange={(e) => setDealSegment(e.target.value as DealSegment)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {DEAL_SEGMENTS.map((seg) => (
-                      <option key={seg} value={seg}>
-                        {seg}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1 text-[11px]">
-                    Deal Stage *
-                  </label>
-                  <select
-                    value={dealStage}
-                    onChange={(e) => setDealStage(e.target.value as DealStage)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {DEAL_STAGES.map((stg) => (
-                      <option key={stg} value={stg}>
-                        {stg}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            ) : (
+              <div className="py-2 text-center text-gray-500 text-[11px]">
+                No custom properties defined for {currentDept.name}.{' '}
+                <button
+                  type="button"
+                  onClick={() => openDepartmentModal(currentDept.id)}
+                  className="text-black font-semibold underline ml-1"
+                >
+                  Add properties
+                </button>
               </div>
-            </div>
-          )}
-
-          {/* 4. OPERATIONS RULES */}
-          {currentRuleKind === 'operations' && (
-            <div className="space-y-3 p-3 bg-teal-50/30 rounded border border-teal-100 animate-fade-in">
-              <div className="flex items-center justify-between pb-1 border-b border-teal-100">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-teal-900 font-bold flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3 h-3 text-teal-600" />
-                  {currentDept.name} Rules ({currentDept.code})
-                </span>
-                <span className="text-[10px] font-mono text-teal-700 bg-white border border-teal-200 px-1.5 py-0.2 rounded">
-                  Category & Impact
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1 text-[11px]">
-                    Category *
-                  </label>
-                  <select
-                    value={opsCategory}
-                    onChange={(e) => setOpsCategory(e.target.value as OpsCategory)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {OPS_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1 text-[11px]">
-                    Impact Level *
-                  </label>
-                  <select
-                    value={impactLevel}
-                    onChange={(e) => setImpactLevel(e.target.value as ImpactLevel)}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {IMPACT_LEVELS.map((imp) => (
-                      <option key={imp} value={imp}>
-                        {imp}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div>
             <label className="block text-gray-700 font-medium mb-1">Assignee</label>
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none cursor-pointer"
+              className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
             >
               <option value="unassigned">Unassigned</option>
               {users.map((u) => (
@@ -450,7 +350,7 @@ export const CreateIssueModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 bg-black text-white font-medium rounded hover:bg-gray-800 transition-colors"
+              className="px-4 py-1.5 bg-black text-white font-medium rounded hover:bg-gray-800 transition-colors shadow-2xs"
             >
               Create Issue
             </button>

@@ -1,11 +1,133 @@
 import { Department, Issue, UserProfile } from '../types';
 
 export const INITIAL_DEPARTMENTS: Department[] = [
-  { id: 'engineering', name: 'Engineering', code: 'DEV' },
-  { id: 'marketing', name: 'Marketing', code: 'MKT' },
-  { id: 'sales', name: 'Sales & CS', code: 'SLS' },
-  { id: 'product', name: 'Product', code: 'PRD' },
-  { id: 'operations', name: 'Operations', code: 'OPS' },
+  {
+    id: 'engineering',
+    name: 'Engineering',
+    code: 'DEV',
+    description: 'Core software, infrastructure, and web applications',
+    customFields: [
+      {
+        id: 'environment',
+        name: 'Environment Stage',
+        type: 'select',
+        options: ['LOCAL', 'STAGING', 'PROD'],
+        defaultValue: 'LOCAL',
+      },
+      {
+        id: 'devScope',
+        name: 'Development Layer',
+        type: 'select',
+        options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'],
+      },
+    ],
+  },
+  {
+    id: 'marketing',
+    name: 'Marketing',
+    code: 'MKT',
+    description: 'Growth, product launches, advertising, and content',
+    customFields: [
+      {
+        id: 'marketingChannel',
+        name: 'Marketing Channel',
+        type: 'select',
+        options: [
+          'Social Media',
+          'Content & SEO',
+          'Email & Newsletter',
+          'Paid Ads',
+          'Brand & Design',
+          'Product Launch',
+        ],
+      },
+      {
+        id: 'deliverableType',
+        name: 'Deliverable Type',
+        type: 'select',
+        options: [
+          'Copy & Blog',
+          'Graphics & Assets',
+          'Video & Motion',
+          'Landing Page',
+          'Campaign Plan',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sales',
+    name: 'Sales & CS',
+    code: 'SLS',
+    description: 'Enterprise pipeline, client relationships, and retention',
+    customFields: [
+      {
+        id: 'dealSegment',
+        name: 'Deal Segment',
+        type: 'select',
+        options: ['Enterprise', 'Mid-Market', 'SMB / Startup', 'Strategic Partner'],
+      },
+      {
+        id: 'dealStage',
+        name: 'Deal Stage',
+        type: 'select',
+        options: [
+          'Lead / Prospect',
+          'Discovery & Demo',
+          'Proposal & Pricing',
+          'Contract Negotiation',
+          'Closed-Won Review',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'product',
+    name: 'Product',
+    code: 'PRD',
+    description: 'Product specifications, roadmap, and user experience design',
+    customFields: [
+      {
+        id: 'environment',
+        name: 'Environment Stage',
+        type: 'select',
+        options: ['LOCAL', 'STAGING', 'PROD'],
+      },
+      {
+        id: 'devScope',
+        name: 'Development Layer',
+        type: 'select',
+        options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'],
+      },
+    ],
+  },
+  {
+    id: 'operations',
+    name: 'Operations',
+    code: 'OPS',
+    description: 'Internal IT, workplace, compliance, and team enablement',
+    customFields: [
+      {
+        id: 'opsCategory',
+        name: 'Ops Category',
+        type: 'select',
+        options: [
+          'IT & Access',
+          'Finance & Billing',
+          'Legal & Contracts',
+          'People & HR',
+          'Office & Facilities',
+          'Security & Compliance',
+        ],
+      },
+      {
+        id: 'impactLevel',
+        name: 'Impact Level',
+        type: 'select',
+        options: ['Company-wide', 'Team-specific', 'Individual'],
+      },
+    ],
+  },
 ];
 
 export const USERS: UserProfile[] = [
@@ -66,6 +188,10 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'engineering',
     priority: 'P0',
     status: 'ASSIGNED',
+    customAttributes: {
+      environment: 'PROD',
+      devScope: 'Both (Frontend + Backend)',
+    },
     environment: 'PROD',
     devScope: 'both',
     assignee: USERS[1], // Alex Rivera
@@ -127,6 +253,10 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'marketing',
     priority: 'P1',
     status: 'ACCEPTED',
+    customAttributes: {
+      marketingChannel: 'Product Launch',
+      deliverableType: 'Copy & Blog',
+    },
     marketingChannel: 'Product Launch',
     deliverableType: 'Copy & Blog',
     assignee: USERS[2], // Maya Chen
@@ -180,6 +310,10 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'sales',
     priority: 'P1',
     status: 'ASSIGNED',
+    customAttributes: {
+      dealSegment: 'Enterprise',
+      dealStage: 'Contract Negotiation',
+    },
     dealSegment: 'Enterprise',
     dealStage: 'Contract Negotiation',
     assignee: USERS[3], // David Miller
@@ -217,6 +351,10 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'operations',
     priority: 'P3',
     status: 'NEW',
+    customAttributes: {
+      opsCategory: 'IT & Access',
+      impactLevel: 'Team-specific',
+    },
     opsCategory: 'IT & Access',
     impactLevel: 'Team-specific',
     assignee: USERS[4], // Elena
@@ -245,6 +383,10 @@ export const INITIAL_ISSUES: Issue[] = [
     departmentId: 'product',
     priority: 'P2',
     status: 'FIXED',
+    customAttributes: {
+      environment: 'STAGING',
+      devScope: 'Frontend only',
+    },
     environment: 'STAGING',
     devScope: 'frontend',
     assignee: USERS[0],

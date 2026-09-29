@@ -4,7 +4,7 @@ import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
-import { Star, Plus } from 'lucide-react';
+import { Star, Plus, Settings2 } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
 export const IssueTable: React.FC = () => {
@@ -21,6 +21,7 @@ export const IssueTable: React.FC = () => {
     currentUser,
     navView,
     setIsCreateModalOpen,
+    openDepartmentModal,
   } = useIssues();
 
   const getPriorityBadge = (p: Priority) => {
@@ -73,6 +74,19 @@ export const IssueTable: React.FC = () => {
 
   const getSubFilterOptions = () => {
     if (selectedDepartment === 'all') return null;
+
+    const currentDept = departments.find((d) => d.id === selectedDepartment);
+    if (currentDept?.customFields && currentDept.customFields.length > 0) {
+      const firstSelectField = currentDept.customFields.find(
+        (f) => f.type === 'select' && f.options && f.options.length > 0
+      );
+      if (firstSelectField && firstSelectField.options) {
+        return {
+          label: firstSelectField.name.split(' ')[0] || 'Filter',
+          options: ['ALL', ...firstSelectField.options],
+        };
+      }
+    }
 
     switch (currentDeptKind) {
       case 'engineering':
@@ -170,6 +184,16 @@ export const IssueTable: React.FC = () => {
             {viewHeader.subtitle}
           </span>
         </div>
+        {selectedDepartment !== 'all' && (
+          <button
+            onClick={() => openDepartmentModal(selectedDepartment)}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono text-gray-600 hover:text-black border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+            title="Configure component properties"
+          >
+            <Settings2 className="w-3 h-3" />
+            <span>Customize</span>
+          </button>
+        )}
       </div>
 
       {/* Table Toolbar */}
@@ -244,7 +268,7 @@ export const IssueTable: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {filteredIssues.map((issue) => {
                 const dept = departments.find((d) => d.id === issue.departmentId);
-                const badges = getDepartmentBadges(issue);
+                const badges = getDepartmentBadges(issue, departments);
 
                 return (
                   <tr

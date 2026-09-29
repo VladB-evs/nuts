@@ -55,8 +55,19 @@ export type ImpactLevel =
   | 'Individual';
 
 // ====================================================================
-// Core Models
+// Core Models & Dynamic Custom Fields
 // ====================================================================
+
+export type CustomFieldType = 'select' | 'text';
+
+export interface CustomFieldDefinition {
+  id: string;
+  name: string;
+  type: CustomFieldType;
+  options?: string[]; // for 'select' type
+  defaultValue?: string;
+  required?: boolean;
+}
 
 export interface UserProfile {
   id: string;
@@ -75,6 +86,7 @@ export interface Department {
   code: string;
   color?: string;
   description?: string;
+  customFields?: CustomFieldDefinition[];
 }
 
 export interface Comment {
@@ -105,19 +117,22 @@ export interface Issue {
   priority: Priority;
   status: Status;
 
-  // Engineering Specific Rules
+  // Dynamic custom attributes stored per department custom field ID
+  customAttributes?: Record<string, any>;
+
+  // Engineering Specific Rules (backward compatible)
   environment?: Environment; // 'LOCAL' | 'STAGING' | 'PROD'
   devScope?: DevScope; // 'frontend' | 'backend' | 'both'
 
-  // Marketing Specific Rules
+  // Marketing Specific Rules (backward compatible)
   marketingChannel?: MarketingChannel;
   deliverableType?: DeliverableType;
 
-  // Sales Specific Rules
+  // Sales Specific Rules (backward compatible)
   dealSegment?: DealSegment;
   dealStage?: DealStage;
 
-  // Operations Specific Rules
+  // Operations Specific Rules (backward compatible)
   opsCategory?: OpsCategory;
   impactLevel?: ImpactLevel;
 

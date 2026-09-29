@@ -49,6 +49,7 @@ export const IssueDetail: React.FC = () => {
     departments,
     currentUser,
     users,
+    openDepartmentModal,
   } = useIssues();
 
   const [commentText, setCommentText] = useState('');
@@ -190,7 +191,7 @@ export const IssueDetail: React.FC = () => {
               <span className="font-semibold text-gray-800 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded text-[11px]">
                 {currentDept?.name || selectedIssue.departmentId}
               </span>
-              {getDepartmentBadges(selectedIssue).map((badge, idx) => (
+              {getDepartmentBadges(selectedIssue, departments).map((badge, idx) => (
                 <span
                   key={idx}
                   className={`font-semibold border px-2 py-0.5 rounded text-[11px] ${badge.badgeClass}`}
@@ -486,177 +487,137 @@ export const IssueDetail: React.FC = () => {
           </div>
 
           {/* Department Specific Properties */}
-          {ruleKind === 'engineering' && (
-            <>
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Environment Stage</label>
-                <select
-                  value={selectedIssue.environment || 'LOCAL'}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, { environment: e.target.value as Environment })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-                >
-                  <option value="LOCAL">LOCAL (Dev Machine)</option>
-                  <option value="STAGING">STAGING (Pre-release / QA)</option>
-                  <option value="PROD">PROD (Production)</option>
-                </select>
-              </div>
+          {currentDept?.customFields && currentDept.customFields.length > 0 ? (
+            currentDept.customFields.map((field) => {
+              const currentVal =
+                selectedIssue.customAttributes?.[field.id] !== undefined
+                  ? selectedIssue.customAttributes[field.id]
+                  : (selectedIssue as any)[field.id] ?? field.options?.[0] ?? '';
 
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Development Layer</label>
-                <select
-                  value={selectedIssue.devScope || 'none'}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      devScope: e.target.value === 'none' ? undefined : (e.target.value as DevScope),
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-                >
-                  <option value="none">Not specified</option>
-                  <option value="frontend">Frontend only</option>
-                  <option value="backend">Backend only</option>
-                  <option value="both">Both (Frontend + Backend)</option>
-                </select>
-              </div>
-            </>
-          )}
+              if (field.type === 'select') {
+                return (
+                  <div key={field.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
+                      <button
+                        type="button"
+                        onClick={() => openDepartmentModal(currentDept.id)}
+                        className="text-[10px] text-gray-400 hover:text-black font-mono"
+                        title="Edit component properties"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <select
+                      value={currentVal}
+                      onChange={(e) => {
+                        const newVal = e.target.value;
+                        const updates: any = {
+                          customAttributes: {
+                            ...(selectedIssue.customAttributes || {}),
+                            [field.id]: newVal,
+                          },
+                        };
+                        if (field.id === 'environment') updates.environment = newVal;
+                        if (field.id === 'marketingChannel') updates.marketingChannel = newVal;
+                        if (field.id === 'deliverableType') updates.deliverableType = newVal;
+                        if (field.id === 'dealSegment') updates.dealSegment = newVal;
+                        if (field.id === 'dealStage') updates.dealStage = newVal;
+                        if (field.id === 'opsCategory') updates.opsCategory = newVal;
+                        if (field.id === 'impactLevel') updates.impactLevel = newVal;
+                        if (field.id === 'devScope') {
+                          updates.devScope = newVal.toLowerCase().includes('both')
+                            ? 'both'
+                            : newVal.toLowerCase().includes('front')
+                            ? 'frontend'
+                            : 'backend';
+                        }
+                        updateIssue(selectedIssue.id, updates);
+                      }}
+                      className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
+                    >
+                      {(field.options || []).map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              }
 
-          {ruleKind === 'marketing' && (
-            <>
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Marketing Channel</label>
-                <select
-                  value={selectedIssue.marketingChannel || MARKETING_CHANNELS[0]}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      marketingChannel: e.target.value as MarketingChannel,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
-                >
-                  {MARKETING_CHANNELS.map((ch) => (
-                    <option key={ch} value={ch}>
-                      {ch}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Deliverable Type</label>
-                <select
-                  value={selectedIssue.deliverableType || DELIVERABLE_TYPES[0]}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      deliverableType: e.target.value as DeliverableType,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
-                >
-                  {DELIVERABLE_TYPES.map((dt) => (
-                    <option key={dt} value={dt}>
-                      {dt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
-
-          {ruleKind === 'sales' && (
-            <>
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Deal Segment</label>
-                <select
-                  value={selectedIssue.dealSegment || DEAL_SEGMENTS[0]}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      dealSegment: e.target.value as DealSegment,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
-                >
-                  {DEAL_SEGMENTS.map((seg) => (
-                    <option key={seg} value={seg}>
-                      {seg}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Deal Stage</label>
-                <select
-                  value={selectedIssue.dealStage || DEAL_STAGES[0]}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      dealStage: e.target.value as DealStage,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
-                >
-                  {DEAL_STAGES.map((stg) => (
-                    <option key={stg} value={stg}>
-                      {stg}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
-
-          {ruleKind === 'operations' && (
-            <>
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Ops Category</label>
-                <select
-                  value={selectedIssue.opsCategory || OPS_CATEGORIES[0]}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      opsCategory: e.target.value as OpsCategory,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
-                >
-                  {OPS_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-mono text-gray-500">Impact Level</label>
-                <select
-                  value={selectedIssue.impactLevel || IMPACT_LEVELS[0]}
-                  onChange={(e) =>
-                    updateIssue(selectedIssue.id, {
-                      impactLevel: e.target.value as ImpactLevel,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 focus:outline-none cursor-pointer"
-                >
-                  {IMPACT_LEVELS.map((imp) => (
-                    <option key={imp} value={imp}>
-                      {imp}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
+              return (
+                <div key={field.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
+                    <button
+                      type="button"
+                      onClick={() => openDepartmentModal(currentDept.id)}
+                      className="text-[10px] text-gray-400 hover:text-black font-mono"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    defaultValue={currentVal}
+                    onBlur={(e) => {
+                      if (e.target.value !== currentVal) {
+                        updateIssue(selectedIssue.id, {
+                          customAttributes: {
+                            ...(selectedIssue.customAttributes || {}),
+                            [field.id]: e.target.value,
+                          },
+                        });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none"
+                  />
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-3 border border-dashed border-gray-200 rounded text-center text-gray-400 text-[11px]">
+              <span>No custom properties configured.</span>
+              <button
+                type="button"
+                onClick={() => openDepartmentModal(selectedIssue.departmentId)}
+                className="block mx-auto mt-1 text-black font-medium hover:underline text-[11px]"
+              >
+                + Add Component Properties
+              </button>
+            </div>
           )}
 
           {/* Component / Department */}
           <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Component</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-mono text-gray-500">Component</label>
+              <button
+                type="button"
+                onClick={() => openDepartmentModal(selectedIssue.departmentId)}
+                className="text-[10px] text-gray-400 hover:text-black font-mono"
+                title="Customize this component"
+              >
+                Customize
+              </button>
+            </div>
             <select
               value={selectedIssue.departmentId}
-              onChange={(e) =>
-                updateIssue(selectedIssue.id, { departmentId: e.target.value })
-              }
+              onChange={(e) => {
+                const newDeptId = e.target.value;
+                const newDept = departments.find((d) => d.id === newDeptId);
+                const updates: any = { departmentId: newDeptId };
+                if (newDept) {
+                  updates.code = `${newDept.code}-${selectedIssue.number}`;
+                }
+                updateIssue(selectedIssue.id, updates);
+              }}
               className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
             >
               {departments.map((dept) => (

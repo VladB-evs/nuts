@@ -15,6 +15,7 @@ import {
   OpsCategory,
   ImpactLevel,
   HistoryEntry,
+  CustomFieldDefinition,
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 import { getUserDepartmentId } from '../lib/departmentRules';
@@ -28,6 +29,11 @@ interface IssueContextType {
   updateUserProfile: (userId: string, updates: Partial<UserProfile>) => void;
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
+  isDepartmentModalOpen: boolean;
+  setIsDepartmentModalOpen: (open: boolean) => void;
+  editingDepartmentId: string | null;
+  openDepartmentModal: (deptId?: string) => void;
+  closeDepartmentModal: () => void;
   selectedDepartment: string;
   setSelectedDepartment: (deptId: string) => void;
   navView: NavView;
@@ -51,6 +57,7 @@ interface IssueContextType {
     description: string;
     departmentId: string;
     priority: Priority;
+    customAttributes?: Record<string, any>;
     environment?: Environment;
     devScope?: DevScope;
     marketingChannel?: MarketingChannel;
@@ -65,7 +72,14 @@ interface IssueContextType {
   addComment: (issueId: string, text: string, newStatus?: Status) => void;
   toggleStar: (issueId: string) => void;
   deleteIssue: (issueId: string) => void;
-  addDepartment: (name: string, code: string) => Department;
+  addDepartment: (
+    name: string,
+    code: string,
+    description?: string,
+    customFields?: CustomFieldDefinition[]
+  ) => Department;
+  updateDepartment: (deptId: string, updates: Partial<Department>) => void;
+  deleteDepartment: (deptId: string) => void;
   filteredIssues: Issue[];
   counts: {
     open: number;
@@ -78,10 +92,10 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v7';
-const STORAGE_DEPTS = 'nuts_depts_v7';
-const STORAGE_USERS = 'nuts_users_v7';
-const STORAGE_CURRENT_USER = 'nuts_current_user_v7';
+const STORAGE_KEY = 'nuts_issues_v8';
+const STORAGE_DEPTS = 'nuts_depts_v8';
+const STORAGE_USERS = 'nuts_users_v8';
+const STORAGE_CURRENT_USER = 'nuts_current_user_v8';
 
 const getFieldLabel = (key: string): string => {
   const labels: Record<string, string> = {
@@ -176,6 +190,18 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [subFilter, setSubFilter] = useState('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
+  const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
+
+  const openDepartmentModal = (deptId?: string) => {
+    setEditingDepartmentId(deptId || null);
+    setIsDepartmentModalOpen(true);
+  };
+
+  const closeDepartmentModal = () => {
+    setEditingDepartmentId(null);
+    setIsDepartmentModalOpen(false);
+  };
 
   const setSelectedDepartment = (deptId: string) => {
     setSelectedDepartmentState(deptId);
@@ -267,6 +293,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     description: string;
     departmentId: string;
     priority: Priority;
+    customAttributes?: Record<string, any>;
     environment?: Environment;
     devScope?: DevScope;
     marketingChannel?: MarketingChannel;
@@ -282,8 +309,25 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newNum = maxNum + 1;
     const assignee = users.find((u) => u.id === data.assigneeId) || null;
 
-    const isEng = dept.id === 'engineering' || dept.id === 'product';
     const now = new Date().toISOString();
+    const customAttrs: Record<string, any> = { ...(data.customAttributes || {}) };
+
+    // Synchronize legacy fields into customAttributes if not set
+    if (data.environment && !customAttrs.environment) customAttrs.environment = data.environment;
+    if (data.devScope && !customAttrs.devScope) {
+      customAttrs.devScope =
+        data.devScope === 'both'
+          ? 'Both (Frontend + Backend)'
+          : data.devScope === 'frontend'
+          ? 'Frontend only'
+          : 'Backend only';
+    }
+    if (data.marketingChannel && !customAttrs.marketingChannel) customAttrs.marketingChannel = data.marketingChannel;
+    if (data.deliverableType && !customAttrs.deliverableType) customAttrs.deliverableType = data.deliverableType;
+    if (data.dealSegment && !customAttrs.dealSegment) customAttrs.dealSegment = data.dealSegment;
+    if (data.dealStage && !customAttrs.dealStage) customAttrs.dealStage = data.dealStage;
+    if (data.opsCategory && !customAttrs.opsCategory) customAttrs.opsCategory = data.opsCategory;
+    if (data.impactLevel && !customAttrs.impactLevel) customAttrs.impactLevel = data.impactLevel;
 
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
@@ -294,14 +338,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       departmentId: dept.id,
       priority: data.priority,
       status: assignee ? 'ASSIGNED' : 'NEW',
-      environment: isEng ? (data.environment || 'LOCAL') : undefined,
-      devScope: isEng ? data.devScope : undefined,
-      marketingChannel: dept.id === 'marketing' ? data.marketingChannel : undefined,
-      deliverableType: dept.id === 'marketing' ? data.deliverableType : undefined,
-      dealSegment: dept.id === 'sales' ? data.dealSegment : undefined,
-      dealStage: dept.id === 'sales' ? data.dealStage : undefined,
-      opsCategory: dept.id === 'operations' ? data.opsCategory : undefined,
-      impactLevel: dept.id === 'operations' ? data.impactLevel : undefined,
+      customAttributes: customAttrs,
+      environment: (customAttrs.environment as Environment) || data.environment,
+      devScope: data.devScope,
+      marketingChannel: (customAttrs.marketingChannel as MarketingChannel) || data.marketingChannel,
+      deliverableType: (customAttrs.deliverableType as DeliverableType) || data.deliverableType,
+      dealSegment: (customAttrs.dealSegment as DealSegment) || data.dealSegment,
+      dealStage: (customAttrs.dealStage as DealStage) || data.dealStage,
+      opsCategory: (customAttrs.opsCategory as OpsCategory) || data.opsCategory,
+      impactLevel: (customAttrs.impactLevel as ImpactLevel) || data.impactLevel,
       assignee,
       reporter: currentUser,
       createdAt: now,
@@ -331,7 +376,44 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (iss.id === id) {
           const now = new Date().toISOString();
           const newEntries: HistoryEntry[] = [];
+          const currentDept = departments.find((d) => d.id === (updates.departmentId || iss.departmentId));
 
+          // 1. Check customAttributes changes
+          if (updates.customAttributes) {
+            const oldAttrs = iss.customAttributes || {};
+            const newAttrs = updates.customAttributes;
+
+            Object.keys(newAttrs).forEach((attrKey) => {
+              const oldVal = oldAttrs[attrKey] !== undefined ? oldAttrs[attrKey] : (iss as any)[attrKey];
+              const newVal = newAttrs[attrKey];
+
+              if (oldVal !== newVal) {
+                const fieldDef = currentDept?.customFields?.find((f) => f.id === attrKey);
+                const fieldLabel = fieldDef?.name || getFieldLabel(attrKey);
+                const oldFormatted = oldVal !== undefined && oldVal !== null && oldVal !== '' ? String(oldVal) : 'None';
+                const newFormatted = newVal !== undefined && newVal !== null && newVal !== '' ? String(newVal) : 'None';
+
+                if (oldFormatted !== newFormatted) {
+                  newEntries.push({
+                    id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                    actor: currentUser,
+                    field: fieldLabel,
+                    oldValue: oldFormatted,
+                    newValue: newFormatted,
+                    message:
+                      oldFormatted === 'None'
+                        ? `Set ${fieldLabel} to "${newFormatted}"`
+                        : newFormatted === 'None'
+                        ? `Cleared ${fieldLabel} (was "${oldFormatted}")`
+                        : `Changed ${fieldLabel} from "${oldFormatted}" to "${newFormatted}"`,
+                    createdAt: now,
+                  });
+                }
+              }
+            });
+          }
+
+          // 2. Check standard fields
           (Object.keys(updates) as (keyof Issue)[]).forEach((key) => {
             if (
               key === 'updatedAt' ||
@@ -342,7 +424,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               key === 'code' ||
               key === 'createdAt' ||
               key === 'reporter' ||
-              key === 'starred'
+              key === 'starred' ||
+              key === 'customAttributes'
             ) {
               return;
             }
@@ -372,9 +455,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           });
 
+          // Merge customAttributes
+          const mergedCustomAttrs = updates.customAttributes
+            ? { ...(iss.customAttributes || {}), ...updates.customAttributes }
+            : iss.customAttributes;
+
           const updated: Issue = {
             ...iss,
             ...updates,
+            customAttributes: mergedCustomAttrs,
             history: [...(iss.history || []), ...newEntries],
             updatedAt: now,
           };
@@ -453,11 +542,61 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addDepartment = (name: string, code: string): Department => {
+  const addDepartment = (
+    name: string,
+    code: string,
+    description?: string,
+    customFields?: CustomFieldDefinition[]
+  ): Department => {
     const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const newDept: Department = { id, name, code: code.toUpperCase() };
+    const newDept: Department = {
+      id,
+      name,
+      code: code.toUpperCase(),
+      description: description || '',
+      customFields: customFields || [],
+    };
     setDepartments((prev) => [...prev, newDept]);
     return newDept;
+  };
+
+  const updateDepartment = (deptId: string, updates: Partial<Department>) => {
+    setDepartments((prev) =>
+      prev.map((d) => {
+        if (d.id === deptId) {
+          return { ...d, ...updates };
+        }
+        return d;
+      })
+    );
+
+    // If department code changed, update issue codes for that department
+    if (updates.code) {
+      const newCode = updates.code.toUpperCase();
+      setIssues((prev) =>
+        prev.map((i) => {
+          if (i.departmentId === deptId) {
+            return {
+              ...i,
+              code: `${newCode}-${i.number}`,
+            };
+          }
+          return i;
+        })
+      );
+    }
+  };
+
+  const deleteDepartment = (deptId: string) => {
+    setDepartments((prev) => prev.filter((d) => d.id !== deptId));
+    setIssues((prev) => prev.filter((i) => i.departmentId !== deptId));
+
+    if (selectedDepartment === deptId) {
+      setSelectedDepartment('all');
+    }
+    if (selectedIssue && selectedIssue.departmentId === deptId) {
+      setSelectedIssue(null);
+    }
   };
 
   // Filtered Issues computation
@@ -501,7 +640,12 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Department-specific SubFilter
       if (subFilter !== 'ALL') {
+        const matchesCustom = Object.values(issue.customAttributes || {}).some(
+          (val) => String(val).toLowerCase() === subFilter.toLowerCase()
+        );
+
         const matches =
+          matchesCustom ||
           issue.environment === subFilter ||
           issue.devScope === subFilter ||
           issue.marketingChannel === subFilter ||
@@ -539,6 +683,9 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           issue.dealStage?.toLowerCase().includes(q) ||
           issue.opsCategory?.toLowerCase().includes(q) ||
           issue.impactLevel?.toLowerCase().includes(q);
+        const matchesCustomAttrs = Object.values(issue.customAttributes || {}).some((v) =>
+          String(v).toLowerCase().includes(q)
+        );
 
         if (
           !matchesCode &&
@@ -547,7 +694,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           !matchesDesc &&
           !matchesAssignee &&
           !matchesReporter &&
-          !matchesDeptTag
+          !matchesDeptTag &&
+          !matchesCustomAttrs
         ) {
           return false;
         }
@@ -605,6 +753,11 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateUserProfile,
         isProfileModalOpen,
         setIsProfileModalOpen,
+        isDepartmentModalOpen,
+        setIsDepartmentModalOpen,
+        editingDepartmentId,
+        openDepartmentModal,
+        closeDepartmentModal,
         selectedDepartment,
         setSelectedDepartment,
         navView,
@@ -627,6 +780,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleStar,
         deleteIssue,
         addDepartment,
+        updateDepartment,
+        deleteDepartment,
         filteredIssues,
         counts,
       }}

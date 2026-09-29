@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useIssues } from '../context/TicketContext';
 import { NavView } from '../types';
 import { getUserDepartmentId } from '../lib/departmentRules';
@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Folder,
   Plus,
+  Settings2,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -22,13 +23,9 @@ export const Sidebar: React.FC = () => {
     setSelectedDepartment,
     counts,
     issues,
-    addDepartment,
+    openDepartmentModal,
     setSelectedIssue,
   } = useIssues();
-
-  const [isAddingDept, setIsAddingDept] = useState(false);
-  const [newDeptName, setNewDeptName] = useState('');
-  const [newDeptCode, setNewDeptCode] = useState('');
 
   const userDeptId = getUserDepartmentId(currentUser, departments);
   const userDept = departments.find((d) => d.id === userDeptId);
@@ -72,15 +69,6 @@ export const Sidebar: React.FC = () => {
       count: counts.closed,
     },
   ];
-
-  const handleCreateDept = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDeptName.trim() || !newDeptCode.trim()) return;
-    addDepartment(newDeptName.trim(), newDeptCode.trim());
-    setIsAddingDept(false);
-    setNewDeptName('');
-    setNewDeptCode('');
-  };
 
   return (
     <aside className="w-56 border-r border-gray-200 bg-white py-3 px-2 flex flex-col h-[calc(100vh-3.5rem)] sticky top-14 select-none shrink-0 text-xs">
@@ -135,9 +123,9 @@ export const Sidebar: React.FC = () => {
             Components
           </span>
           <button
-            onClick={() => setIsAddingDept(true)}
-            className="text-gray-400 hover:text-black p-0.5 rounded"
-            title="Add component"
+            onClick={() => openDepartmentModal()}
+            className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors"
+            title="Add and configure new component"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -166,71 +154,40 @@ export const Sidebar: React.FC = () => {
           const count = issues.filter((i) => i.departmentId === dept.id).length;
 
           return (
-            <button
+            <div
               key={dept.id}
               onClick={() => {
                 setSelectedDepartment(dept.id);
                 setSelectedIssue(null);
               }}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors ${
+              className={`group w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
                 isSelected
                   ? 'bg-gray-100 font-semibold text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              <div className="flex items-center gap-2 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+              <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
                 <span className="truncate">{dept.name}</span>
               </div>
-              <div className="flex items-center gap-1 font-mono text-[10px] text-gray-400">
+              <div className="flex items-center gap-1 font-mono text-[10px] text-gray-400 shrink-0">
                 <span>[{dept.code}]</span>
                 <span>{count}</span>
+                <button
+                  type="button"
+                  title={`Customize ${dept.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDepartmentModal(dept.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-black p-0.5 ml-0.5 rounded hover:bg-gray-200 transition-opacity"
+                >
+                  <Settings2 className="w-3 h-3" />
+                </button>
               </div>
-            </button>
+            </div>
           );
         })}
-
-        {isAddingDept && (
-          <form onSubmit={handleCreateDept} className="p-2 border border-gray-200 rounded-md bg-gray-50 space-y-2 mt-2">
-            <input
-              type="text"
-              required
-              placeholder="Name (e.g. Security)"
-              value={newDeptName}
-              onChange={(e) => {
-                setNewDeptName(e.target.value);
-                if (!newDeptCode) {
-                  setNewDeptCode(e.target.value.substring(0, 3).toUpperCase());
-                }
-              }}
-              className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 focus:outline-none"
-            />
-            <input
-              type="text"
-              required
-              maxLength={4}
-              placeholder="Code (e.g. SEC)"
-              value={newDeptCode}
-              onChange={(e) => setNewDeptCode(e.target.value.toUpperCase())}
-              className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 font-mono focus:outline-none uppercase"
-            />
-            <div className="flex justify-end gap-1.5 pt-1">
-              <button
-                type="button"
-                onClick={() => setIsAddingDept(false)}
-                className="px-2 py-0.5 text-[11px] text-gray-500 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-2.5 py-0.5 text-[11px] font-medium bg-black text-white rounded"
-              >
-                Add
-              </button>
-            </div>
-          </form>
-        )}
       </div>
     </aside>
   );

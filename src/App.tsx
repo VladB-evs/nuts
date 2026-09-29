@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { IssueTable } from './components/IssueTable';
 import { IssueDetail } from './components/IssueDetail';
 import { CreateIssueModal } from './components/CreateIssueModal';
+import { DepartmentModal } from './components/DepartmentModal';
 import { ProfileModal } from './components/ProfileModal';
 import { SupabaseModal } from './components/SupabaseModal';
 
@@ -30,6 +31,7 @@ const AppContent: React.FC = () => {
 
       {/* Modals */}
       <CreateIssueModal />
+      <DepartmentModal />
       <ProfileModal />
       <SupabaseModal isOpen={isSupabaseOpen} onClose={() => setIsSupabaseOpen(false)} />
     </div>

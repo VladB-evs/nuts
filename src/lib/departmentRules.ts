@@ -175,9 +175,65 @@ export interface BadgeInfo {
   type: string;
 }
 
-export const getDepartmentBadges = (issue: Issue): BadgeInfo[] => {
-  const kind = getDepartmentRuleKind(issue.departmentId);
+const BADGE_COLOR_PALETTE = [
+  'text-indigo-800 bg-indigo-50 border-indigo-200',
+  'text-teal-800 bg-teal-50 border-teal-200',
+  'text-rose-700 bg-rose-50 border-rose-200',
+  'text-amber-800 bg-amber-50 border-amber-200',
+  'text-purple-800 bg-purple-50 border-purple-200',
+  'text-cyan-800 bg-cyan-50 border-cyan-200',
+  'text-stone-700 bg-stone-100 border-stone-200',
+];
+
+export const getDepartmentBadges = (issue: Issue, departments?: Department[]): BadgeInfo[] => {
   const badges: BadgeInfo[] = [];
+
+  // 1. Try dynamic custom fields first if departments list is provided
+  if (departments) {
+    const dept = departments.find((d) => d.id === issue.departmentId);
+    if (dept?.customFields && dept.customFields.length > 0) {
+      dept.customFields.forEach((field, idx) => {
+        const val =
+          issue.customAttributes?.[field.id] !== undefined
+            ? issue.customAttributes[field.id]
+            : (issue as any)[field.id];
+
+        if (val !== undefined && val !== null && val !== '') {
+          let badgeClass = BADGE_COLOR_PALETTE[idx % BADGE_COLOR_PALETTE.length];
+
+          // Semantic color overrides for familiar values
+          const valUpper = String(val).toUpperCase();
+          if (valUpper === 'PROD') {
+            badgeClass = 'text-purple-800 bg-purple-50 border-purple-200 font-medium';
+          } else if (valUpper === 'STAGING') {
+            badgeClass = 'text-amber-800 bg-amber-50 border-amber-200 font-medium';
+          } else if (valUpper === 'LOCAL') {
+            badgeClass = 'text-gray-700 bg-gray-100 border-gray-200 font-medium';
+          } else if (valUpper === 'FRONTEND ONLY' || valUpper === 'FRONTEND') {
+            badgeClass = 'text-blue-700 bg-blue-50 border-blue-200 font-medium';
+          } else if (valUpper === 'BACKEND ONLY' || valUpper === 'BACKEND') {
+            badgeClass = 'text-emerald-700 bg-emerald-50 border-emerald-200 font-medium';
+          } else if (valUpper.includes('BOTH')) {
+            badgeClass = 'text-gray-800 bg-gray-100 border-gray-300 font-medium';
+          }
+
+          badges.push({
+            label: String(val),
+            badgeClass,
+            tooltip: `${field.name}: ${val}`,
+            type: field.id,
+          });
+        }
+      });
+
+      if (badges.length > 0) {
+        return badges;
+      }
+    }
+  }
+
+  // 2. Fallback to hardcoded rules for backward compatibility
+  const kind = getDepartmentRuleKind(issue.departmentId, departments);
 
   if (kind === 'engineering') {
     if (issue.environment) {

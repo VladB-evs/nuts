@@ -5,11 +5,15 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. DEPARTMENTS / COMPONENTS
+-- 1. DEPARTMENTS / COMPONENTS (Fully Customizable)
+-- Uses JSONB for custom_fields so teams can dynamically add/remove/reorder
+-- custom ticket fields without requiring database DDL schema migrations.
 CREATE TABLE IF NOT EXISTS public.departments (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     code TEXT NOT NULL UNIQUE,
+    description TEXT,
+    custom_fields JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -32,6 +36,8 @@ CREATE INDEX IF NOT EXISTS idx_profiles_department ON public.profiles(department
 CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON public.profiles(nickname);
 
 -- 3. ISSUES / TICKETS
+-- Ultra-efficient: custom_attributes JSONB stores dynamic department-defined values
+-- Indexed via PostgreSQL GIN index for high-speed attribute lookups and queries with zero joins.
 CREATE TABLE IF NOT EXISTS public.issues (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     number SERIAL,
@@ -41,16 +47,17 @@ CREATE TABLE IF NOT EXISTS public.issues (
     department_id TEXT NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
     priority TEXT NOT NULL DEFAULT 'P2' CHECK (priority IN ('P0', 'P1', 'P2', 'P3')),
     status TEXT NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW', 'ASSIGNED', 'ACCEPTED', 'FIXED', 'VERIFIED', 'CLOSED')),
-    -- Engineering rules
+    custom_attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
+    -- Engineering rules (backward compatibility)
     environment TEXT CHECK (environment IN ('LOCAL', 'STAGING', 'PROD')),
     dev_scope TEXT CHECK (dev_scope IN ('frontend', 'backend', 'both')),
-    -- Marketing rules
+    -- Marketing rules (backward compatibility)
     marketing_channel TEXT,
     deliverable_type TEXT,
-    -- Sales rules
+    -- Sales rules (backward compatibility)
     deal_segment TEXT,
     deal_stage TEXT,
-    -- Operations rules
+    -- Operations rules (backward compatibility)
     ops_category TEXT,
     impact_level TEXT,
     assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -61,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.issues (
 
 CREATE INDEX IF NOT EXISTS idx_issues_department ON public.issues(department_id);
 CREATE INDEX IF NOT EXISTS idx_issues_status ON public.issues(status);
+CREATE INDEX IF NOT EXISTS idx_issues_custom_attributes ON public.issues USING GIN (custom_attributes);
 CREATE INDEX IF NOT EXISTS idx_issues_environment ON public.issues(environment);
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON public.issues(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_issues_created_at ON public.issues(created_at DESC);
@@ -305,12 +313,74 @@ FOR ALL
 TO authenticated
 USING (true);
 
--- 11. DEFAULT DEPARTMENTS SEED
-INSERT INTO public.departments (id, name, code)
+-- 10.5 DEPARTMENTS POLICIES (Manage & Customize Components)
+ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow authenticated read departments"
+ON public.departments
+FOR SELECT
+TO authenticated
+USING (true);
+
+CREATE POLICY "Allow authenticated manage departments"
+ON public.departments
+FOR ALL
+TO authenticated
+USING (true);
+
+-- 11. DEFAULT DEPARTMENTS SEED (With initial customizable properties)
+INSERT INTO public.departments (id, name, code, description, custom_fields)
 VALUES 
-    ('engineering', 'Engineering', 'DEV'),
-    ('marketing', 'Marketing', 'MKT'),
-    ('sales', 'Sales & CS', 'SLS'),
-    ('product', 'Product', 'PRD'),
-    ('operations', 'Operations', 'OPS')
-ON CONFLICT (id) DO NOTHING;
+    (
+        'engineering',
+        'Engineering',
+        'DEV',
+        'Core software, infrastructure, and web applications',
+        '[
+            {"id": "environment", "name": "Environment Stage", "type": "select", "options": ["LOCAL", "STAGING", "PROD"], "defaultValue": "LOCAL"},
+            {"id": "devScope", "name": "Development Layer", "type": "select", "options": ["Frontend only", "Backend only", "Both (Frontend + Backend)"]}
+        ]'::jsonb
+    ),
+    (
+        'marketing',
+        'Marketing',
+        'MKT',
+        'Growth, product launches, advertising, and content',
+        '[
+            {"id": "marketingChannel", "name": "Marketing Channel", "type": "select", "options": ["Social Media", "Content & SEO", "Email & Newsletter", "Paid Ads", "Brand & Design", "Product Launch"]},
+            {"id": "deliverableType", "name": "Deliverable Type", "type": "select", "options": ["Copy & Blog", "Graphics & Assets", "Video & Motion", "Landing Page", "Campaign Plan"]}
+        ]'::jsonb
+    ),
+    (
+        'sales',
+        'Sales & CS',
+        'SLS',
+        'Enterprise pipeline, client relationships, and retention',
+        '[
+            {"id": "dealSegment", "name": "Deal Segment", "type": "select", "options": ["Enterprise", "Mid-Market", "SMB / Startup", "Strategic Partner"]},
+            {"id": "dealStage", "name": "Deal Stage", "type": "select", "options": ["Lead / Prospect", "Discovery & Demo", "Proposal & Pricing", "Contract Negotiation", "Closed-Won Review"]}
+        ]'::jsonb
+    ),
+    (
+        'product',
+        'Product',
+        'PRD',
+        'Product specifications, roadmap, and user experience design',
+        '[
+            {"id": "environment", "name": "Environment Stage", "type": "select", "options": ["LOCAL", "STAGING", "PROD"]},
+            {"id": "devScope", "name": "Development Layer", "type": "select", "options": ["Frontend only", "Backend only", "Both (Frontend + Backend)"]}
+        ]'::jsonb
+    ),
+    (
+        'operations',
+        'Operations',
+        'OPS',
+        'Internal IT, workplace, compliance, and team enablement',
+        '[
+            {"id": "opsCategory", "name": "Ops Category", "type": "select", "options": ["IT & Access", "Finance & Billing", "Legal & Contracts", "People & HR", "Office & Facilities", "Security & Compliance"]},
+            {"id": "impactLevel", "name": "Impact Level", "type": "select", "options": ["Company-wide", "Team-specific", "Individual"]}
+        ]'::jsonb
+    )
+ON CONFLICT (id) DO UPDATE SET
+    custom_fields = EXCLUDED.custom_fields,
+    description = EXCLUDED.description;
