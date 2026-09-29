@@ -82,6 +82,16 @@ export interface Comment {
   statusChange?: string;
 }
 
+export interface HistoryEntry {
+  id: string;
+  actor: UserProfile;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  message: string;
+  createdAt: string;
+}
+
 export interface Issue {
   id: string;
   number: number;
@@ -113,6 +123,7 @@ export interface Issue {
   createdAt: string;
   updatedAt: string;
   comments: Comment[];
+  history: HistoryEntry[];
   starred?: boolean;
 }
 

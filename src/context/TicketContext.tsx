@@ -14,6 +14,7 @@ import {
   DealStage,
   OpsCategory,
   ImpactLevel,
+  HistoryEntry,
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 
@@ -72,8 +73,43 @@ interface IssueContextType {
 
 const IssueContext = createContext<IssueContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'nuts_issues_v4';
-const STORAGE_DEPTS = 'nuts_depts_v4';
+const STORAGE_KEY = 'nuts_issues_v5';
+const STORAGE_DEPTS = 'nuts_depts_v5';
+
+const getFieldLabel = (key: string): string => {
+  const labels: Record<string, string> = {
+    title: 'Title',
+    description: 'Description',
+    departmentId: 'Department',
+    priority: 'Priority',
+    status: 'Status',
+    assignee: 'Assignee',
+    environment: 'Environment Stage',
+    devScope: 'Development Layer',
+    marketingChannel: 'Marketing Channel',
+    deliverableType: 'Deliverable Type',
+    dealSegment: 'Deal Segment',
+    dealStage: 'Deal Stage',
+    opsCategory: 'Ops Category',
+    impactLevel: 'Impact Level',
+  };
+  return labels[key] || key;
+};
+
+const formatValueForHistory = (key: string, val: any, departments?: Department[]): string => {
+  if (val === null || val === undefined || val === '') return 'None';
+  if (typeof val === 'object' && 'name' in val) return val.name;
+  if (key === 'departmentId' && departments) {
+    const dept = departments.find((d) => d.id === val);
+    if (dept) return `${dept.name} (${dept.code})`;
+  }
+  if (key === 'devScope') {
+    if (val === 'both') return 'Frontend + Backend';
+    if (val === 'frontend') return 'Frontend only';
+    if (val === 'backend') return 'Backend only';
+  }
+  return String(val);
+};
 
 export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [departments, setDepartments] = useState<Department[]>(() => {
@@ -137,6 +173,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const assignee = USERS.find((u) => u.id === data.assigneeId) || null;
 
     const isEng = dept.id === 'engineering' || dept.id === 'product';
+    const now = new Date().toISOString();
 
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
@@ -157,9 +194,20 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       impactLevel: dept.id === 'operations' ? data.impactLevel : undefined,
       assignee,
       reporter: currentUser,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       comments: [],
+      history: [
+        {
+          id: `h-${Date.now()}-created`,
+          actor: currentUser,
+          field: 'Issue',
+          oldValue: '',
+          newValue: 'Created',
+          message: `Created issue ${dept.code}-${newNum} in ${dept.name}`,
+          createdAt: now,
+        },
+      ],
     };
 
     setIssues((prev) => [newIssue, ...prev]);
@@ -171,11 +219,56 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIssues((prev) =>
       prev.map((iss) => {
         if (iss.id === id) {
-          const updated = {
+          const now = new Date().toISOString();
+          const newEntries: HistoryEntry[] = [];
+
+          (Object.keys(updates) as (keyof Issue)[]).forEach((key) => {
+            if (
+              key === 'updatedAt' ||
+              key === 'comments' ||
+              key === 'history' ||
+              key === 'id' ||
+              key === 'number' ||
+              key === 'code' ||
+              key === 'createdAt' ||
+              key === 'reporter' ||
+              key === 'starred'
+            ) {
+              return;
+            }
+
+            const oldRaw = iss[key];
+            const newRaw = updates[key];
+
+            const oldFormatted = formatValueForHistory(key as string, oldRaw, departments);
+            const newFormatted = formatValueForHistory(key as string, newRaw, departments);
+
+            if (oldFormatted !== newFormatted) {
+              const fieldLabel = getFieldLabel(key as string);
+              newEntries.push({
+                id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                actor: currentUser,
+                field: fieldLabel,
+                oldValue: oldFormatted,
+                newValue: newFormatted,
+                message:
+                  oldFormatted === 'None'
+                    ? `Set ${fieldLabel} to "${newFormatted}"`
+                    : newFormatted === 'None'
+                    ? `Cleared ${fieldLabel} (was "${oldFormatted}")`
+                    : `Changed ${fieldLabel} from "${oldFormatted}" to "${newFormatted}"`,
+                createdAt: now,
+              });
+            }
+          });
+
+          const updated: Issue = {
             ...iss,
             ...updates,
-            updatedAt: new Date().toISOString(),
+            history: [...(iss.history || []), ...newEntries],
+            updatedAt: now,
           };
+
           if (selectedIssue && selectedIssue.id === id) {
             setSelectedIssue(updated);
           }
@@ -190,24 +283,38 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const current = issues.find((i) => i.id === issueId);
     if (!current) return;
 
+    const now = new Date().toISOString();
     let statusChangeText: string | undefined = undefined;
+    const newHistoryEntries: HistoryEntry[] = [];
+
     if (newStatus && newStatus !== current.status) {
       statusChangeText = `Status changed from ${current.status} to ${newStatus}`;
+      newHistoryEntries.push({
+        id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        actor: currentUser,
+        field: 'Status',
+        oldValue: current.status,
+        newValue: newStatus,
+        message: statusChangeText,
+        createdAt: now,
+      });
     }
 
     const newComment = {
       id: `c-${Date.now()}`,
       author: currentUser,
       text: text.trim(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       statusChange: statusChangeText,
     };
 
     const updatedIssue: Issue = {
       ...current,
       status: newStatus || current.status,
-      comments: text.trim() || statusChangeText ? [...current.comments, newComment] : current.comments,
-      updatedAt: new Date().toISOString(),
+      comments:
+        text.trim() || statusChangeText ? [...current.comments, newComment] : current.comments,
+      history: [...(current.history || []), ...newHistoryEntries],
+      updatedAt: now,
     };
 
     setIssues((prev) => prev.map((i) => (i.id === issueId ? updatedIssue : i)));

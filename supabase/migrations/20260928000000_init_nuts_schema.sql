@@ -57,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_issues_environment ON public.issues(environment);
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON public.issues(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_issues_created_at ON public.issues(created_at DESC);
 
--- 4. COMMENTS & HISTORY
+-- 4. COMMENTS
 CREATE TABLE IF NOT EXISTS public.comments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     issue_id UUID NOT NULL REFERENCES public.issues(id) ON DELETE CASCADE,
@@ -68,6 +68,20 @@ CREATE TABLE IF NOT EXISTS public.comments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_comments_issue ON public.comments(issue_id);
+
+-- 5. ISSUE PROPERTY CHANGE HISTORY / AUDIT LOG (Lightweight & cheap append-only table)
+CREATE TABLE IF NOT EXISTS public.issue_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    issue_id UUID NOT NULL REFERENCES public.issues(id) ON DELETE CASCADE,
+    actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    field_name TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_issue_history_issue_created ON public.issue_history(issue_id, created_at DESC);
 
 -- 5. AUTO-UPDATE UPDATED_AT TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -138,6 +152,7 @@ ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.issues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.issue_history ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow authenticated read departments" ON public.departments FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow authenticated read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
@@ -149,6 +164,7 @@ CREATE POLICY "Allow authenticated update issues" ON public.issues FOR UPDATE TO
 CREATE POLICY "Allow authenticated delete issues" ON public.issues FOR DELETE TO authenticated USING (true);
 
 CREATE POLICY "Allow authenticated manage comments" ON public.comments FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow authenticated manage issue_history" ON public.issue_history FOR ALL TO authenticated USING (true);
 
 -- 9. DEFAULT DEPARTMENTS SEED
 INSERT INTO public.departments (id, name, code)
