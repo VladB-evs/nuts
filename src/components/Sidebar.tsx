@@ -8,7 +8,6 @@ import {
   FileText,
   Star,
   CheckCircle2,
-  Folder,
   Plus,
   Settings2,
 } from 'lucide-react';
@@ -141,24 +140,6 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
         </div>
-
-        <button
-          onClick={() => {
-            setSelectedDepartment('all');
-            setSelectedIssue(null);
-          }}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors ${
-            selectedDepartment === 'all'
-              ? 'bg-gray-100 font-semibold text-gray-900'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Folder className="w-3.5 h-3.5 text-gray-400" />
-            <span>All Departments</span>
-          </div>
-          <span className="text-[11px] text-gray-400 font-mono">{issues.length}</span>
-        </button>
 
         {departments.map((dept) => {
           const isSelected = selectedDepartment === dept.id;
