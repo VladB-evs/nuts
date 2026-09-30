@@ -27,6 +27,8 @@ export const Sidebar: React.FC = () => {
     setSelectedIssue,
   } = useIssues();
 
+  if (!currentUser) return null;
+
   const userDeptId = getUserDepartmentId(currentUser, departments);
   const userDept = departments.find((d) => d.id === userDeptId);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
+import { UserProfile } from '../types';
 import { UserAvatar } from './UserAvatar';
 import { X, Check, Link2, AtSign, Briefcase, Building, Sparkles } from 'lucide-react';
 
@@ -30,7 +31,7 @@ export const ProfileModal: React.FC = () => {
     }
   }, [isProfileModalOpen, currentUser, departments]);
 
-  if (!isProfileModalOpen) return null;
+  if (!isProfileModalOpen || !currentUser) return null;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,13 +55,15 @@ export const ProfileModal: React.FC = () => {
     }, 600);
   };
 
-  const previewUser = {
-    ...currentUser,
+  const previewUser: UserProfile = {
+    id: currentUser.id,
+    email: currentUser.email,
     name: name.trim() || currentUser.name,
     nickname: nickname.trim().replace(/^@+/, '') || currentUser.nickname,
     role: role.trim() || currentUser.role || 'Member',
     department: department || currentUser.department,
-    avatarUrl: avatarUrl.trim(),
+    avatarUrl: avatarUrl.trim() || currentUser.avatarUrl,
+    avatar: avatarUrl.trim() || currentUser.avatar,
   };
 
   const sampleAvatars = [

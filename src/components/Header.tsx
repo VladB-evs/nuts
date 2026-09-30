@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { UserAvatar } from './UserAvatar';
-import { Search, Plus, Database, Check, UserCog, ChevronDown, Settings2 } from 'lucide-react';
+import { Search, Plus, Database, Check, UserCog, ChevronDown, Settings2, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   onOpenNeon: () => void;
@@ -13,6 +13,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
     setSearchQuery,
     currentUser,
     setCurrentUser,
+    logout,
+    isNeonConnected,
     users,
     setIsCreateModalOpen,
     setSelectedIssue,
@@ -21,6 +23,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
   } = useIssues();
 
   const [userDropdown, setUserDropdown] = useState(false);
+
+  if (!currentUser) return null;
 
   return (
     <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between sticky top-0 z-30 select-none">
@@ -59,11 +63,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
         {/* Neon backend status */}
         <button
           onClick={onOpenNeon}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-          title="Neon Serverless Postgres Setup & Migration"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-700 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
+          title={isNeonConnected ? "Connected to Neon Serverless Postgres" : "Configure Neon Serverless Postgres"}
         >
           <Database className="w-3.5 h-3.5 text-gray-500" />
-          <span className="font-mono text-[11px]">Neon SQL</span>
+          <span className="font-mono text-[11px] flex items-center gap-1">
+            <span className={isNeonConnected ? "text-emerald-600 font-bold" : "text-amber-500 font-bold"}>
+              ●
+            </span>
+            <span>Neon SQL</span>
+          </span>
         </button>
 
         {/* Department Settings */}
@@ -189,6 +198,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
                       )}
                     </button>
                   ))}
+                </div>
+
+                {/* Sign Out */}
+                <div className="pt-1.5 mt-1.5 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setUserDropdown(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors text-xs font-medium"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
                 </div>
               </div>
             </>

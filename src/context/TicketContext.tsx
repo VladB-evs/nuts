@@ -20,13 +20,28 @@ import {
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 import { getUserDepartmentId } from '../lib/departmentRules';
+import { isNeonConfigured } from '../lib/neon';
+import {
+  fetchAllDataFromNeon,
+  createIssueInNeon,
+  updateIssueInNeon,
+  addCommentInNeon,
+  deleteIssueInNeon,
+  saveDepartmentInNeon,
+  deleteDepartmentInNeon,
+  updateProfileInNeon,
+} from '../lib/neonService';
 
 interface IssueContextType {
   issues: Issue[];
   departments: Department[];
   users: UserProfile[];
-  currentUser: UserProfile;
-  setCurrentUser: (user: UserProfile) => void;
+  currentUser: UserProfile | null;
+  setCurrentUser: (user: UserProfile | null) => void;
+  logout: () => void;
+  isNeonConnected: boolean;
+  isLoadingDatabase: boolean;
+  reloadFromDatabase: () => Promise<void>;
   updateUserProfile: (userId: string, updates: Partial<UserProfile>) => void;
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
@@ -157,24 +172,72 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [currentUser, setCurrentUserState] = useState<UserProfile>(() => {
+  const [currentUser, setCurrentUserState] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_CURRENT_USER);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        const matched = USERS.find((u) => u.id === parsed.id);
-        return { ...matched, ...parsed };
+        return JSON.parse(saved);
       }
-      return USERS[1]; // Alex Rivera
+      return null;
     } catch {
-      return USERS[1];
+      return null;
     }
   });
 
-  const setCurrentUser = (user: UserProfile) => {
+  const setCurrentUser = (user: UserProfile | null) => {
     setCurrentUserState(user);
-    localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+    if (user) {
+      localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_CURRENT_USER);
+    }
   };
+
+  const logout = () => {
+    setCurrentUser(null);
+  };
+
+  const [isNeonConnected, setIsNeonConnected] = useState<boolean>(isNeonConfigured());
+  const [isLoadingDatabase, setIsLoadingDatabase] = useState<boolean>(false);
+
+  const reloadFromDatabase = async () => {
+    if (!isNeonConfigured()) {
+      setIsNeonConnected(false);
+      return;
+    }
+    setIsLoadingDatabase(true);
+    try {
+      const data = await fetchAllDataFromNeon();
+      if (data) {
+        if (data.departments && data.departments.length > 0) {
+          setDepartments(data.departments);
+        }
+        if (data.users && data.users.length > 0) {
+          setUsers(data.users);
+          setCurrentUserState((prev) => {
+            if (!prev) return null;
+            const updated = data.users.find(
+              (u) => u.id === prev.id || u.email.toLowerCase() === prev.email.toLowerCase()
+            );
+            return updated || prev;
+          });
+        }
+        if (data.issues && data.issues.length > 0) {
+          setIssues(data.issues);
+        }
+        setIsNeonConnected(true);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch from Neon database:', err);
+      setIsNeonConnected(false);
+    } finally {
+      setIsLoadingDatabase(false);
+    }
+  };
+
+  useEffect(() => {
+    reloadFromDatabase();
+  }, []);
 
   const [issues, setIssues] = useState<Issue[]>(() => {
     try {
@@ -236,8 +299,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     setCurrentUserState((prev) => {
-      if (prev.id === userId) {
-        const next = { ...prev, ...updates };
+      if (prev && prev.id === userId) {
+        const next: UserProfile = { ...prev, ...updates };
         localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(next));
         return next;
       }
@@ -289,6 +352,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return iss;
       })
     );
+
+    if (isNeonConfigured()) {
+      updateProfileInNeon(userId, updates);
+    }
   };
 
   const createIssue = (data: {
@@ -345,6 +412,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
+    const reporterUser: UserProfile = currentUser || users[0] || {
+      id: 'default-user',
+      name: 'Team Member',
+      nickname: 'member',
+      email: 'member@nuts.internal',
+      role: 'Member',
+      department: 'Engineering',
+    };
+
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
       number: newNum,
@@ -365,14 +441,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       opsCategory: (customAttrs.opsCategory as OpsCategory) || data.opsCategory,
       impactLevel: (customAttrs.impactLevel as ImpactLevel) || data.impactLevel,
       assignee,
-      reporter: currentUser,
+      reporter: reporterUser,
       createdAt: now,
       updatedAt: now,
       comments: [],
       history: [
         {
           id: `h-${Date.now()}-created`,
-          actor: currentUser,
+          actor: reporterUser,
           field: 'Issue',
           oldValue: '',
           newValue: 'Created',
@@ -384,6 +460,49 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setIssues((prev) => [newIssue, ...prev]);
     setSelectedIssue(newIssue);
+
+    if (isNeonConfigured()) {
+      createIssueInNeon(
+        {
+          title: data.title,
+          description: data.description,
+          departmentId: dept.id,
+          priority: data.priority,
+          customAttributes: customAttrs,
+          issueType: (customAttrs.issueType as IssueType) || data.issueType,
+          environment: (customAttrs.environment as Environment) || data.environment,
+          devScope: data.devScope,
+          assigneeId: data.assigneeId,
+        },
+        reporterUser
+      ).then((neonIssue) => {
+        if (neonIssue) {
+          setIssues((prev) =>
+            prev.map((i) =>
+              i.id === newIssue.id
+                ? {
+                    ...i,
+                    id: neonIssue.id,
+                    code: neonIssue.code,
+                    number: neonIssue.number,
+                  }
+                : i
+            )
+          );
+          setSelectedIssue((curr) =>
+            curr && curr.id === newIssue.id
+              ? {
+                  ...curr,
+                  id: neonIssue.id,
+                  code: neonIssue.code,
+                  number: neonIssue.number,
+                }
+              : curr
+          );
+        }
+      });
+    }
+
     return newIssue;
   };
 
@@ -392,6 +511,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map((iss) => {
         if (iss.id === id) {
           const now = new Date().toISOString();
+          const actorUser: UserProfile = currentUser || users[0] || {
+            id: 'default-user',
+            name: 'Team Member',
+            nickname: 'member',
+            email: 'member@nuts.internal',
+            role: 'Member',
+            department: 'Engineering',
+          };
           const newEntries: HistoryEntry[] = [];
           const currentDept = departments.find((d) => d.id === (updates.departmentId || iss.departmentId));
 
@@ -413,7 +540,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (oldFormatted !== newFormatted) {
                   newEntries.push({
                     id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                    actor: currentUser,
+                    actor: actorUser,
                     field: fieldLabel,
                     oldValue: oldFormatted,
                     newValue: newFormatted,
@@ -457,7 +584,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               const fieldLabel = getFieldLabel(key as string);
               newEntries.push({
                 id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                actor: currentUser,
+                actor: actorUser,
                 field: fieldLabel,
                 oldValue: oldFormatted,
                 newValue: newFormatted,
@@ -488,6 +615,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (selectedIssue && selectedIssue.id === id) {
             setSelectedIssue(updated);
           }
+
+          if (isNeonConfigured()) {
+            const actorUser = currentUser || users[0];
+            if (actorUser) {
+              updateIssueInNeon(id, updates, actorUser);
+            }
+          }
+
           return updated;
         }
         return iss;
@@ -503,11 +638,20 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let statusChangeText: string | undefined = undefined;
     const newHistoryEntries: HistoryEntry[] = [];
 
+    const actorUser = currentUser || users[0] || {
+      id: 'default-user',
+      name: 'Team Member',
+      nickname: 'member',
+      email: 'member@nuts.internal',
+      role: 'Member',
+      department: 'Engineering',
+    };
+
     if (newStatus && newStatus !== current.status) {
       statusChangeText = `Status changed from ${current.status} to ${newStatus}`;
       newHistoryEntries.push({
         id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        actor: currentUser,
+        actor: actorUser,
         field: 'Status',
         oldValue: current.status,
         newValue: newStatus,
@@ -518,7 +662,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const newComment = {
       id: `c-${Date.now()}`,
-      author: currentUser,
+      author: actorUser,
       text: text.trim(),
       createdAt: now,
       statusChange: statusChangeText,
@@ -537,6 +681,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (selectedIssue?.id === issueId) {
       setSelectedIssue(updatedIssue);
     }
+
+    if (isNeonConfigured()) {
+      addCommentInNeon(issueId, text, actorUser, newStatus);
+    }
   };
 
   const toggleStar = (issueId: string) => {
@@ -550,12 +698,26 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return i;
       })
     );
+
+    if (isNeonConfigured()) {
+      const target = issues.find((i) => i.id === issueId);
+      if (target) {
+        const actor = currentUser || users[0];
+        if (actor) {
+          updateIssueInNeon(issueId, { starred: !target.starred }, actor);
+        }
+      }
+    }
   };
 
   const deleteIssue = (issueId: string) => {
     setIssues((prev) => prev.filter((i) => i.id !== issueId));
     if (selectedIssue?.id === issueId) {
       setSelectedIssue(null);
+    }
+
+    if (isNeonConfigured()) {
+      deleteIssueInNeon(issueId);
     }
   };
 
@@ -574,18 +736,29 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       customFields: customFields || [],
     };
     setDepartments((prev) => [...prev, newDept]);
+
+    if (isNeonConfigured()) {
+      saveDepartmentInNeon(newDept);
+    }
+
     return newDept;
   };
 
   const updateDepartment = (deptId: string, updates: Partial<Department>) => {
+    let updatedTarget: Department | null = null;
     setDepartments((prev) =>
       prev.map((d) => {
         if (d.id === deptId) {
-          return { ...d, ...updates };
+          updatedTarget = { ...d, ...updates };
+          return updatedTarget;
         }
         return d;
       })
     );
+
+    if (isNeonConfigured() && updatedTarget) {
+      saveDepartmentInNeon(updatedTarget);
+    }
 
     // Automatically populate custom fields on each ticket of that department if missing
     if (updates.customFields) {
@@ -650,10 +823,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (selectedIssue && selectedIssue.departmentId === deptId) {
       setSelectedIssue(null);
     }
+
+    if (isNeonConfigured()) {
+      deleteDepartmentInNeon(deptId);
+    }
   };
 
   // Filtered Issues computation
   const filteredIssues = useMemo(() => {
+    if (!currentUser) return [];
     const userDeptId = getUserDepartmentId(currentUser, departments);
 
     return issues.filter((issue) => {
@@ -759,6 +937,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [issues, selectedDepartment, navView, priorityFilter, subFilter, searchQuery, currentUser, departments]);
 
   const counts = useMemo(() => {
+    if (!currentUser) {
+      return {
+        open: 0,
+        assignedToMe: 0,
+        reportedByMe: 0,
+        starred: 0,
+        closed: 0,
+      };
+    }
     const userDeptId = getUserDepartmentId(currentUser, departments);
 
     // "Opened issues will show all the opened issues in the department I am assigned to."
@@ -803,6 +990,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         users,
         currentUser,
         setCurrentUser,
+        logout,
+        isNeonConnected,
+        isLoadingDatabase,
+        reloadFromDatabase,
         updateUserProfile,
         isProfileModalOpen,
         setIsProfileModalOpen,

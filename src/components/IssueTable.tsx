@@ -23,6 +23,8 @@ export const IssueTable: React.FC = () => {
     setIsCreateModalOpen,
   } = useIssues();
 
+  if (!currentUser) return null;
+
   const getPriorityBadge = (p: Priority) => {
     switch (p) {
       case 'P0':
