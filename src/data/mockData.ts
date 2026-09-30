@@ -330,7 +330,7 @@ export const INITIAL_ISSUES: Issue[] = [
     number: 106,
     code: 'DEV-106',
     title: 'PostgreSQL connection pool exhaustion during peak export jobs',
-    description: 'Connection pool size needs to be adjusted from 20 to 50 in Supabase pgbouncer pool settings.',
+    description: 'Connection pool size needs to be adjusted from 20 to 50 in Neon connection pool settings.',
     departmentId: 'engineering',
     priority: 'P1',
     status: 'NEW',

@@ -1,44 +1,37 @@
 # NUTS — Neuro Unified Ticketing System
 
-> **Universal, lightning-fast ticketing system for modern startups.** Manage Engineering, Marketing, Sales, Product, and Operations tickets in a single, high-contrast monochrome workspace with intentional accent colors.
-
-![NUTS Banner](public/nuts-logo.svg)
+> **Universal, lightning-fast issue tracking for modern teams.** Built with Google Buganizer aesthetics, high-density monochrome UI, and powered by **Neon Serverless Postgres**.
 
 ---
 
 ## ⚡ Core Features
 
-- **Universal Multi-Department Architecture**:
-  - **Engineering (`DEV`)**: Git branch tracking, PR links, affected environments, bug triage, tech debt tags.
-  - **Marketing (`MKT`)**: Campaigns, growth channels (social, email, SEO, ads), deliverable asset links.
-  - **Sales & CS (`SLS`)**: Enterprise accounts, deal sizes, sales pipeline stages, SLA targets.
-  - **Product & Design (`PRD`)**: User stories, milestones, design system links.
-  - **Operations & HR (`OPS`)**: Equipment provisioning, legal, financial budgets.
-  - **Custom Departments**: Create any team with custom ticket code prefixes and accent colors directly in the UI.
+- **Google Buganizer Minimalist Aesthetic**:
+  - High-density issue table with status chips (`NEW`, `ASSIGNED`, `ACCEPTED`, `FIXED`, `VERIFIED`, `CLOSED`) and priority markers (`P0`, `P1`, `P2`, `P3`).
+  - Clean split view / master-detail pane with comment stream and activity audit log.
+  - Quick-action status dropdowns and assignee reassignment.
 
-- **High-Contrast Monochrome Design**:
-  - Minimalist black-and-white aesthetic with strategic status & department accents.
-  - Built-in Dark and Light mode toggle.
-  - Fluid mobile-first experience with a responsive bottom navigation bar, touch-friendly sheets, and smooth horizontal scrolling.
+- **Dynamic Department Custom Fields**:
+  - Starts with **Engineering (`DEV`)** as the primary default department, featuring `issueType` (Bug vs Feature), `environment` (LOCAL, STAGING, PROD), and `devScope`.
+  - Add, edit, and reorder custom department properties dynamically without database schema migrations.
+  - Dynamic fields automatically populate into every ticket belonging to that department.
 
-- **Multiple Interactive Views**:
-  - **Kanban Board**: Drag-and-drop status flow (`Backlog` → `To Do` → `In Progress` → `In Review` → `Done`) with confetti celebration on completion.
-  - **List / Table View**: High-density view with sorting by key, summary, priority, due date, and inline status modification.
-  - **Metrics & SLA Dashboard**: Real-time workload distribution, team allocation, and priority breakdown.
+- **Team Profiles & Hover Cards**:
+  - Unique team `@nickname`, department roles (e.g., *Lead Platform Engineer*, *Senior Frontend*), and external avatar image links (zero file upload friction).
+  - Interactive profile card on hover over any user avatar or name across the app.
 
-- **Productivity Superchargers**:
-  - **Command Palette (`Cmd+K` / `Ctrl+K`)**: Instant search across tickets, departments, quick view transitions, and actions.
-  - **Quick Ticket Creation (`C`)**: Template auto-fill for Bug Reports, Feature Specs, Marketing Campaigns, and Sales Deals.
-  - **Interactive Checklists & Subtasks**: Real-time progress bars and task completion tracking.
-  - **Persona Switcher**: Seamlessly switch between team member profiles to test workflows.
-  - **Local Persistence**: State automatically saves to `localStorage` so changes persist across refreshes, with a 1-click **Reset Demo Data** button.
+- **Neon Serverless Postgres Architecture**:
+  - Powered by `@neondatabase/serverless` using fast HTTP queries.
+  - JSONB attributes with PostgreSQL GIN indexing for fast custom field queries.
+  - Automatic ticket code generation (`DEV-101`, `DEV-102`...) and change tracking triggers.
+  - Offline-first mock data fallback when running without a database connection string.
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Canvas Confetti.
-- **Backend / Database**: Supabase PostgreSQL + Auth (email/password), prepared with full migrations.
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons.
+- **Database**: Neon Serverless Postgres (`@neondatabase/serverless`).
 - **Deployment**: Netlify (pre-configured with `netlify.toml` SPA redirects).
 
 ---
@@ -65,29 +58,28 @@ npm run build
 
 ---
 
-## 🗄 Supabase Backend Setup (When Ready)
+## 🗄 Neon Serverless Postgres Setup
 
-The project is structured with an **offline-first prototyping mode** active by default so you can evaluate and customize the UI immediately. When you are ready to connect your live Supabase project:
+NUTS works out of the box with offline mock data. When you are ready to connect your live Neon database:
 
-1. Open your Supabase Dashboard: [https://supabase.com/dashboard](https://supabase.com/dashboard)
-2. Open the **SQL Editor** tab.
-3. Open and copy the SQL migration from:
+1. Create a project at [Neon](https://console.neon.tech).
+2. Open the **SQL Editor** tab in the Neon Console.
+3. Paste and run the migration script:
+   ```sql
+   neon/migrations/001_init_nuts_schema.sql
    ```
-   supabase/migrations/20260928000000_init_nuts_schema.sql
-   ```
-4. Run the SQL script to create tables (`departments`, `profiles`, `tickets`, `ticket_comments`, `ticket_checklists`, `ticket_activities`), RLS security policies, auto-numbering triggers, and seed data.
+4. Copy your Postgres connection string (Pooled or Direct) from the Neon dashboard.
 5. Create a `.env` file in the root directory:
    ```env
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_NEON_DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
    ```
-6. Restart the dev server or deploy. NUTS will automatically detect your Supabase credentials!
+6. Rebuild or reload the app. NUTS will automatically detect your Neon database!
 
 ---
 
 ## 🌐 Deploy to Netlify
 
-The repository includes `netlify.toml` with SPA redirects configured:
+The repository includes `netlify.toml` with build commands and SPA routing pre-configured:
 
 ```toml
 [build]
@@ -100,10 +92,11 @@ The repository includes `netlify.toml` with SPA redirects configured:
   status = 200
 ```
 
-To deploy:
-- **Via Git**: Push to GitHub/GitLab and link your repo in [Netlify](https://app.netlify.com).
-- **Via Netlify CLI**:
-  ```bash
-  npm install -g netlify-cli
-  netlify deploy --prod --dir=dist
-  ```
+### Steps to Deploy:
+1. Push your repository to GitHub.
+2. Log into [Netlify](https://app.netlify.com) and click **"Add new site" → "Import an existing project"**.
+3. Select your GitHub repository.
+4. (Optional) Under **Environment variables**, add:
+   - Key: `VITE_NEON_DATABASE_URL`
+   - Value: Your Neon Postgres connection string.
+5. Click **Deploy NUTS**.

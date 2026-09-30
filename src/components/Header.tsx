@@ -4,10 +4,10 @@ import { UserAvatar } from './UserAvatar';
 import { Search, Plus, Database, Check, UserCog, ChevronDown, Settings2 } from 'lucide-react';
 
 interface HeaderProps {
-  onOpenSupabase: () => void;
+  onOpenNeon: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
   const {
     searchQuery,
     setSearchQuery,
@@ -56,14 +56,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSupabase }) => {
 
       {/* Right Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Supabase backend status */}
+        {/* Neon backend status */}
         <button
-          onClick={onOpenSupabase}
+          onClick={onOpenNeon}
           className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-          title="Supabase Migration & RLS Info"
+          title="Neon Serverless Postgres Setup & Migration"
         >
           <Database className="w-3.5 h-3.5 text-gray-500" />
-          <span className="font-mono text-[11px]">Supabase SQL</span>
+          <span className="font-mono text-[11px]">Neon SQL</span>
         </button>
 
         {/* Department Settings */}

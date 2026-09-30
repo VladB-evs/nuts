@@ -1,9 +1,8 @@
 -- ====================================================================
--- NUTS (Neuro Unified Ticketing System) - Simple Issue Tracker Schema
--- Migration: 20260928000000_init_nuts_schema.sql
+-- NUTS (Neuro Unified Ticketing System) - Neon Serverless Postgres Schema
+-- Migration: 001_init_nuts_schema.sql
+-- Compatible with: Neon Serverless Postgres (console.neon.tech)
 -- ====================================================================
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. DEPARTMENTS (Fully Customizable)
 -- Uses JSONB for custom_fields so teams can dynamically add/remove/reorder
@@ -17,16 +16,16 @@ CREATE TABLE IF NOT EXISTS public.departments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. USER PROFILES (Linked with Supabase Auth)
--- Stores nicknames, department-specific roles, and external avatar image links
+-- 2. USER PROFILES
+-- Stores team member names, nicknames, department-specific roles, and external avatar links
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    email TEXT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     nickname TEXT UNIQUE,
     role TEXT NOT NULL DEFAULT 'Member',
     department TEXT NOT NULL DEFAULT 'Engineering',
-    avatar_url TEXT, -- External image link only (no storage upload/bucket required)
+    avatar_url TEXT,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -36,10 +35,10 @@ CREATE INDEX IF NOT EXISTS idx_profiles_department ON public.profiles(department
 CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON public.profiles(nickname);
 
 -- 3. ISSUES / TICKETS
--- Ultra-efficient: custom_attributes JSONB stores dynamic department-defined values
--- Indexed via PostgreSQL GIN index for high-speed attribute lookups and queries with zero joins.
+-- High-performance: custom_attributes JSONB stores dynamic department-defined values.
+-- Indexed via PostgreSQL GIN index for high-speed attribute lookups and queries.
 CREATE TABLE IF NOT EXISTS public.issues (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     number SERIAL,
     code TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
@@ -48,21 +47,12 @@ CREATE TABLE IF NOT EXISTS public.issues (
     priority TEXT NOT NULL DEFAULT 'P2' CHECK (priority IN ('P0', 'P1', 'P2', 'P3')),
     status TEXT NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW', 'ASSIGNED', 'ACCEPTED', 'FIXED', 'VERIFIED', 'CLOSED')),
     custom_attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
-    -- Engineering rules (backward compatibility)
     issue_type TEXT CHECK (issue_type IN ('Bug', 'Feature')),
     environment TEXT CHECK (environment IN ('LOCAL', 'STAGING', 'PROD')),
     dev_scope TEXT CHECK (dev_scope IN ('frontend', 'backend', 'both')),
-    -- Marketing rules (backward compatibility)
-    marketing_channel TEXT,
-    deliverable_type TEXT,
-    -- Sales rules (backward compatibility)
-    deal_segment TEXT,
-    deal_stage TEXT,
-    -- Operations rules (backward compatibility)
-    ops_category TEXT,
-    impact_level TEXT,
     assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reporter_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    starred BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -70,13 +60,12 @@ CREATE TABLE IF NOT EXISTS public.issues (
 CREATE INDEX IF NOT EXISTS idx_issues_department ON public.issues(department_id);
 CREATE INDEX IF NOT EXISTS idx_issues_status ON public.issues(status);
 CREATE INDEX IF NOT EXISTS idx_issues_custom_attributes ON public.issues USING GIN (custom_attributes);
-CREATE INDEX IF NOT EXISTS idx_issues_environment ON public.issues(environment);
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON public.issues(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_issues_created_at ON public.issues(created_at DESC);
 
 -- 4. COMMENTS
 CREATE TABLE IF NOT EXISTS public.comments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     issue_id UUID NOT NULL REFERENCES public.issues(id) ON DELETE CASCADE,
     author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     text TEXT DEFAULT '',
@@ -86,9 +75,9 @@ CREATE TABLE IF NOT EXISTS public.comments (
 
 CREATE INDEX IF NOT EXISTS idx_comments_issue ON public.comments(issue_id);
 
--- 5. ISSUE PROPERTY CHANGE HISTORY / AUDIT LOG (Lightweight & cheap append-only table)
+-- 5. ISSUE PROPERTY CHANGE HISTORY / AUDIT LOG (Append-only audit trail)
 CREATE TABLE IF NOT EXISTS public.issue_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     issue_id UUID NOT NULL REFERENCES public.issues(id) ON DELETE CASCADE,
     actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     field_name TEXT NOT NULL,
@@ -121,7 +110,7 @@ BEFORE UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
--- 7. AUTO-GENERATE ISSUE CODE (e.g. DEV-101, MKT-102)
+-- 7. AUTO-GENERATE ISSUE CODE (e.g. DEV-101, DEV-102)
 CREATE OR REPLACE FUNCTION public.generate_issue_code()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -131,7 +120,7 @@ BEGIN
     IF NEW.code IS NULL OR NEW.code = '' THEN
         SELECT code INTO dept_code FROM public.departments WHERE id = NEW.department_id;
         IF dept_code IS NULL THEN
-            dept_code := 'NUTS';
+            dept_code := 'DEV';
         END IF;
         
         SELECT COALESCE(MAX(SUBSTRING(code FROM '[0-9]+')::INT), 100) + 1 INTO next_num
@@ -154,7 +143,7 @@ EXECUTE FUNCTION public.generate_issue_code();
 CREATE OR REPLACE FUNCTION public.track_issue_changes()
 RETURNS TRIGGER AS $$
 DECLARE
-    actor UUID := auth.uid();
+    actor UUID := NEW.reporter_id;
 BEGIN
     IF (OLD.priority IS DISTINCT FROM NEW.priority) THEN
         INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
@@ -181,6 +170,11 @@ BEGIN
         VALUES (NEW.id, actor, 'Department', OLD.department_id, NEW.department_id, 'Moved to department ' || NEW.department_id);
     END IF;
 
+    IF (OLD.issue_type IS DISTINCT FROM NEW.issue_type) THEN
+        INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
+        VALUES (NEW.id, actor, 'Issue Type', OLD.issue_type, NEW.issue_type, 'Changed Issue Type from ' || COALESCE(OLD.issue_type, 'None') || ' to ' || COALESCE(NEW.issue_type, 'None'));
+    END IF;
+
     IF (OLD.environment IS DISTINCT FROM NEW.environment) THEN
         INSERT INTO public.issue_history (issue_id, actor_id, field_name, old_value, new_value, message)
         VALUES (NEW.id, actor, 'Environment Stage', OLD.environment, NEW.environment, 'Changed Environment Stage from ' || COALESCE(OLD.environment, 'None') || ' to ' || COALESCE(NEW.environment, 'None'));
@@ -193,143 +187,15 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_track_issue_changes ON public.issues;
 CREATE TRIGGER trigger_track_issue_changes
 AFTER UPDATE ON public.issues
 FOR EACH ROW EXECUTE FUNCTION public.track_issue_changes();
 
--- 9. NEW USER TRIGGER
--- Automatically sets up new user profile with role, nickname, and avatar from auth metadata
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (
-        id,
-        email,
-        name,
-        nickname,
-        role,
-        department,
-        avatar_url,
-        is_admin
-    )
-    VALUES (
-        NEW.id,
-        NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-        LOWER(COALESCE(NEW.raw_user_meta_data->>'nickname', split_part(NEW.email, '@', 1))),
-        COALESCE(NEW.raw_user_meta_data->>'role', 'Member'),
-        COALESCE(NEW.raw_user_meta_data->>'department', 'Engineering'),
-        NEW.raw_user_meta_data->>'avatar_url',
-        COALESCE((NEW.raw_user_meta_data->>'is_admin')::boolean, FALSE)
-    );
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- 10. ROW LEVEL SECURITY (RLS)
-ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.issues ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.issue_history ENABLE ROW LEVEL SECURITY;
-
--- 10.1 DEPARTMENTS POLICIES
-CREATE POLICY "Allow authenticated read departments"
-ON public.departments
-FOR SELECT
-TO authenticated
-USING (true);
-
--- 10.2 PROFILES & ROLES VISIBILITY POLICIES
--- Any authenticated organization member can view teammates' profiles, roles, and nicknames
-CREATE POLICY "Allow authenticated team members to view all profiles and roles"
-ON public.profiles
-FOR SELECT
-TO authenticated
-USING (true);
-
--- Users can update their own personal info (name, nickname, external avatar link)
-CREATE POLICY "Allow users to update their own profile details"
-ON public.profiles
-FOR UPDATE
-TO authenticated
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
-
--- Admins or Team Leads can manage and update any profile (e.g. promoting roles or moving departments)
-CREATE POLICY "Allow admins to manage all member roles and profiles"
-ON public.profiles
-FOR ALL
-TO authenticated
-USING (
-    EXISTS (
-        SELECT 1 FROM public.profiles
-        WHERE id = auth.uid() AND (is_admin = TRUE OR role ILIKE '%Admin%' OR role ILIKE '%Lead%')
-    )
-);
-
--- 10.3 ISSUES POLICIES
-CREATE POLICY "Allow authenticated read issues"
-ON public.issues
-FOR SELECT
-TO authenticated
-USING (true);
-
-CREATE POLICY "Allow authenticated insert issues"
-ON public.issues
-FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() IS NOT NULL);
-
-CREATE POLICY "Allow authenticated update issues"
-ON public.issues
-FOR UPDATE
-TO authenticated
-USING (true);
-
-CREATE POLICY "Allow authenticated delete issues"
-ON public.issues
-FOR DELETE
-TO authenticated
-USING (true);
-
--- 10.4 COMMENTS & AUDIT HISTORY POLICIES
-CREATE POLICY "Allow authenticated manage comments"
-ON public.comments
-FOR ALL
-TO authenticated
-USING (true);
-
-CREATE POLICY "Allow authenticated manage issue_history"
-ON public.issue_history
-FOR ALL
-TO authenticated
-USING (true);
-
--- 10.5 DEPARTMENTS POLICIES (Manage & Customize Departments)
-ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow authenticated read departments"
-ON public.departments
-FOR SELECT
-TO authenticated
-USING (true);
-
-CREATE POLICY "Allow authenticated manage departments"
-ON public.departments
-FOR ALL
-TO authenticated
-USING (true);
-
--- 11. DEFAULT DEPARTMENTS SEED (Only Engineering by default; companies can create their own)
+-- 9. DEFAULT SEED DATA
+-- Default Engineering department (companies can add their own custom departments & fields anytime)
 INSERT INTO public.departments (id, name, code, description, custom_fields)
 VALUES 
     (
@@ -347,3 +213,12 @@ ON CONFLICT (id) DO UPDATE SET
     custom_fields = EXCLUDED.custom_fields,
     description = EXCLUDED.description;
 
+-- Initial Team Profiles
+INSERT INTO public.profiles (id, email, name, nickname, role, department, avatar_url, is_admin)
+VALUES
+    ('11111111-1111-1111-1111-111111111111', 'liam@nuts.internal', 'Liam Vance', 'liam', 'Staff Systems Architect', 'Engineering', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', TRUE),
+    ('22222222-2222-2222-2222-222222222222', 'alex@nuts.internal', 'Alex Rivera', 'arivera', 'Senior Frontend Engineer', 'Engineering', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80', FALSE),
+    ('33333333-3333-3333-3333-333333333333', 'maya@nuts.internal', 'Maya Chen', 'maya', 'Lead UI/UX Engineer', 'Engineering', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', FALSE),
+    ('44444444-4444-4444-4444-444444444444', 'david@nuts.internal', 'David Miller', 'dmiller', 'Infrastructure & Backend Engineer', 'Engineering', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', FALSE),
+    ('55555555-5555-5555-5555-555555555555', 'elena@nuts.internal', 'Elena Rostova', 'elena', 'DevOps & Security Lead', 'Engineering', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80', FALSE)
+ON CONFLICT (email) DO NOTHING;

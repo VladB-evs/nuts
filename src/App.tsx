@@ -7,16 +7,16 @@ import { IssueDetail } from './components/IssueDetail';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { DepartmentModal } from './components/DepartmentModal';
 import { ProfileModal } from './components/ProfileModal';
-import { SupabaseModal } from './components/SupabaseModal';
+import { NeonModal } from './components/NeonModal';
 
 const AppContent: React.FC = () => {
   const { selectedIssue } = useIssues();
-  const [isSupabaseOpen, setIsSupabaseOpen] = useState(false);
+  const [isNeonOpen, setIsNeonOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans">
       {/* Top Header */}
-      <Header onOpenSupabase={() => setIsSupabaseOpen(true)} />
+      <Header onOpenNeon={() => setIsNeonOpen(true)} />
 
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden">
@@ -33,7 +33,7 @@ const AppContent: React.FC = () => {
       <CreateIssueModal />
       <DepartmentModal />
       <ProfileModal />
-      <SupabaseModal isOpen={isSupabaseOpen} onClose={() => setIsSupabaseOpen(false)} />
+      <NeonModal isOpen={isNeonOpen} onClose={() => setIsNeonOpen(false)} />
     </div>
   );
 };
