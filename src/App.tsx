@@ -8,6 +8,7 @@ import { CreateIssueModal } from './components/CreateIssueModal';
 import { DepartmentModal } from './components/DepartmentModal';
 import { ProfileModal } from './components/ProfileModal';
 import { LoginScreen } from './components/LoginScreen';
+import { DepartmentOnboardingModal } from './components/DepartmentOnboardingModal';
 
 const AppContent: React.FC = () => {
   const {
@@ -68,6 +69,7 @@ const AppContent: React.FC = () => {
       <CreateIssueModal />
       <DepartmentModal />
       <ProfileModal />
+      <DepartmentOnboardingModal />
     </div>
   );
 };

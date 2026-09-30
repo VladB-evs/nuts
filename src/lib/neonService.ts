@@ -71,9 +71,11 @@ export async function ensureMultiTenantSchema(): Promise<void> {
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_organizations_code ON public.organizations(code);`;
 
-    // 2. Profiles org_id & password_hash
+    // 2. Profiles org_id & password_hash & optional department
     await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;`;
     await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password_hash TEXT;`;
+    await sql`ALTER TABLE public.profiles ALTER COLUMN department DROP NOT NULL;`;
+    await sql`ALTER TABLE public.profiles ALTER COLUMN department SET DEFAULT '';`;
     await sql`CREATE INDEX IF NOT EXISTS idx_profiles_org_id ON public.profiles(org_id);`;
 
     // 3. Sessions
@@ -220,7 +222,7 @@ export async function registerUser(params: {
   email: string;
   nickname: string;
   password?: string;
-  department: string;
+  department?: string;
   role: string;
   avatarUrl?: string;
   orgMode: 'create' | 'join';
@@ -234,6 +236,7 @@ export async function registerUser(params: {
 
   const cleanEmail = params.email.trim().toLowerCase();
   const cleanNickname = params.nickname.trim().replace(/^@/, '');
+  const cleanDept = (params.department || '').trim();
   const hashed = params.password ? await hashPassword(params.password) : null;
 
   let org: Organization;
@@ -266,7 +269,7 @@ export async function registerUser(params: {
       ${cleanEmail},
       ${cleanNickname},
       ${params.role.trim() || 'Member'},
-      ${params.department.trim() || 'Engineering'},
+      ${cleanDept},
       ${params.avatarUrl?.trim() || null},
       ${hashed},
       ${params.orgMode === 'create'}
@@ -301,7 +304,7 @@ export async function registerUser(params: {
     nickname: userRow.nickname || '',
     email: userRow.email,
     role: userRow.role || 'Member',
-    department: userRow.department || 'Engineering',
+    department: userRow.department || '',
     avatarUrl: userRow.avatar_url || '',
     avatar: userRow.avatar_url || '',
   };
@@ -384,7 +387,7 @@ export async function loginWithEmail(email: string, password?: string): Promise<
     nickname: userRow.nickname || '',
     email: userRow.email,
     role: userRow.role || 'Member',
-    department: userRow.department || 'Engineering',
+    department: userRow.department || '',
     avatarUrl: userRow.avatar_url || '',
     avatar: userRow.avatar_url || '',
   };
@@ -432,7 +435,7 @@ export async function validateSessionToken(token: string): Promise<UserProfile |
       nickname: r.nickname || '',
       email: r.email,
       role: r.role || 'Member',
-      department: r.department || 'Engineering',
+      department: r.department || '',
       avatarUrl: r.avatar_url || '',
       avatar: r.avatar_url || '',
     };
@@ -499,7 +502,7 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
       nickname: p.nickname || '',
       email: p.email,
       role: p.role || 'Member',
-      department: p.department || 'Engineering',
+      department: p.department || '',
       avatarUrl: p.avatar_url || '',
       avatar: p.avatar_url || '',
     }));

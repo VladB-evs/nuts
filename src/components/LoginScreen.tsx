@@ -121,7 +121,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
   const [role, setRole] = useState('');
-  const [department, setDepartment] = useState('Engineering');
   const [avatarUrl, setAvatarUrl] = useState('');
 
   // Organization fields
@@ -237,8 +236,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           email: email.trim(),
           nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
           password,
-          department: department.trim() || 'Engineering',
-          role: role.trim() || 'Engineer',
+          role: role.trim() || 'Member',
           avatarUrl: avatarUrl.trim() || undefined,
           orgMode: 'join',
           orgCode: orgCode.trim().toUpperCase(),
@@ -290,7 +288,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           email: email.trim(),
           nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
           password,
-          department: department.trim() || 'Engineering',
           role: role.trim() || 'Workspace Admin / Founder',
           avatarUrl: avatarUrl.trim() || undefined,
           orgMode: 'create',
@@ -536,27 +533,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Department</label>
-                  <input
-                    type="text"
-                    placeholder="Engineering"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded focus:outline-none focus:bg-white focus:border-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Role / Title</label>
-                  <input
-                    type="text"
-                    placeholder="Workspace Admin / Founder"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded focus:outline-none focus:bg-white focus:border-black"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Your Role / Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Founder, VP of Engineering, Workspace Admin..."
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded focus:outline-none focus:bg-white focus:border-black"
+                />
               </div>
 
               <button
@@ -859,27 +844,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Department</label>
-                    <input
-                      type="text"
-                      placeholder="Engineering"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded focus:outline-none focus:bg-white focus:border-black"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Role / Title</label>
-                    <input
-                      type="text"
-                      placeholder="Senior Engineer"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded focus:outline-none focus:bg-white focus:border-black"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Role / Job Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Senior Software Engineer, Product Designer, Account Exec..."
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded focus:outline-none focus:bg-white focus:border-black"
+                  />
                 </div>
 
                 <button
