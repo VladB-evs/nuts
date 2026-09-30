@@ -3,7 +3,6 @@ import { UserProfile } from '../types';
 import { loginWithEmail, registerUser } from '../lib/neonService';
 import { isNeonConfigured } from '../lib/neon';
 import {
-  Database,
   Lock,
   Mail,
   User,
@@ -24,7 +23,6 @@ import {
 interface LoginScreenProps {
   onLogin: (user: UserProfile) => void;
   onEnterDemoMode: () => void;
-  onOpenNeonModal: () => void;
 }
 
 export interface PasswordCriteria {
@@ -106,7 +104,6 @@ const isSpecialAdminOnboardingLink = (): boolean => {
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLogin,
   onEnterDemoMode,
-  onOpenNeonModal,
 }) => {
   const [isAdminOnboarding, setIsAdminOnboarding] = useState<boolean>(() =>
     isSpecialAdminOnboardingLink()
@@ -323,24 +320,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4 selection:bg-black selection:text-white">
-      {/* Top Banner / Neon Status */}
-      <div className="absolute top-4 right-4 flex items-center gap-2">
-        <button
-          onClick={onOpenNeonModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-200 hover:border-gray-400 rounded-md text-gray-700 shadow-sm transition-colors cursor-pointer"
-          title="Neon Serverless Postgres Status"
-        >
-          <Database className="w-3.5 h-3.5 text-gray-500" />
-          <span className="font-mono text-[11px]">
-            {neonReady ? (
-              <span className="text-emerald-700 font-medium">● Neon Connected</span>
-            ) : (
-              <span className="text-amber-700 font-medium">○ Setup Neon Database</span>
-            )}
-          </span>
-        </button>
-      </div>
-
       <div className="w-full max-w-md bg-white border border-gray-300 rounded-xl shadow-lg p-7">
         {/* ================================================================ */}
         {/* GUARDED ADMIN ONBOARDING VIEW (Only accessible via special sales/onboarding link) */}

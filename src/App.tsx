@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { IssueProvider, useIssues } from './context/TicketContext';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -7,7 +7,6 @@ import { IssueDetail } from './components/IssueDetail';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { DepartmentModal } from './components/DepartmentModal';
 import { ProfileModal } from './components/ProfileModal';
-import { NeonModal } from './components/NeonModal';
 import { LoginScreen } from './components/LoginScreen';
 
 const AppContent: React.FC = () => {
@@ -15,27 +14,17 @@ const AppContent: React.FC = () => {
     selectedIssue,
     currentUser,
     setCurrentUser,
-    reloadFromDatabase,
     isDemoMode,
     enterDemoMode,
     exitDemoMode,
   } = useIssues();
-  const [isNeonOpen, setIsNeonOpen] = useState(false);
 
   if (!currentUser) {
     return (
-      <>
-        <LoginScreen
-          onLogin={(user) => setCurrentUser(user)}
-          onEnterDemoMode={enterDemoMode}
-          onOpenNeonModal={() => setIsNeonOpen(true)}
-        />
-        <NeonModal
-          isOpen={isNeonOpen}
-          onClose={() => setIsNeonOpen(false)}
-          onDatabaseConnected={() => reloadFromDatabase()}
-        />
-      </>
+      <LoginScreen
+        onLogin={(user) => setCurrentUser(user)}
+        onEnterDemoMode={enterDemoMode}
+      />
     );
   }
 
@@ -62,7 +51,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Top Header */}
-      <Header onOpenNeon={() => setIsNeonOpen(true)} />
+      <Header />
 
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden">
@@ -79,11 +68,6 @@ const AppContent: React.FC = () => {
       <CreateIssueModal />
       <DepartmentModal />
       <ProfileModal />
-      <NeonModal
-        isOpen={isNeonOpen}
-        onClose={() => setIsNeonOpen(false)}
-        onDatabaseConnected={() => reloadFromDatabase()}
-      />
     </div>
   );
 };

@@ -4,7 +4,6 @@ import { UserAvatar } from './UserAvatar';
 import {
   Search,
   Plus,
-  Database,
   Check,
   UserCog,
   ChevronDown,
@@ -15,18 +14,15 @@ import {
   Users as UsersIcon,
 } from 'lucide-react';
 
-interface HeaderProps {
-  onOpenNeon: () => void;
-}
+interface HeaderProps {}
 
-export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
+export const Header: React.FC<HeaderProps> = () => {
   const {
     searchQuery,
     setSearchQuery,
     currentUser,
     setCurrentUser,
     logout,
-    isNeonConnected,
     users,
     setIsCreateModalOpen,
     setSelectedIssue,
@@ -139,21 +135,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
 
       {/* Right Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Neon backend status */}
-        <button
-          onClick={onOpenNeon}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-700 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-          title={isNeonConnected ? 'Connected to Neon Serverless Postgres' : 'Configure Neon Serverless Postgres'}
-        >
-          <Database className="w-3.5 h-3.5 text-gray-500" />
-          <span className="font-mono text-[11px] flex items-center gap-1">
-            <span className={isNeonConnected ? 'text-emerald-600 font-bold' : 'text-amber-500 font-bold'}>
-              ●
-            </span>
-            <span>Neon SQL</span>
-          </span>
-        </button>
-
         {/* Department Settings */}
         <button
           onClick={() => openDepartmentModal()}
