@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { Priority, CustomFieldDefinition } from '../types';
+import { CustomSelect, SelectOption } from './CustomSelect';
+import { UserAvatar } from './UserAvatar';
 import { X, SlidersHorizontal } from 'lucide-react';
+
+const PRIORITY_OPTIONS: SelectOption[] = [
+  { value: 'P0', label: 'P0 — Blocker', badge: 'P0', badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold', description: 'Immediate fix required' },
+  { value: 'P1', label: 'P1 — Critical', badge: 'P1', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold', description: 'High priority queue' },
+  { value: 'P2', label: 'P2 — Major', badge: 'P2', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200', description: 'Standard sprint task' },
+  { value: 'P3', label: 'P3 — Minor', badge: 'P3', badgeClass: 'bg-gray-50 text-gray-700 border-gray-200', description: 'Low priority backlog' },
+];
 
 export const CreateIssueModal: React.FC = () => {
   const {
@@ -25,6 +34,39 @@ export const CreateIssueModal: React.FC = () => {
   // Engineering specific layer checkboxes
   const [isFrontend, setIsFrontend] = useState(true);
   const [isBackend, setIsBackend] = useState(false);
+
+  const departmentOptions: SelectOption[] = useMemo(() => {
+    return departments.map((d) => ({
+      value: d.id,
+      label: d.name,
+      badge: d.code,
+      badgeClass: 'bg-gray-100 text-gray-800 border-gray-300 font-mono',
+      description: d.description,
+    }));
+  }, [departments]);
+
+  const assigneeOptions: SelectOption[] = useMemo(() => {
+    return [
+      {
+        value: 'unassigned',
+        label: 'Unassigned',
+        icon: (
+          <span className="w-4 h-4 rounded-full bg-gray-100 border border-gray-300 flex items-center justify-center text-[10px] text-gray-400 font-mono">
+            —
+          </span>
+        ),
+        description: 'Triage queue / unassigned',
+      },
+      ...users.map((u) => ({
+        value: u.id,
+        label: u.name,
+        badge: u.nickname ? `@${u.nickname}` : undefined,
+        badgeClass: 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
+        icon: <UserAvatar user={u} size="xs" />,
+        description: `${u.role || 'Member'} • ${u.department}`,
+      })),
+    ];
+  }, [users]);
 
   // Synchronize department when modal opens based on which department view is active
   useEffect(() => {
@@ -153,31 +195,20 @@ export const CreateIssueModal: React.FC = () => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-700 font-medium mb-1">Department *</label>
-              <select
+              <CustomSelect
                 value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer font-medium"
-              >
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} ({d.code})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setDepartmentId(val)}
+                options={departmentOptions}
+              />
             </div>
 
             <div>
               <label className="block text-gray-700 font-medium mb-1">Priority</label>
-              <select
+              <CustomSelect
                 value={priority}
-                onChange={(e) => setPriority(e.target.value as Priority)}
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer font-mono"
-              >
-                <option value="P0">P0 — Blocker</option>
-                <option value="P1">P1 — Critical</option>
-                <option value="P2">P2 — Major</option>
-                <option value="P3">P3 — Minor</option>
-              </select>
+                onChange={(val) => setPriority(val as Priority)}
+                options={PRIORITY_OPTIONS}
+              />
             </div>
           </div>
 
@@ -242,19 +273,13 @@ export const CreateIssueModal: React.FC = () => {
                         <label className="block text-gray-700 font-medium mb-1 text-[11px]">
                           {field.name}
                         </label>
-                        <select
+                        <CustomSelect
                           value={customValues[field.id] || field.options?.[0] || ''}
-                          onChange={(e) =>
-                            setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                          onChange={(val) =>
+                            setCustomValues((prev) => ({ ...prev, [field.id]: val }))
                           }
-                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-                        >
-                          {(field.options || []).map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
+                          options={field.options || []}
+                        />
                       </div>
                     );
                   }
@@ -283,18 +308,12 @@ export const CreateIssueModal: React.FC = () => {
 
           <div>
             <label className="block text-gray-700 font-medium mb-1">Assignee</label>
-            <select
+            <CustomSelect
               value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer"
-            >
-              <option value="unassigned">Unassigned</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} {u.nickname ? `(@${u.nickname})` : ''} — {u.role || u.department}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setAssigneeId(val)}
+              options={assigneeOptions}
+              searchable={users.length > 5}
+            />
           </div>
 
           <div>

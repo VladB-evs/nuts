@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { CustomFieldDefinition, CustomFieldType } from '../types';
+import { CustomSelect, SelectOption } from './CustomSelect';
 import { X, Plus, Trash2, Sliders, AlertTriangle } from 'lucide-react';
+
+const FIELD_TYPE_OPTIONS: SelectOption[] = [
+  { value: 'select', label: 'Dropdown Menu (Select)', description: 'Predefined options list' },
+  { value: 'text', label: 'Single-line Text', description: 'Free-form text input' },
+];
 
 export const DepartmentModal: React.FC = () => {
   const {
@@ -355,14 +361,12 @@ export const DepartmentModal: React.FC = () => {
 
                   <div className="space-y-1">
                     <label className="block text-[11px] text-gray-600 font-medium">Property Type</label>
-                    <select
+                    <CustomSelect
                       value={newFieldType}
-                      onChange={(e) => setNewFieldType(e.target.value as CustomFieldType)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-black"
-                    >
-                      <option value="select">Dropdown Menu (Select)</option>
-                      <option value="text">Single-line Text</option>
-                    </select>
+                      onChange={(val) => setNewFieldType(val as CustomFieldType)}
+                      options={FIELD_TYPE_OPTIONS}
+                      size="xs"
+                    />
                   </div>
                 </div>
 

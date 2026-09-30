@@ -26,6 +26,7 @@ import {
 } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
+import { CustomSelect, SelectOption } from './CustomSelect';
 import { formatDateTime, timeAgo } from '../lib/utils';
 import {
   ArrowLeft,
@@ -60,6 +61,60 @@ export const IssueDetail: React.FC = () => {
 
   const currentDept = departments.find((d) => d.id === selectedIssue.departmentId);
   const ruleKind = getDepartmentRuleKind(selectedIssue.departmentId);
+
+  const STATUS_OPTIONS: SelectOption[] = [
+    { value: 'NEW', label: 'NEW', badge: 'NEW', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+    { value: 'ASSIGNED', label: 'ASSIGNED', badge: 'ASSIGNED', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+    { value: 'ACCEPTED', label: 'ACCEPTED', badge: 'ACCEPTED', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200' },
+    { value: 'FIXED', label: 'FIXED', badge: 'FIXED', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { value: 'VERIFIED', label: 'VERIFIED', badge: 'VERIFIED', badgeClass: 'bg-teal-50 text-teal-700 border-teal-200' },
+    { value: 'CLOSED', label: 'CLOSED', badge: 'CLOSED', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+  ];
+
+  const commentStatusOptions: SelectOption[] = useMemo(() => [
+    { value: '', label: `(Keep current: ${selectedIssue.status})` },
+    ...STATUS_OPTIONS,
+  ], [selectedIssue.status]);
+
+  const PRIORITY_OPTIONS: SelectOption[] = [
+    { value: 'P0', label: 'P0', badge: 'P0', badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold', description: 'Blocker (Immediate fix)' },
+    { value: 'P1', label: 'P1', badge: 'P1', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold', description: 'Critical (High priority)' },
+    { value: 'P2', label: 'P2', badge: 'P2', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200', description: 'Major (Regular queue)' },
+    { value: 'P3', label: 'P3', badge: 'P3', badgeClass: 'bg-gray-50 text-gray-700 border-gray-200', description: 'Minor (Low priority)' },
+  ];
+
+  const departmentOptions: SelectOption[] = useMemo(() => {
+    return departments.map((dept) => ({
+      value: dept.id,
+      label: dept.name,
+      badge: dept.code,
+      badgeClass: 'bg-gray-100 text-gray-800 border-gray-300 font-mono',
+      description: dept.description,
+    }));
+  }, [departments]);
+
+  const assigneeOptions: SelectOption[] = useMemo(() => {
+    return [
+      {
+        value: 'unassigned',
+        label: 'Unassigned',
+        icon: (
+          <span className="w-4 h-4 rounded-full bg-gray-100 border border-gray-300 flex items-center justify-center text-[10px] text-gray-400 font-mono">
+            —
+          </span>
+        ),
+        description: 'Ticket is unassigned / in triage queue',
+      },
+      ...users.map((u) => ({
+        value: u.id,
+        label: u.name,
+        badge: u.nickname ? `@${u.nickname}` : undefined,
+        badgeClass: 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
+        icon: <UserAvatar user={u} size="xs" />,
+        description: `${u.role || 'Member'} • ${u.department}`,
+      })),
+    ];
+  }, [users]);
 
   const [activityFilter, setActivityFilter] = useState<'all' | 'comments' | 'history'>('all');
 
@@ -415,19 +470,13 @@ export const IssueDetail: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 font-mono">Change status to:</span>
-                  <select
+                  <CustomSelect
                     value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as Status | '')}
-                    className="px-2 py-1 text-xs bg-white border border-gray-300 rounded font-mono text-gray-800 focus:outline-none"
-                  >
-                    <option value="">(Keep current: {selectedIssue.status})</option>
-                    <option value="NEW">NEW</option>
-                    <option value="ASSIGNED">ASSIGNED</option>
-                    <option value="ACCEPTED">ACCEPTED</option>
-                    <option value="FIXED">FIXED</option>
-                    <option value="VERIFIED">VERIFIED</option>
-                    <option value="CLOSED">CLOSED</option>
-                  </select>
+                    onChange={(val) => setNewStatus(val as Status | '')}
+                    options={commentStatusOptions}
+                    className="w-56"
+                    size="xs"
+                  />
                 </div>
 
                 <button
@@ -452,37 +501,25 @@ export const IssueDetail: React.FC = () => {
           {/* Status */}
           <div className="space-y-1.5">
             <label className="block text-[11px] font-mono text-gray-500">Status</label>
-            <select
+            <CustomSelect
               value={selectedIssue.status}
-              onChange={(e) =>
-                updateIssue(selectedIssue.id, { status: e.target.value as Status })
+              onChange={(val) =>
+                updateIssue(selectedIssue.id, { status: val as Status })
               }
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-            >
-              <option value="NEW">NEW</option>
-              <option value="ASSIGNED">ASSIGNED</option>
-              <option value="ACCEPTED">ACCEPTED</option>
-              <option value="FIXED">FIXED</option>
-              <option value="VERIFIED">VERIFIED</option>
-              <option value="CLOSED">CLOSED</option>
-            </select>
+              options={STATUS_OPTIONS}
+            />
           </div>
 
           {/* Priority */}
           <div className="space-y-1.5">
             <label className="block text-[11px] font-mono text-gray-500">Priority</label>
-            <select
+            <CustomSelect
               value={selectedIssue.priority}
-              onChange={(e) =>
-                updateIssue(selectedIssue.id, { priority: e.target.value as Priority })
+              onChange={(val) =>
+                updateIssue(selectedIssue.id, { priority: val as Priority })
               }
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-            >
-              <option value="P0">P0 — Blocker (Immediate fix)</option>
-              <option value="P1">P1 — Critical (High priority)</option>
-              <option value="P2">P2 — Major (Regular queue)</option>
-              <option value="P3">P3 — Minor (Low priority)</option>
-            </select>
+              options={PRIORITY_OPTIONS}
+            />
           </div>
 
           {/* Department Specific Properties */}
@@ -497,10 +534,9 @@ export const IssueDetail: React.FC = () => {
                 return (
                   <div key={field.id} className="space-y-1.5">
                     <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
-                    <select
+                    <CustomSelect
                       value={currentVal}
-                      onChange={(e) => {
-                        const newVal = e.target.value;
+                      onChange={(newVal) => {
                         const updates: any = {
                           customAttributes: {
                             ...(selectedIssue.customAttributes || {}),
@@ -524,14 +560,8 @@ export const IssueDetail: React.FC = () => {
                         }
                         updateIssue(selectedIssue.id, updates);
                       }}
-                      className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-                    >
-                      {(field.options || []).map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
+                      options={field.options || []}
+                    />
                   </div>
                 );
               }
@@ -566,10 +596,9 @@ export const IssueDetail: React.FC = () => {
           {/* Department */}
           <div className="space-y-1.5">
             <label className="block text-[11px] font-mono text-gray-500">Department</label>
-            <select
+            <CustomSelect
               value={selectedIssue.departmentId}
-              onChange={(e) => {
-                const newDeptId = e.target.value;
+              onChange={(newDeptId) => {
                 const newDept = departments.find((d) => d.id === newDeptId);
                 const updates: any = { departmentId: newDeptId };
                 if (newDept) {
@@ -577,14 +606,8 @@ export const IssueDetail: React.FC = () => {
                 }
                 updateIssue(selectedIssue.id, updates);
               }}
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer"
-            >
-              {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name} ({dept.code})
-                </option>
-              ))}
-            </select>
+              options={departmentOptions}
+            />
           </div>
 
           {/* Assignee */}
@@ -612,24 +635,18 @@ export const IssueDetail: React.FC = () => {
                 </div>
               </UserHoverCard>
             )}
-            <select
+            <CustomSelect
               value={selectedIssue.assignee?.id || 'unassigned'}
-              onChange={(e) => {
-                const u = users.find((user) => user.id === e.target.value) || null;
+              onChange={(val) => {
+                const u = users.find((user) => user.id === val) || null;
                 updateIssue(selectedIssue.id, {
                   assignee: u,
                   status: selectedIssue.status === 'NEW' && u ? 'ASSIGNED' : selectedIssue.status,
                 });
               }}
-              className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none cursor-pointer text-xs"
-            >
-              <option value="unassigned">Unassigned</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} {u.nickname ? `(@${u.nickname})` : ''} — {u.role || u.department}
-                </option>
-              ))}
-            </select>
+              options={assigneeOptions}
+              searchable={users.length > 5}
+            />
           </div>
 
           {/* Meta Info */}

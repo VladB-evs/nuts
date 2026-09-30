@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { UserProfile } from '../types';
 import { UserAvatar } from './UserAvatar';
+import { CustomSelect, SelectOption } from './CustomSelect';
 import { X, Check, Link2, AtSign, Briefcase, Building, Sparkles } from 'lucide-react';
 
 export const ProfileModal: React.FC = () => {
@@ -30,6 +31,23 @@ export const ProfileModal: React.FC = () => {
       setSavedSuccess(false);
     }
   }, [isProfileModalOpen, currentUser, departments]);
+
+  const departmentOptions: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = departments.map((d) => ({
+      value: d.name,
+      label: d.name,
+      badge: d.code,
+      badgeClass: 'bg-gray-100 text-gray-800 border-gray-300 font-mono',
+      description: d.description,
+    }));
+    if (department && !departments.some((d) => d.name.toLowerCase() === department.toLowerCase())) {
+      list.push({
+        value: department,
+        label: department,
+      });
+    }
+    return list;
+  }, [departments, department]);
 
   if (!isProfileModalOpen || !currentUser) return null;
 
@@ -166,24 +184,11 @@ export const ProfileModal: React.FC = () => {
               <label className="block text-gray-700 font-medium mb-1 text-[11px]">
                 Department *
               </label>
-              <div className="relative">
-                <Building className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <select
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full pl-8 pr-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black cursor-pointer font-medium text-xs"
-                >
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.name}>
-                      {d.name}
-                    </option>
-                  ))}
-                  {/* Keep custom if not in departments */}
-                  {!departments.some((d) => d.name === department) && department && (
-                    <option value={department}>{department}</option>
-                  )}
-                </select>
-              </div>
+              <CustomSelect
+                value={department}
+                onChange={(val) => setDepartment(val)}
+                options={departmentOptions}
+              />
             </div>
           </div>
 
