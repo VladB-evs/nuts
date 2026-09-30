@@ -30,6 +30,7 @@ import {
   saveDepartmentInNeon,
   deleteDepartmentInNeon,
   updateProfileInNeon,
+  validateSessionToken,
 } from '../lib/neonService';
 
 interface IssueContextType {
@@ -39,9 +40,12 @@ interface IssueContextType {
   currentUser: UserProfile | null;
   setCurrentUser: (user: UserProfile | null) => void;
   logout: () => void;
+  isDemoMode: boolean;
+  enterDemoMode: () => void;
+  exitDemoMode: () => void;
   isNeonConnected: boolean;
   isLoadingDatabase: boolean;
-  reloadFromDatabase: () => Promise<void>;
+  reloadFromDatabase: (orgId?: string) => Promise<void>;
   updateUserProfile: (userId: string, updates: Partial<UserProfile>) => void;
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
@@ -154,21 +158,13 @@ const formatValueForHistory = (key: string, val: any, departments?: Department[]
 };
 
 export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [departments, setDepartments] = useState<Department[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_DEPTS);
-      return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
-    } catch {
-      return INITIAL_DEPARTMENTS;
-    }
-  });
+  const STORAGE_DEMO_KEY = 'nuts_is_demo_mode_v10';
 
-  const [users, setUsers] = useState<UserProfile[]>(() => {
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_USERS);
-      return saved ? JSON.parse(saved) : USERS;
+      return localStorage.getItem(STORAGE_DEMO_KEY) === 'true';
     } catch {
-      return USERS;
+      return false;
     }
   });
 
@@ -184,45 +180,124 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
+  const [departments, setDepartments] = useState<Department[]>(() => {
+    if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+      return INITIAL_DEPARTMENTS;
+    }
+    return [
+      {
+        id: 'engineering',
+        name: 'Engineering',
+        code: 'DEV',
+        description: 'Core product engineering and bug triage',
+        customFields: [
+          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature'], defaultValue: 'Bug', required: true },
+          { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'STAGING' },
+          { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
+        ],
+      },
+    ];
+  });
+
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+      return USERS;
+    }
+    try {
+      const saved = localStorage.getItem(STORAGE_CURRENT_USER);
+      if (saved) return [JSON.parse(saved)];
+    } catch {}
+    return [];
+  });
+
+  const [issues, setIssues] = useState<Issue[]>(() => {
+    if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+      return INITIAL_ISSUES;
+    }
+    return [];
+  });
+
   const setCurrentUser = (user: UserProfile | null) => {
     setCurrentUserState(user);
     if (user) {
       localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+      if (user.orgId) {
+        reloadFromDatabase(user.orgId);
+      }
     } else {
       localStorage.removeItem(STORAGE_CURRENT_USER);
+      localStorage.removeItem('nuts_session_token');
     }
   };
 
+  const enterDemoMode = () => {
+    setIsDemoMode(true);
+    localStorage.setItem(STORAGE_DEMO_KEY, 'true');
+    setCurrentUserState(USERS[1]); // Alex Rivera
+    setDepartments(INITIAL_DEPARTMENTS);
+    setUsers(USERS);
+    setIssues(INITIAL_ISSUES);
+  };
+
+  const exitDemoMode = () => {
+    setIsDemoMode(false);
+    localStorage.removeItem(STORAGE_DEMO_KEY);
+    setCurrentUserState(null);
+    setDepartments([
+      {
+        id: 'engineering',
+        name: 'Engineering',
+        code: 'DEV',
+        description: 'Core product engineering and bug triage',
+        customFields: [
+          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature'], defaultValue: 'Bug', required: true },
+          { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'STAGING' },
+          { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
+        ],
+      },
+    ]);
+    setUsers([]);
+    setIssues([]);
+  };
+
   const logout = () => {
-    setCurrentUser(null);
+    setIsDemoMode(false);
+    localStorage.removeItem(STORAGE_DEMO_KEY);
+    localStorage.removeItem(STORAGE_CURRENT_USER);
+    localStorage.removeItem('nuts_session_token');
+    setCurrentUserState(null);
+    setIssues([]);
   };
 
   const [isNeonConnected, setIsNeonConnected] = useState<boolean>(isNeonConfigured());
   const [isLoadingDatabase, setIsLoadingDatabase] = useState<boolean>(false);
 
-  const reloadFromDatabase = async () => {
+  const reloadFromDatabase = async (targetOrgId?: string) => {
+    if (isDemoMode) return;
     if (!isNeonConfigured()) {
       setIsNeonConnected(false);
       return;
     }
+    const orgId = targetOrgId || currentUser?.orgId;
     setIsLoadingDatabase(true);
     try {
-      const data = await fetchAllDataFromNeon();
+      const data = await fetchAllDataFromNeon(orgId);
       if (data) {
         if (data.departments && data.departments.length > 0) {
           setDepartments(data.departments);
         }
-        if (data.users && data.users.length > 0) {
-          setUsers(data.users);
-          setCurrentUserState((prev) => {
-            if (!prev) return null;
+        if (data.users) {
+          setUsers(data.users.length > 0 ? data.users : (currentUser ? [currentUser] : []));
+          if (currentUser) {
             const updated = data.users.find(
-              (u) => u.id === prev.id || u.email.toLowerCase() === prev.email.toLowerCase()
+              (u) => u.id === currentUser.id || u.email.toLowerCase() === currentUser.email.toLowerCase()
             );
-            return updated || prev;
-          });
+            if (updated) {
+              setCurrentUserState((prev) => (prev ? { ...prev, ...updated, organization: prev.organization } : null));
+            }
+          }
         }
-        if (data.issues && data.issues.length > 0) {
+        if (data.issues) {
           setIssues(data.issues);
         }
         setIsNeonConnected(true);
@@ -236,17 +311,27 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   useEffect(() => {
-    reloadFromDatabase();
+    const token = localStorage.getItem('nuts_session_token');
+    if (token && !currentUser && !isDemoMode && isNeonConfigured()) {
+      validateSessionToken(token)
+        .then((user) => {
+          if (user) {
+            setCurrentUserState(user);
+            localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+            if (user.orgId) {
+              reloadFromDatabase(user.orgId);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
-  const [issues, setIssues] = useState<Issue[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_ISSUES;
-    } catch {
-      return INITIAL_ISSUES;
+  useEffect(() => {
+    if (!isDemoMode && currentUser?.orgId) {
+      reloadFromDatabase(currentUser.orgId);
     }
-  });
+  }, [isDemoMode, currentUser?.orgId]);
 
   const [selectedDepartment, setSelectedDepartmentState] = useState<string>('all');
   const [navView, setNavView] = useState<NavView>('open');
@@ -423,6 +508,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
+      orgId: currentUser?.orgId,
       number: newNum,
       code: `${dept.code}-${newNum}`,
       title: data.title,
@@ -461,7 +547,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIssues((prev) => [newIssue, ...prev]);
     setSelectedIssue(newIssue);
 
-    if (isNeonConfigured()) {
+    if (!isDemoMode && isNeonConfigured()) {
       createIssueInNeon(
         {
           title: data.title,
@@ -474,7 +560,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           devScope: data.devScope,
           assigneeId: data.assigneeId,
         },
-        reporterUser
+        reporterUser,
+        currentUser?.orgId
       ).then((neonIssue) => {
         if (neonIssue) {
           setIssues((prev) =>
@@ -616,10 +703,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setSelectedIssue(updated);
           }
 
-          if (isNeonConfigured()) {
+          if (!isDemoMode && isNeonConfigured()) {
             const actorUser = currentUser || users[0];
             if (actorUser) {
-              updateIssueInNeon(id, updates, actorUser);
+              updateIssueInNeon(id, updates, actorUser, currentUser?.orgId);
             }
           }
 
@@ -682,7 +769,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSelectedIssue(updatedIssue);
     }
 
-    if (isNeonConfigured()) {
+    if (!isDemoMode && isNeonConfigured()) {
       addCommentInNeon(issueId, text, actorUser, newStatus);
     }
   };
@@ -699,12 +786,12 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    if (isNeonConfigured()) {
+    if (!isDemoMode && isNeonConfigured()) {
       const target = issues.find((i) => i.id === issueId);
       if (target) {
         const actor = currentUser || users[0];
         if (actor) {
-          updateIssueInNeon(issueId, { starred: !target.starred }, actor);
+          updateIssueInNeon(issueId, { starred: !target.starred }, actor, currentUser?.orgId);
         }
       }
     }
@@ -716,7 +803,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSelectedIssue(null);
     }
 
-    if (isNeonConfigured()) {
+    if (!isDemoMode && isNeonConfigured()) {
       deleteIssueInNeon(issueId);
     }
   };
@@ -727,9 +814,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     description?: string,
     customFields?: CustomFieldDefinition[]
   ): Department => {
-    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'dept';
+    const id = currentUser?.orgId
+      ? `${baseSlug}-${currentUser.orgId.substring(0, 8)}`
+      : `${baseSlug}-${Date.now().toString(36)}`;
+
     const newDept: Department = {
       id,
+      orgId: currentUser?.orgId,
       name,
       code: code.toUpperCase(),
       description: description || '',
@@ -737,8 +829,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setDepartments((prev) => [...prev, newDept]);
 
-    if (isNeonConfigured()) {
-      saveDepartmentInNeon(newDept);
+    if (!isDemoMode && isNeonConfigured()) {
+      saveDepartmentInNeon(newDept, currentUser?.orgId);
     }
 
     return newDept;
@@ -756,8 +848,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    if (isNeonConfigured() && updatedTarget) {
-      saveDepartmentInNeon(updatedTarget);
+    if (!isDemoMode && isNeonConfigured() && updatedTarget) {
+      saveDepartmentInNeon(updatedTarget, currentUser?.orgId);
     }
 
     // Automatically populate custom fields on each ticket of that department if missing
@@ -824,7 +916,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSelectedIssue(null);
     }
 
-    if (isNeonConfigured()) {
+    if (!isDemoMode && isNeonConfigured()) {
       deleteDepartmentInNeon(deptId);
     }
   };
@@ -991,6 +1083,9 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentUser,
         setCurrentUser,
         logout,
+        isDemoMode,
+        enterDemoMode,
+        exitDemoMode,
         isNeonConnected,
         isLoadingDatabase,
         reloadFromDatabase,

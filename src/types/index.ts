@@ -70,6 +70,14 @@ export interface CustomFieldDefinition {
   required?: boolean;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  code: string;
+  createdByEmail?: string;
+  createdAt?: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -79,6 +87,8 @@ export interface UserProfile {
   avatarUrl?: string;
   department: string;
   role?: string;
+  orgId?: string;
+  organization?: Organization;
 }
 
 export interface Department {
@@ -88,6 +98,7 @@ export interface Department {
   color?: string;
   description?: string;
   customFields?: CustomFieldDefinition[];
+  orgId?: string;
 }
 
 export interface Comment {
@@ -110,6 +121,7 @@ export interface HistoryEntry {
 
 export interface Issue {
   id: string;
+  orgId?: string;
   number: number;
   code: string; // e.g. "DEV-101", "MKT-42", "SLS-88", "OPS-14"
   title: string;

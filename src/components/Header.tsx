@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { UserAvatar } from './UserAvatar';
-import { Search, Plus, Database, Check, UserCog, ChevronDown, Settings2, LogOut } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Database,
+  Check,
+  UserCog,
+  ChevronDown,
+  Settings2,
+  LogOut,
+  Building2,
+  Copy,
+  Users as UsersIcon,
+} from 'lucide-react';
 
 interface HeaderProps {
   onOpenNeon: () => void;
@@ -20,19 +32,32 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
     setSelectedIssue,
     setIsProfileModalOpen,
     openDepartmentModal,
+    isDemoMode,
+    exitDemoMode,
   } = useIssues();
 
   const [userDropdown, setUserDropdown] = useState(false);
+  const [copiedOrgCode, setCopiedOrgCode] = useState(false);
 
   if (!currentUser) return null;
 
+  const handleCopyOrgCode = () => {
+    if (currentUser.organization?.code) {
+      navigator.clipboard.writeText(currentUser.organization.code);
+      setCopiedOrgCode(true);
+      setTimeout(() => setCopiedOrgCode(false), 2000);
+    }
+  };
+
+  const coworkers = users.filter((u) => u.id !== currentUser.id);
+
   return (
     <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between sticky top-0 z-30 select-none">
-      {/* Brand */}
+      {/* Brand & Organization */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => setSelectedIssue(null)}
-          className="flex items-center gap-2.5 focus:outline-none"
+          className="flex items-center gap-2.5 focus:outline-none cursor-pointer"
         >
           <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-sm tracking-wider">
             N
@@ -42,9 +67,49 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
             <span className="text-[11px] text-gray-500 ml-1.5 font-mono">Issue Tracker</span>
           </div>
         </button>
+
+        {/* Multi-Tenant Org Badge (Production) */}
+        {!isDemoMode && currentUser.organization && (
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-xs">
+            <Building2 className="w-3.5 h-3.5 text-gray-500" />
+            <span
+              className="font-semibold text-gray-900 max-w-[130px] truncate"
+              title={currentUser.organization.name}
+            >
+              {currentUser.organization.name}
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyOrgCode}
+              title="Click to copy company invite code"
+              className="font-mono text-[10px] bg-white border border-gray-300 hover:border-black px-1.5 py-0.5 rounded text-gray-700 flex items-center gap-1 transition-colors cursor-pointer ml-1"
+            >
+              <span>{currentUser.organization.code}</span>
+              {copiedOrgCode ? (
+                <Check className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <Copy className="w-3 h-3 text-gray-400" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Demo Mode Badge */}
+        {isDemoMode && (
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-md text-[11px] font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span>Demo Mode</span>
+            <button
+              onClick={exitDemoMode}
+              className="ml-1 text-[10px] underline hover:text-black font-semibold cursor-pointer"
+            >
+              Exit
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Center Search Input (Google style) */}
+      {/* Center Search Input (Google Buganizer style) */}
       <div className="flex-1 max-w-xl mx-4">
         <div className="relative">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -64,11 +129,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
         <button
           onClick={onOpenNeon}
           className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-700 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-          title={isNeonConnected ? "Connected to Neon Serverless Postgres" : "Configure Neon Serverless Postgres"}
+          title={isNeonConnected ? 'Connected to Neon Serverless Postgres' : 'Configure Neon Serverless Postgres'}
         >
           <Database className="w-3.5 h-3.5 text-gray-500" />
           <span className="font-mono text-[11px] flex items-center gap-1">
-            <span className={isNeonConnected ? "text-emerald-600 font-bold" : "text-amber-500 font-bold"}>
+            <span className={isNeonConnected ? 'text-emerald-600 font-bold' : 'text-amber-500 font-bold'}>
               ●
             </span>
             <span>Neon SQL</span>
@@ -88,17 +153,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
         {/* New Issue Button */}
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm"
+          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>New Issue</span>
         </button>
 
-        {/* Current user & Profile Switcher */}
+        {/* Current user & Account Dropdown */}
         <div className="relative">
           <button
             onClick={() => setUserDropdown(!userDropdown)}
-            className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-colors text-xs text-gray-700"
+            className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-colors text-xs text-gray-700 cursor-pointer"
           >
             <UserAvatar user={currentUser} size="sm" />
             <div className="hidden md:flex flex-col text-left leading-tight">
@@ -118,15 +183,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
                 className="fixed inset-0 z-40"
                 onClick={() => setUserDropdown(false)}
               />
-              <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2 text-xs animate-fade-in">
+              <div className="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2.5 text-xs animate-fade-in">
                 {/* Active Profile Info */}
                 <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-md mb-2 space-y-2">
                   <div className="flex items-start gap-2.5">
                     <UserAvatar user={currentUser} size="md" />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-gray-900 truncate">{currentUser.name}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{currentUser.email}</p>
                       {currentUser.nickname && (
-                        <p className="text-[11px] text-gray-500 font-mono truncate">
+                        <p className="text-[10px] text-gray-500 font-mono truncate">
                           @{currentUser.nickname}
                         </p>
                       )}
@@ -141,7 +207,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
                       setUserDropdown(false);
                       setIsProfileModalOpen(true);
                     }}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-black text-white hover:bg-gray-800 rounded font-medium text-xs transition-colors shadow-2xs"
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-black text-white hover:bg-gray-800 rounded font-medium text-xs transition-colors cursor-pointer"
                   >
                     <UserCog className="w-3.5 h-3.5" />
                     <span>Edit Profile & Avatar</span>
@@ -152,53 +218,117 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
                       setUserDropdown(false);
                       openDepartmentModal();
                     }}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200 rounded font-medium text-xs transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200 rounded font-medium text-xs transition-colors cursor-pointer"
                   >
                     <Settings2 className="w-3.5 h-3.5" />
                     <span>Department Settings</span>
                   </button>
                 </div>
 
-                {/* Persona Switcher */}
-                <div className="px-2 py-1 text-gray-400 text-[10px] uppercase font-mono font-semibold">
-                  Switch Persona
-                </div>
-                <div className="max-h-56 overflow-y-auto space-y-0.5">
-                  {users.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => {
-                        setCurrentUser(u);
-                        setUserDropdown(false);
-                      }}
-                      className={`w-full flex items-center justify-between p-2 rounded text-left transition-colors ${
-                        currentUser.id === u.id
-                          ? 'bg-gray-100 font-semibold text-gray-900'
-                          : 'hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <UserAvatar user={u} size="sm" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1">
-                            <p className="font-medium text-gray-900 truncate">{u.name}</p>
-                            {u.nickname && (
+                {/* Real Company Workspace Info (Production Users) */}
+                {!isDemoMode && currentUser.organization && (
+                  <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-gray-900 flex items-center gap-1">
+                        <Building2 className="w-3.5 h-3.5 text-gray-500" />
+                        <span className="truncate">{currentUser.organization.name}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-gray-500">Workspace</span>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-white border border-gray-200 rounded p-1.5 mt-1.5">
+                      <div className="font-mono text-xs font-bold text-gray-800 tracking-wider">
+                        {currentUser.organization.code}
+                      </div>
+                      <button
+                        onClick={handleCopyOrgCode}
+                        className="flex items-center gap-1 px-2 py-0.5 bg-black text-white hover:bg-gray-800 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        {copiedOrgCode ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Code</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <p className="text-[10px] text-gray-500 mt-1 leading-normal">
+                      Share this code with teammates so they join your company workspace.
+                    </p>
+
+                    {/* Coworkers list if any */}
+                    {coworkers.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                          <UsersIcon className="w-3 h-3" />
+                          <span>Team Members ({coworkers.length + 1})</span>
+                        </div>
+                        <div className="max-h-24 overflow-y-auto space-y-1">
+                          {coworkers.slice(0, 5).map((cw) => (
+                            <div key={cw.id} className="flex items-center gap-1.5 text-[11px] text-gray-700">
+                              <UserAvatar user={cw} size="sm" />
+                              <span className="truncate font-medium">{cw.name}</span>
                               <span className="text-[10px] text-gray-400 font-mono">
-                                @{u.nickname}
+                                ({cw.department})
                               </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-gray-500 truncate">
-                            {u.role ? `${u.role} (${u.department})` : u.department}
-                          </p>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      {currentUser.id === u.id && (
-                        <Check className="w-3.5 h-3.5 text-black shrink-0 ml-1.5" />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Persona Switcher ONLY in Demo Mode */}
+                {isDemoMode && (
+                  <>
+                    <div className="px-2 py-1 text-gray-400 text-[10px] uppercase font-mono font-semibold">
+                      Demo Persona Switcher
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-0.5">
+                      {users.map((u) => (
+                        <button
+                          key={u.id}
+                          onClick={() => {
+                            setCurrentUser(u);
+                            setUserDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-1.5 rounded text-left transition-colors cursor-pointer ${
+                            currentUser.id === u.id
+                              ? 'bg-gray-100 font-semibold text-gray-900'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <UserAvatar user={u} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1">
+                                <p className="font-medium text-gray-900 truncate">{u.name}</p>
+                                {u.nickname && (
+                                  <span className="text-[10px] text-gray-400 font-mono">
+                                    @{u.nickname}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500 truncate">
+                                {u.role ? `${u.role} (${u.department})` : u.department}
+                              </p>
+                            </div>
+                          </div>
+                          {currentUser.id === u.id && (
+                            <Check className="w-3.5 h-3.5 text-black shrink-0 ml-1.5" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 {/* Sign Out */}
                 <div className="pt-1.5 mt-1.5 border-t border-gray-200">
@@ -207,7 +337,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
                       setUserDropdown(false);
                       logout();
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors text-xs font-medium"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors text-xs font-medium cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>

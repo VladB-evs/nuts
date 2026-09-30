@@ -213,12 +213,5 @@ ON CONFLICT (id) DO UPDATE SET
     custom_fields = EXCLUDED.custom_fields,
     description = EXCLUDED.description;
 
--- Initial Team Profiles
-INSERT INTO public.profiles (id, email, name, nickname, role, department, avatar_url, is_admin)
-VALUES
-    ('11111111-1111-1111-1111-111111111111', 'liam@nuts.internal', 'Liam Vance', 'liam', 'Staff Systems Architect', 'Engineering', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', TRUE),
-    ('22222222-2222-2222-2222-222222222222', 'alex@nuts.internal', 'Alex Rivera', 'arivera', 'Senior Frontend Engineer', 'Engineering', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80', FALSE),
-    ('33333333-3333-3333-3333-333333333333', 'maya@nuts.internal', 'Maya Chen', 'maya', 'Lead UI/UX Engineer', 'Engineering', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', FALSE),
-    ('44444444-4444-4444-4444-444444444444', 'david@nuts.internal', 'David Miller', 'dmiller', 'Infrastructure & Backend Engineer', 'Engineering', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', FALSE),
-    ('55555555-5555-5555-5555-555555555555', 'elena@nuts.internal', 'Elena Rostova', 'elena', 'DevOps & Security Lead', 'Engineering', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80', FALSE)
-ON CONFLICT (email) DO NOTHING;
+-- 9. NOTE: Profiles and tickets are created dynamically when users sign up
+-- and create/join their company organizations. Mock data is isolated to Demo Mode.
