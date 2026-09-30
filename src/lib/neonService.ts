@@ -469,7 +469,7 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
           { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'STAGING' },
           { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
         ];
-        const deptId = `eng-${orgId.substring(0, 8)}`;
+        const deptId = `eng-${orgId}`;
         try {
           await sql`
             INSERT INTO public.departments (id, org_id, name, code, description, custom_fields)
@@ -820,18 +820,25 @@ export async function deleteIssueInNeon(issueId: string): Promise<void> {
 export async function saveDepartmentInNeon(department: Department, orgId?: string): Promise<void> {
   const sql = getDb();
   if (!sql) return;
+  const targetOrgId = orgId || department.orgId;
+  const targetDeptId =
+    department.id === 'engineering' && targetOrgId
+      ? `eng-${targetOrgId}`
+      : department.id;
+
   try {
     await sql`
       INSERT INTO public.departments (id, org_id, name, code, description, custom_fields)
       VALUES (
-        ${department.id},
-        ${orgId || department.orgId || null},
+        ${targetDeptId},
+        ${targetOrgId || null},
         ${department.name},
         ${department.code},
         ${department.description || ''},
         ${JSON.stringify(department.customFields || [])}
       )
       ON CONFLICT (id) DO UPDATE SET
+        org_id = COALESCE(public.departments.org_id, EXCLUDED.org_id),
         name = EXCLUDED.name,
         code = EXCLUDED.code,
         description = EXCLUDED.description,
