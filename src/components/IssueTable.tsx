@@ -140,8 +140,8 @@ export const IssueTable: React.FC = () => {
     if (navView === 'assigned_to_me') {
       return {
         title: 'Assigned to Me',
-        badge: 'ALL DEPTS',
-        subtitle: 'Showing all open tickets assigned to you across all departments',
+        badge: userDept?.code || 'DEV',
+        subtitle: `Showing open tickets assigned to you in your department (${userDept?.name || currentUser.department})`,
       };
     }
     if (navView === 'reported_by_me') {

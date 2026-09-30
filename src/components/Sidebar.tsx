@@ -33,20 +33,20 @@ export const Sidebar: React.FC = () => {
 
   const views: { id: NavView; label: string; badge?: string; tooltip: string; icon: any; count: number }[] = [
     {
+      id: 'assigned_to_me',
+      label: 'Assigned to me',
+      badge: userDept?.code || 'DEV',
+      tooltip: `Open issues assigned to you in your department (${userDept?.name || currentUser.department})`,
+      icon: UserCheck,
+      count: counts.assignedToMe,
+    },
+    {
       id: 'open',
       label: 'Open Issues',
       badge: userDept?.code || 'DEV',
       tooltip: `Open issues in your assigned department (${userDept?.name || currentUser.department})`,
       icon: Inbox,
       count: counts.open,
-    },
-    {
-      id: 'assigned_to_me',
-      label: 'Assigned to me',
-      badge: 'ALL',
-      tooltip: 'All tickets assigned to you across all departments',
-      icon: UserCheck,
-      count: counts.assignedToMe,
     },
     {
       id: 'reported_by_me',

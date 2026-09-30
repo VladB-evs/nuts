@@ -334,7 +334,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isDemoMode, currentUser?.orgId]);
 
   const [selectedDepartment, setSelectedDepartmentState] = useState<string>('all');
-  const [navView, setNavView] = useState<NavView>('open');
+  const [navView, setNavView] = useState<NavView>('assigned_to_me');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
@@ -928,7 +928,20 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return issues.filter((issue) => {
       // Nav View Filter
-      if (navView === 'open') {
+      if (navView === 'assigned_to_me') {
+        // "and the assigned to me shows all the opened issues in the department that the current uses is on and the tickets assigned to that specific user"
+        const isAssigned =
+          issue.assignee?.id === currentUser.id ||
+          (!!currentUser.email && issue.assignee?.email?.toLowerCase() === currentUser.email.toLowerCase());
+        if (!isAssigned) return false;
+        if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
+
+        if (selectedDepartment === 'all') {
+          if (userDeptId && issue.departmentId !== userDeptId) return false;
+        } else {
+          if (issue.departmentId !== selectedDepartment) return false;
+        }
+      } else if (navView === 'open') {
         // "Opened issues will show all the opened issues in the department I am assigned to."
         if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
 
@@ -937,10 +950,6 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
           if (issue.departmentId !== selectedDepartment) return false;
         }
-      } else if (navView === 'assigned_to_me') {
-        // "and assigned to me will show all the tickets that are assigned to me even of the tickets are from other departments."
-        if (issue.assignee?.id !== currentUser.id) return false;
-        if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
       } else if (navView === 'reported_by_me') {
         if (issue.reporter.id !== currentUser.id) return false;
         if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
@@ -1048,10 +1057,12 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         i.status !== 'CLOSED'
     ).length;
 
-    // "and assigned to me will show all the tickets that are assigned to me even of the tickets are from other departments."
+    // "and the assigned to me shows all the opened issues in the department that the current uses is on and the tickets assigned to that specific user"
     const assignedToMe = issues.filter(
       (i) =>
-        i.assignee?.id === currentUser.id &&
+        (userDeptId ? i.departmentId === userDeptId : true) &&
+        (i.assignee?.id === currentUser.id ||
+          (!!currentUser.email && i.assignee?.email?.toLowerCase() === currentUser.email.toLowerCase())) &&
         i.status !== 'FIXED' &&
         i.status !== 'CLOSED'
     ).length;
