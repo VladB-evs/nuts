@@ -296,6 +296,7 @@ export async function registerUser(params: {
     id: userRow.id,
     orgId: org.id,
     organization: org,
+    isAdmin: Boolean(userRow.is_admin),
     name: userRow.name,
     nickname: userRow.nickname || '',
     email: userRow.email,
@@ -378,6 +379,7 @@ export async function loginWithEmail(email: string, password?: string): Promise<
     id: userRow.id,
     orgId: userRow.org_id || undefined,
     organization: org,
+    isAdmin: Boolean(userRow.is_admin),
     name: userRow.name,
     nickname: userRow.nickname || '',
     email: userRow.email,
@@ -403,7 +405,7 @@ export async function validateSessionToken(token: string): Promise<UserProfile |
 
     const rows = await sql`
       SELECT 
-        p.id, p.org_id, p.name, p.nickname, p.email, p.role, p.department, p.avatar_url,
+        p.id, p.org_id, p.name, p.nickname, p.email, p.role, p.department, p.avatar_url, p.is_admin,
         o.id as organization_id, o.name as organization_name, o.code as organization_code
       FROM public.sessions s
       JOIN public.profiles p ON s.user_id = p.id
@@ -425,6 +427,7 @@ export async function validateSessionToken(token: string): Promise<UserProfile |
             code: r.organization_code,
           }
         : undefined,
+      isAdmin: Boolean(r.is_admin),
       name: r.name,
       nickname: r.nickname || '',
       email: r.email,
@@ -491,6 +494,7 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
     const users: UserProfile[] = (profileRows || []).map((p: any) => ({
       id: p.id,
       orgId: p.org_id,
+      isAdmin: Boolean(p.is_admin),
       name: p.name,
       nickname: p.nickname || '',
       email: p.email,

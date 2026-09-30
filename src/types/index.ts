@@ -87,6 +87,7 @@ export interface UserProfile {
   avatarUrl?: string;
   department: string;
   role?: string;
+  isAdmin?: boolean;
   orgId?: string;
   organization?: Organization;
 }

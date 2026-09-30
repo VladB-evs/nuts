@@ -38,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
 
   const [userDropdown, setUserDropdown] = useState(false);
   const [copiedOrgCode, setCopiedOrgCode] = useState(false);
+  const [copiedSalesLink, setCopiedSalesLink] = useState(false);
 
   if (!currentUser) return null;
 
@@ -46,6 +47,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
       navigator.clipboard.writeText(currentUser.organization.code);
       setCopiedOrgCode(true);
       setTimeout(() => setCopiedOrgCode(false), 2000);
+    }
+  };
+
+  const handleCopySalesLink = () => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/?create-org=true`;
+      navigator.clipboard.writeText(url);
+      setCopiedSalesLink(true);
+      setTimeout(() => setCopiedSalesLink(false), 2000);
     }
   };
 
@@ -78,19 +88,23 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
             >
               {currentUser.organization.name}
             </span>
-            <button
-              type="button"
-              onClick={handleCopyOrgCode}
-              title="Click to copy company invite code"
-              className="font-mono text-[10px] bg-white border border-gray-300 hover:border-black px-1.5 py-0.5 rounded text-gray-700 flex items-center gap-1 transition-colors cursor-pointer ml-1"
-            >
-              <span>{currentUser.organization.code}</span>
-              {copiedOrgCode ? (
-                <Check className="w-3 h-3 text-emerald-600" />
-              ) : (
-                <Copy className="w-3 h-3 text-gray-400" />
-              )}
-            </button>
+            {currentUser.isAdmin ? (
+              <button
+                type="button"
+                onClick={handleCopyOrgCode}
+                title="Click to copy employee invite code (Admin)"
+                className="font-mono text-[10px] bg-white border border-gray-300 hover:border-black px-1.5 py-0.5 rounded text-gray-700 flex items-center gap-1 transition-colors cursor-pointer ml-1"
+              >
+                <span>{currentUser.organization.code}</span>
+                {copiedOrgCode ? (
+                  <Check className="w-3 h-3 text-emerald-600" />
+                ) : (
+                  <Copy className="w-3 h-3 text-gray-400" />
+                )}
+              </button>
+            ) : (
+              <span className="text-[10px] text-gray-400 font-mono ml-1">Team</span>
+            )}
           </div>
         )}
 
@@ -233,34 +247,63 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNeon }) => {
                         <Building2 className="w-3.5 h-3.5 text-gray-500" />
                         <span className="truncate">{currentUser.organization.name}</span>
                       </span>
-                      <span className="text-[10px] font-mono text-gray-500">Workspace</span>
+                      <span className="text-[10px] font-mono text-gray-500">
+                        {currentUser.isAdmin ? 'Admin' : 'Member'}
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between bg-white border border-gray-200 rounded p-1.5 mt-1.5">
-                      <div className="font-mono text-xs font-bold text-gray-800 tracking-wider">
-                        {currentUser.organization.code}
-                      </div>
-                      <button
-                        onClick={handleCopyOrgCode}
-                        className="flex items-center gap-1 px-2 py-0.5 bg-black text-white hover:bg-gray-800 rounded text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        {copiedOrgCode ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            <span>Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            <span>Copy Code</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    {/* Admin Exclusivity: Only Admin can see and copy the employee invite code */}
+                    {currentUser.isAdmin ? (
+                      <>
+                        <div className="flex items-center justify-between bg-white border border-gray-200 rounded p-1.5 mt-1.5">
+                          <div className="font-mono text-xs font-bold text-gray-800 tracking-wider">
+                            {currentUser.organization.code}
+                          </div>
+                          <button
+                            onClick={handleCopyOrgCode}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-black text-white hover:bg-gray-800 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                          >
+                            {copiedOrgCode ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span>Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy Code</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
 
-                    <p className="text-[10px] text-gray-500 mt-1 leading-normal">
-                      Share this code with teammates so they join your company workspace.
-                    </p>
+                        <p className="text-[10px] text-gray-500 mt-1 leading-normal">
+                          Share this invite code with employees so they can join your company workspace.
+                        </p>
+
+                        {/* Special Sales Onboarding Link (for Founder / Sales calls) */}
+                        <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                            Sales Call Link
+                          </span>
+                          <button
+                            onClick={handleCopySalesLink}
+                            className="text-[10px] text-gray-700 hover:text-black font-semibold underline flex items-center gap-1 cursor-pointer"
+                            title="Copy the guarded link to share on sales calls for a new company to create their workspace"
+                          >
+                            {copiedSalesLink ? (
+                              <span className="text-emerald-600 font-bold">Link Copied!</span>
+                            ) : (
+                              <span>Copy New Org Link</span>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-[10px] text-gray-500 mt-1 leading-normal">
+                        Internal workspace for {currentUser.organization.name}. Contact your admin for invite codes.
+                      </p>
+                    )}
 
                     {/* Coworkers list if any */}
                     {coworkers.length > 0 && (
