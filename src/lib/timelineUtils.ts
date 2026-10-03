@@ -12,6 +12,80 @@ export interface LifecycleSegment {
   isRegression: boolean;
 }
 
+export interface PrioritySla {
+  priority: Priority;
+  label: string;
+  stageMaxMs: number;             // Maximum allowable duration in a single active stage before stalling (breaching stage SLA)
+  stageMaxFormatted: string;       // e.g. "24h", "3d", "7d", "14d"
+  stageMaxDays: number;
+  resolutionMaxMs: number;        // Maximum allowable total lead time before breaching resolution SLA
+  resolutionMaxFormatted: string;  // e.g. "48h", "7d", "14d", "30d"
+  badgeClass: string;
+  textClass: string;
+  bgClass: string;
+  borderClass: string;
+  description: string;
+}
+
+export const PRIORITY_SLAS: Record<Priority, PrioritySla> = {
+  P0: {
+    priority: 'P0',
+    label: 'Blocker',
+    stageMaxMs: 24 * 60 * 60 * 1000, // 24 hours
+    stageMaxFormatted: '24h',
+    stageMaxDays: 1,
+    resolutionMaxMs: 48 * 60 * 60 * 1000, // 48 hours
+    resolutionMaxFormatted: '48h',
+    badgeClass: 'bg-red-50 text-red-700 border-red-200',
+    textClass: 'text-red-700',
+    bgClass: 'bg-red-50',
+    borderClass: 'border-red-200',
+    description: 'Outages & critical blockers. Maximum 24h per active stage, 48h to resolve.',
+  },
+  P1: {
+    priority: 'P1',
+    label: 'Critical',
+    stageMaxMs: 3 * 24 * 60 * 60 * 1000, // 3 days (72 hours)
+    stageMaxFormatted: '3d',
+    stageMaxDays: 3,
+    resolutionMaxMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+    resolutionMaxFormatted: '7d',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    textClass: 'text-amber-700',
+    bgClass: 'bg-amber-50',
+    borderClass: 'border-amber-200',
+    description: 'High impact functionality defects. Maximum 3 days per active stage, 7 days to resolve.',
+  },
+  P2: {
+    priority: 'P2',
+    label: 'Major',
+    stageMaxMs: 7 * 24 * 60 * 60 * 1000, // 7 days (1 week)
+    stageMaxFormatted: '7d',
+    stageMaxDays: 7,
+    resolutionMaxMs: 14 * 24 * 60 * 60 * 1000, // 14 days
+    resolutionMaxFormatted: '14d',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    textClass: 'text-blue-700',
+    bgClass: 'bg-blue-50',
+    borderClass: 'border-blue-200',
+    description: 'Standard product defects & planned tasks. Maximum 7 days per active stage, 14 days to resolve.',
+  },
+  P3: {
+    priority: 'P3',
+    label: 'Minor',
+    stageMaxMs: 14 * 24 * 60 * 60 * 1000, // 14 days (2 weeks)
+    stageMaxFormatted: '14d',
+    stageMaxDays: 14,
+    resolutionMaxMs: 30 * 24 * 60 * 60 * 1000, // 30 days
+    resolutionMaxFormatted: '30d',
+    badgeClass: 'bg-gray-50 text-gray-700 border-gray-200',
+    textClass: 'text-gray-700',
+    bgClass: 'bg-gray-50',
+    borderClass: 'border-gray-200',
+    description: 'Low-severity polish, cosmetic issues, or enhancements. Maximum 14 days per active stage, 30 days to resolve.',
+  },
+};
+
 export interface TicketLifecycle {
   issueId: string;
   code: string;
@@ -38,10 +112,19 @@ export interface TicketLifecycle {
 
   // Edge-case flags
   isResolved: boolean;           // Currently in FIXED, VERIFIED, or CLOSED
-  isStalled: boolean;            // Stuck in current active status beyond threshold
+  isStalled: boolean;            // Stuck in current active status beyond priority stage SLA
   stalledDurationMs: number;     // How long it has been in current status
   hasRegressions: boolean;       // Moved backwards at least once (e.g. FIXED -> ASSIGNED)
   regressionCount: number;
+
+  // SLA Specific Metrics
+  sla: PrioritySla;
+  slaStageBreached: boolean;     // Active stage duration > Priority Stage SLA
+  slaResolutionBreached: boolean;// Overall lead time > Priority Resolution SLA
+  slaOverdueMs: number;          // How much time beyond SLA (0 if healthy)
+  slaRemainingMs: number;        // Time left in stage before breaching SLA (negative if overdue)
+  slaUsagePercent: number;       // Percentage of stage SLA consumed (e.g. 75%, 150%)
+  stalledReason: string;         // Human-friendly explanation of why it is stalled / breached
 }
 
 export interface DepartmentLifecycleMetrics {
@@ -54,6 +137,7 @@ export interface DepartmentLifecycleMetrics {
   avgTriageTimeMs: number;
   statusDistribution: Record<Status, number>;
   stalledTicketsList: TicketLifecycle[];
+  stalledByPriority: Record<Priority, number>;
 }
 
 export const STATUS_META: Record<
@@ -304,7 +388,7 @@ export function computeTicketLifecycle(
 
   // Lead Time: Total time from creation to resolution (or now)
   const totalDurationMs = Math.max(0, (isTerminal ? stageStartMs : referenceNowMs) - createdMs);
-  const leadTimeMs = isResolved ? totalDurationMs : totalDurationMs;
+  const leadTimeMs = totalDurationMs;
 
   // Triage Duration: Time in NEW
   const triageDurationMs = statusDurations.NEW;
@@ -312,11 +396,24 @@ export function computeTicketLifecycle(
   // Cycle Time: Time from ACCEPTED to FIXED/CLOSED (active engineering/work duration)
   const cycleTimeMs = statusDurations.ACCEPTED + statusDurations.FIXED;
 
-  // Stalled Detection:
-  // Non-terminal tickets in the same active stage for > 5 days (or > 24h for P0)
-  const stalledThresholdMs =
-    issue.priority === 'P0' ? 24 * 60 * 60 * 1000 : 5 * 24 * 60 * 60 * 1000;
-  const isStalled = !isResolved && finalDurationMs > stalledThresholdMs;
+  // Priority-based SLA resolution & Stalled Detection:
+  // "Stall" is strictly defined by whether an active, unresolved ticket exceeds its Priority Stage SLA
+  const sla = PRIORITY_SLAS[issue.priority] || PRIORITY_SLAS.P2;
+  const isStalled = !isResolved && finalDurationMs > sla.stageMaxMs;
+  const slaStageBreached = isStalled;
+  const slaResolutionBreached = !isResolved && totalDurationMs > sla.resolutionMaxMs;
+  const slaOverdueMs = isStalled ? Math.max(0, finalDurationMs - sla.stageMaxMs) : 0;
+  const slaRemainingMs = sla.stageMaxMs - finalDurationMs;
+  const slaUsagePercent = Math.min(999, Math.round((finalDurationMs / sla.stageMaxMs) * 100));
+
+  let stalledReason = '';
+  if (isStalled) {
+    stalledReason = `Exceeded ${issue.priority} stage SLA (${sla.stageMaxFormatted}) in ${currentStage}: ${formatDuration(finalDurationMs)} elapsed (${formatDuration(slaOverdueMs)} overdue)`;
+  } else if (!isResolved) {
+    stalledReason = `Within ${issue.priority} stage SLA (${formatDuration(finalDurationMs)} of ${sla.stageMaxFormatted} in ${currentStage})`;
+  } else {
+    stalledReason = `Resolved in ${formatDuration(totalDurationMs)}`;
+  }
 
   return {
     issueId: issue.id,
@@ -340,6 +437,13 @@ export function computeTicketLifecycle(
     stalledDurationMs: finalDurationMs,
     hasRegressions: regressionCount > 0,
     regressionCount,
+    sla,
+    slaStageBreached,
+    slaResolutionBreached,
+    slaOverdueMs,
+    slaRemainingMs,
+    slaUsagePercent,
+    stalledReason,
   };
 }
 
@@ -384,6 +488,13 @@ export function computeDepartmentLifecycleMetrics(
     }
   });
 
+  const stalledByPriority: Record<Priority, number> = {
+    P0: stalled.filter((l) => l.priority === 'P0').length,
+    P1: stalled.filter((l) => l.priority === 'P1').length,
+    P2: stalled.filter((l) => l.priority === 'P2').length,
+    P3: stalled.filter((l) => l.priority === 'P3').length,
+  };
+
   return {
     totalTickets,
     resolvedTickets: resolved.length,
@@ -394,5 +505,6 @@ export function computeDepartmentLifecycleMetrics(
     avgTriageTimeMs,
     statusDistribution,
     stalledTicketsList: stalled,
+    stalledByPriority,
   };
 }

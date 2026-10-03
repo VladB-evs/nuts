@@ -32,13 +32,19 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
     <div className={`space-y-2 select-none ${className}`}>
       {/* Header Summary */}
       <div className="flex items-center justify-between text-xs font-mono">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Clock className="w-3.5 h-3.5 text-gray-500" />
           <span className="font-semibold text-gray-800">Lifecycle Progression</span>
+          <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${lifecycle.sla.badgeClass}`}>
+            {lifecycle.priority} SLA: {lifecycle.sla.stageMaxFormatted}/stage
+          </span>
           {isStalled && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-              <AlertTriangle className="w-3 h-3 text-amber-600" />
-              <span>STALLED</span>
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+              title={lifecycle.stalledReason}
+            >
+              <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+              <span>STALLED (+{formatDuration(lifecycle.slaOverdueMs)} overdue)</span>
             </span>
           )}
           {lifecycle.hasRegressions && (
@@ -122,34 +128,78 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
         })}
       </div>
 
-      {/* Metric Breakdown Badges */}
+      {/* Metric Breakdown Badges with Priority SLA Targets */}
       {showDetails && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px] font-mono">
-          <div className="p-1.5 rounded bg-gray-50 border border-gray-200">
-            <span className="text-[10px] text-gray-400 block uppercase">Triage Time</span>
-            <span className="font-bold text-gray-900">
+          <div className="p-2 rounded bg-gray-50 border border-gray-200">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Triage Time</span>
+            <span className="font-bold text-gray-900 text-xs block">
               {formatDuration(lifecycle.triageDurationMs)}
             </span>
+            <span className="text-[9px] text-gray-400 block mt-0.5">Time in NEW</span>
           </div>
 
-          <div className="p-1.5 rounded bg-gray-50 border border-gray-200">
-            <span className="text-[10px] text-gray-400 block uppercase">Work Cycle Time</span>
-            <span className="font-bold text-gray-900">
+          <div className="p-2 rounded bg-gray-50 border border-gray-200">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Work Cycle Time</span>
+            <span className="font-bold text-gray-900 text-xs block">
               {formatDuration(cycleTimeMs)}
             </span>
+            <span className="text-[9px] text-gray-400 block mt-0.5">Accepted → Resolved</span>
           </div>
 
-          <div className="p-1.5 rounded bg-gray-50 border border-gray-200">
-            <span className="text-[10px] text-gray-400 block uppercase">Lead Time</span>
-            <span className="font-bold text-gray-900">
+          <div className="p-2 rounded bg-gray-50 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-gray-400 block uppercase font-medium">Lead Time</span>
+              <span className="text-[9px] text-gray-500 font-medium">
+                Goal: {lifecycle.sla.resolutionMaxFormatted}
+              </span>
+            </div>
+            <span className="font-bold text-gray-900 text-xs block">
               {formatDuration(leadTimeMs)}
             </span>
+            <span className="text-[9px] text-gray-400 block mt-0.5">Creation → Resolution</span>
           </div>
 
-          <div className="p-1.5 rounded bg-gray-50 border border-gray-200">
-            <span className="text-[10px] text-gray-400 block uppercase">Current Stage</span>
-            <span className="font-bold text-indigo-700">
-              {STATUS_META[lifecycle.currentStatus]?.label || lifecycle.currentStatus} ({formatDuration(lifecycle.stalledDurationMs)})
+          <div
+            className={`p-2 rounded border ${
+              isStalled
+                ? 'bg-amber-50/80 border-amber-300 text-amber-900'
+                : isResolved
+                ? 'bg-emerald-50/60 border-emerald-200 text-emerald-900'
+                : 'bg-gray-50 border-gray-200 text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-gray-500 block uppercase font-medium">
+                Stage SLA ({lifecycle.priority})
+              </span>
+              <span
+                className={`text-[9px] font-bold px-1 rounded ${
+                  isStalled
+                    ? 'bg-amber-200 text-amber-900'
+                    : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                {lifecycle.sla.stageMaxFormatted} Max
+              </span>
+            </div>
+            <span className="font-bold text-xs block mt-0.5">
+              {STATUS_META[lifecycle.currentStatus]?.label || lifecycle.currentStatus}: {formatDuration(lifecycle.stalledDurationMs)}
+            </span>
+            <span
+              className={`text-[9px] block mt-0.5 font-medium ${
+                isStalled
+                  ? 'text-amber-800'
+                  : isResolved
+                  ? 'text-emerald-700'
+                  : 'text-gray-500'
+              }`}
+            >
+              {isResolved
+                ? 'Ticket Resolved'
+                : isStalled
+                ? `Breached by +${formatDuration(lifecycle.slaOverdueMs)} (${lifecycle.slaUsagePercent}% used)`
+                : `${formatDuration(lifecycle.slaRemainingMs)} left before stall (${lifecycle.slaUsagePercent}%)`}
             </span>
           </div>
         </div>

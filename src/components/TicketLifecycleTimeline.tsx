@@ -6,6 +6,7 @@ import {
   computeDepartmentLifecycleMetrics,
   formatDuration,
   STATUS_META,
+  PRIORITY_SLAS,
   TicketLifecycle,
 } from '../lib/timelineUtils';
 import { CustomSelect } from './CustomSelect';
@@ -23,6 +24,9 @@ import {
   Search,
   ChevronRight,
   SlidersHorizontal,
+  ShieldCheck,
+  Info,
+  X,
 } from 'lucide-react';
 
 export const TicketLifecycleTimeline: React.FC = () => {
@@ -33,6 +37,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
   const [healthFilter, setHealthFilter] = useState<'all' | 'in_progress' | 'resolved' | 'stalled'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'duration' | 'cycle_time' | 'recent' | 'priority' | 'id'>('recent');
+  const [isSlaModalOpen, setIsSlaModalOpen] = useState(false);
 
   // Filter issues by department, priority, health, and search
   const filteredIssues = useMemo(() => {
@@ -166,10 +171,20 @@ export const TicketLifecycleTimeline: React.FC = () => {
               Stage Durations & Bottlenecks
             </span>
           </div>
-          <h1 className="text-base font-bold text-gray-900 font-mono tracking-tight flex items-center gap-2">
-            <Clock className="w-4 h-4 text-black" />
-            <span>Ticket Lifecycle Timeline</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-base font-bold text-gray-900 font-mono tracking-tight flex items-center gap-2">
+              <Clock className="w-4 h-4 text-black" />
+              <span>Ticket Lifecycle Timeline</span>
+            </h1>
+            <button
+              onClick={() => setIsSlaModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-800 text-[10px] font-mono font-medium transition-colors cursor-pointer"
+              title="Click to view Priority SLA definitions and what Stall means"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-gray-600" />
+              <span>Priority SLAs & Policy</span>
+            </button>
+          </div>
           <p className="text-xs text-gray-500 mt-0.5">
             Visualize how long tickets take from assigned to accepted to closed across company departments.
           </p>
@@ -207,15 +222,45 @@ export const TicketLifecycleTimeline: React.FC = () => {
                   : 'bg-amber-50/70 border-amber-200 hover:bg-amber-100 text-amber-900'
                 : 'bg-gray-50 border-gray-200 text-gray-600'
             }`}
-            title="Click to filter to stalled tickets (> 5 days in same stage)"
+            title="Click to filter to tickets that breached their priority stage SLA"
           >
-            <span className="text-[10px] text-amber-700 block uppercase font-semibold flex items-center gap-1">
-              {departmentMetrics.stalledTickets > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
-              <span>Stalled ({'>'}5d)</span>
-            </span>
-            <span className="font-bold text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-amber-800 block uppercase font-bold flex items-center gap-1">
+                {departmentMetrics.stalledTickets > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
+                <span>SLA Breached</span>
+              </span>
+              <span className="text-[9px] font-mono text-amber-800 bg-amber-200/60 px-1 rounded font-semibold">
+                Stalled
+              </span>
+            </div>
+            <span className="font-bold text-sm block mt-0.5">
               {departmentMetrics.stalledTickets}
             </span>
+            <div className="flex items-center gap-1 mt-0.5 text-[9px] font-mono text-amber-800 flex-wrap">
+              {departmentMetrics.stalledByPriority.P0 > 0 && (
+                <span className="bg-red-100 text-red-700 px-1 rounded font-bold">
+                  {departmentMetrics.stalledByPriority.P0} P0
+                </span>
+              )}
+              {departmentMetrics.stalledByPriority.P1 > 0 && (
+                <span className="bg-amber-200/80 text-amber-800 px-1 rounded font-bold">
+                  {departmentMetrics.stalledByPriority.P1} P1
+                </span>
+              )}
+              {departmentMetrics.stalledByPriority.P2 > 0 && (
+                <span className="bg-blue-100 text-blue-700 px-1 rounded">
+                  {departmentMetrics.stalledByPriority.P2} P2
+                </span>
+              )}
+              {departmentMetrics.stalledByPriority.P3 > 0 && (
+                <span className="bg-gray-200 text-gray-700 px-1 rounded">
+                  {departmentMetrics.stalledByPriority.P3} P3
+                </span>
+              )}
+              {departmentMetrics.stalledTickets === 0 && (
+                <span className="text-gray-400">All within SLAs</span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -255,7 +300,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
                 { id: 'all', label: 'All Tickets' },
                 { id: 'in_progress', label: 'In Progress' },
                 { id: 'resolved', label: 'Resolved' },
-                { id: 'stalled', label: `Stalled (${departmentMetrics.stalledTickets})` },
+                { id: 'stalled', label: `SLA Breached (${departmentMetrics.stalledTickets})` },
               ] as const
             ).map((tab) => (
               <button
@@ -343,17 +388,10 @@ export const TicketLifecycleTimeline: React.FC = () => {
                     </span>
 
                     <span
-                      className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                        ticket.priority === 'P0'
-                          ? 'bg-red-50 text-red-700 border-red-200'
-                          : ticket.priority === 'P1'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : ticket.priority === 'P2'
-                          ? 'bg-blue-50 text-blue-700 border-blue-200'
-                          : 'bg-gray-50 text-gray-700 border-gray-200'
-                      }`}
+                      className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border ${ticket.sla.badgeClass}`}
+                      title={`${ticket.priority} (${ticket.sla.label}): Max ${ticket.sla.stageMaxFormatted} in active stage, ${ticket.sla.resolutionMaxFormatted} resolution`}
                     >
-                      {ticket.priority}
+                      {ticket.priority} · {ticket.sla.stageMaxFormatted} SLA
                     </span>
 
                     <span className="font-medium text-xs text-gray-900 group-hover:text-blue-600 transition-colors truncate">
@@ -389,14 +427,14 @@ export const TicketLifecycleTimeline: React.FC = () => {
                       </span>
                     )}
 
-                    {/* Stalled Alert */}
+                    {/* Stalled / SLA Breached Alert */}
                     {ticket.isStalled && (
                       <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
-                        title={`Stalled in ${ticket.currentStatus} for ${formatDuration(ticket.stalledDurationMs)}`}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                        title={ticket.stalledReason}
                       >
-                        <AlertTriangle className="w-3 h-3 text-amber-600" />
-                        <span>Stalled ({formatDuration(ticket.stalledDurationMs)})</span>
+                        <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span>SLA Breached (+{formatDuration(ticket.slaOverdueMs)})</span>
                       </span>
                     )}
 
@@ -438,7 +476,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
                         </span>
 
                         {/* Tooltip on Segment Hover */}
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/seg:flex flex-col bg-gray-900 text-white p-2.5 rounded shadow-xl text-left text-[11px] z-30 pointer-events-none min-w-[180px] whitespace-normal">
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/seg:flex flex-col bg-gray-900 text-white p-2.5 rounded shadow-xl text-left text-[11px] z-30 pointer-events-none min-w-[200px] whitespace-normal">
                           <div className="flex items-center justify-between gap-2 border-b border-gray-700 pb-1 mb-1">
                             <span className="font-bold text-white uppercase font-mono">{meta.label}</span>
                             {seg.isCurrent && (
@@ -451,6 +489,23 @@ export const TicketLifecycleTimeline: React.FC = () => {
                             <p>
                               Duration: <span className="text-white font-bold">{formatDuration(seg.durationMs)}</span>
                             </p>
+                            {seg.isCurrent && (
+                              <p>
+                                Priority SLA: <span className={ticket.isStalled ? 'text-amber-400 font-bold' : 'text-emerald-400 font-semibold'}>
+                                  {ticket.sla.stageMaxFormatted} Max ({ticket.slaUsagePercent}% used)
+                                </span>
+                              </p>
+                            )}
+                            {seg.isCurrent && ticket.isStalled && (
+                              <p className="text-amber-300 font-semibold">
+                                Overdue by: +{formatDuration(ticket.slaOverdueMs)}
+                              </p>
+                            )}
+                            {seg.isCurrent && !ticket.isStalled && (
+                              <p className="text-emerald-400">
+                                Remaining budget: {formatDuration(ticket.slaRemainingMs)}
+                              </p>
+                            )}
                             {seg.startTime && (
                               <p className="truncate">
                                 From: {new Date(seg.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
@@ -487,6 +542,82 @@ export const TicketLifecycleTimeline: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* SLA Policy Modal */}
+      {isSlaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs select-none animate-fade-in">
+          <div className="bg-white rounded-lg border border-gray-300 shadow-2xl max-w-xl w-full p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-gray-900" />
+                <h3 className="font-mono font-bold text-sm text-gray-900">
+                  Priority SLA & Stall Definition
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsSlaModalOpen(false)}
+                className="text-gray-400 hover:text-black p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Clear definition explanation */}
+            <div className="bg-sky-50 border border-sky-200 rounded p-3 text-xs text-sky-900 space-y-1">
+              <span className="font-bold block font-mono">What does "Stalled" mean in NUTS?</span>
+              <p className="text-[11px] leading-relaxed text-sky-800">
+                A ticket is marked as <strong>Stalled (SLA Breached)</strong> when it remains in an active, unresolved stage (<code className="bg-white px-1 py-0.5 rounded border border-sky-300">NEW</code>, <code className="bg-white px-1 py-0.5 rounded border border-sky-300">ASSIGNED</code>, or <code className="bg-white px-1 py-0.5 rounded border border-sky-300">ACCEPTED</code>) longer than the Service Level Agreement (SLA) configured for its Priority level.
+              </p>
+              <p className="text-[11px] leading-relaxed text-sky-800">
+                Once a ticket is resolved (<code className="bg-white px-1 py-0.5 rounded border border-sky-300">FIXED</code>, <code className="bg-white px-1 py-0.5 rounded border border-sky-300">VERIFIED</code>, or <code className="bg-white px-1 py-0.5 rounded border border-sky-300">CLOSED</code>), stage timers halt.
+              </p>
+            </div>
+
+            {/* SLA Table */}
+            <div className="border border-gray-200 rounded overflow-hidden text-xs font-mono">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-semibold">
+                  <tr>
+                    <th className="py-2 px-3">Priority</th>
+                    <th className="py-2 px-3">Stage SLA (Stall Limit)</th>
+                    <th className="py-2 px-3">Resolution SLA</th>
+                    <th className="py-2 px-3">Scope & Criteria</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-[11px]">
+                  {Object.values(PRIORITY_SLAS).map((sla) => (
+                    <tr key={sla.priority} className="hover:bg-gray-50">
+                      <td className="py-2.5 px-3">
+                        <span className={`px-1.5 py-0.5 rounded border font-bold text-[10px] ${sla.badgeClass}`}>
+                          {sla.priority} — {sla.label}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-gray-900">
+                        {sla.stageMaxFormatted}
+                      </td>
+                      <td className="py-2.5 px-3 text-gray-600">
+                        {sla.resolutionMaxFormatted}
+                      </td>
+                      <td className="py-2.5 px-3 text-gray-500 font-sans text-[11px]">
+                        {sla.description}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsSlaModalOpen(false)}
+                className="px-3.5 py-1.5 bg-black text-white hover:bg-gray-800 rounded font-mono text-xs font-medium cursor-pointer"
+              >
+                Close Policy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
