@@ -4,7 +4,7 @@ import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
-import { Star, Plus, Clock, List, Link2 } from 'lucide-react';
+import { Star, Plus, Link2 } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
 export const IssueTable: React.FC = () => {
@@ -21,8 +21,6 @@ export const IssueTable: React.FC = () => {
     currentUser,
     navView,
     setIsCreateModalOpen,
-    activeTab,
-    setActiveTab,
   } = useIssues();
 
   if (!currentUser) return null;
@@ -190,32 +188,6 @@ export const IssueTable: React.FC = () => {
           <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">
             {viewHeader.subtitle}
           </span>
-        </div>
-
-        {/* View Switcher: Table View vs Lifecycle Timeline */}
-        <div className="flex items-center bg-gray-100 p-0.5 rounded border border-gray-200 text-[11px] font-mono shrink-0">
-          <button
-            onClick={() => setActiveTab('table')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors cursor-pointer ${
-              activeTab === 'table'
-                ? 'bg-white text-gray-900 font-bold shadow-2xs'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <List className="w-3.5 h-3.5" />
-            <span>Table View</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors cursor-pointer ${
-              activeTab === 'timeline'
-                ? 'bg-white text-gray-900 font-bold shadow-2xs'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Lifecycle Timeline</span>
-          </button>
         </div>
       </div>
 
