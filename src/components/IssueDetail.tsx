@@ -60,7 +60,6 @@ export const IssueDetail: React.FC = () => {
   const [newStatus, setNewStatus] = useState<Status | ''>('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
-  const [mobileTab, setMobileTab] = useState<'activity' | 'properties' | 'all'>('activity');
 
   if (!selectedIssue) return null;
 
@@ -189,10 +188,198 @@ export const IssueDetail: React.FC = () => {
     setIsEditingTitle(false);
   };
 
+  const renderPropertiesContent = () => (
+    <div className="space-y-4">
+      {/* Status */}
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-mono text-gray-500">Status</label>
+        <CustomSelect
+          value={selectedIssue.status}
+          onChange={(val) =>
+            updateIssue(selectedIssue.id, { status: val as Status })
+          }
+          options={STATUS_OPTIONS}
+        />
+      </div>
+
+      {/* Priority with Visible SLA Property */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="block text-[11px] font-mono text-gray-500">Priority</label>
+          <span className="font-mono text-[10px] text-gray-500 bg-white px-1.5 py-0.2 rounded border border-gray-200">
+            SLA: {PRIORITY_SLAS[selectedIssue.priority]?.stageMaxFormatted} max
+          </span>
+        </div>
+        <CustomSelect
+          value={selectedIssue.priority}
+          onChange={(val) =>
+            updateIssue(selectedIssue.id, { priority: val as Priority })
+          }
+          options={PRIORITY_OPTIONS}
+        />
+      </div>
+
+      {/* Linked Tickets (Cross-Department & Multi-Link) */}
+      <LinkedTicketsProperty currentIssue={selectedIssue} />
+
+      {/* Department Specific Properties */}
+      {currentDept?.customFields && currentDept.customFields.length > 0 &&
+        currentDept.customFields.map((field) => {
+          const currentVal =
+            selectedIssue.customAttributes?.[field.id] !== undefined
+              ? selectedIssue.customAttributes[field.id]
+              : (selectedIssue as any)[field.id] ?? field.defaultValue ?? field.options?.[0] ?? '';
+
+          if (field.type === 'select') {
+            return (
+              <div key={field.id} className="space-y-1.5">
+                <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
+                <CustomSelect
+                  value={currentVal}
+                  onChange={(newVal) => {
+                    const updates: any = {
+                      customAttributes: {
+                        ...(selectedIssue.customAttributes || {}),
+                        [field.id]: newVal,
+                      },
+                    };
+                    if (field.id === 'issueType') updates.issueType = newVal;
+                    if (field.id === 'environment') updates.environment = newVal;
+                    if (field.id === 'marketingChannel') updates.marketingChannel = newVal;
+                    if (field.id === 'deliverableType') updates.deliverableType = newVal;
+                    if (field.id === 'dealSegment') updates.dealSegment = newVal;
+                    if (field.id === 'dealStage') updates.dealStage = newVal;
+                    if (field.id === 'opsCategory') updates.opsCategory = newVal;
+                    if (field.id === 'impactLevel') updates.impactLevel = newVal;
+                    if (field.id === 'devScope') {
+                      updates.devScope = newVal.toLowerCase().includes('both')
+                        ? 'both'
+                        : newVal.toLowerCase().includes('front')
+                        ? 'frontend'
+                        : 'backend';
+                    }
+                    updateIssue(selectedIssue.id, updates);
+                  }}
+                  options={field.options || []}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div key={field.id} className="space-y-1.5">
+              <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
+              <input
+                type="text"
+                defaultValue={currentVal}
+                onBlur={(e) => {
+                  if (e.target.value !== currentVal) {
+                    updateIssue(selectedIssue.id, {
+                      customAttributes: {
+                        ...(selectedIssue.customAttributes || {}),
+                        [field.id]: e.target.value,
+                      },
+                    });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded text-gray-900 font-mono focus:outline-none focus:border-black"
+              />
+            </div>
+          );
+        })}
+
+      {/* Department */}
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-mono text-gray-500">Department</label>
+        <CustomSelect
+          value={selectedIssue.departmentId}
+          onChange={(newDeptId) => {
+            const newDept = departments.find((d) => d.id === newDeptId);
+            const updates: any = { departmentId: newDeptId };
+            if (newDept) {
+              updates.code = `${newDept.code}-${selectedIssue.number}`;
+            }
+            updateIssue(selectedIssue.id, updates);
+          }}
+          options={departmentOptions}
+        />
+      </div>
+
+      {/* Assignee */}
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-mono text-gray-500">Assignee</label>
+        {selectedIssue.assignee && (
+          <UserHoverCard user={selectedIssue.assignee} className="w-full">
+            <div className="w-full p-2 bg-white border border-gray-200 rounded flex items-center gap-2 mb-1.5 shadow-2xs hover:border-gray-400 transition-colors cursor-pointer">
+              <UserAvatar user={selectedIssue.assignee} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="font-semibold text-gray-900 text-xs truncate">
+                    {selectedIssue.assignee.name}
+                  </span>
+                  {selectedIssue.assignee.nickname && (
+                    <span className="text-gray-400 font-mono text-[10px]">
+                      @{selectedIssue.assignee.nickname}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-500 font-mono truncate">
+                  {selectedIssue.assignee.role || 'Member'} • {selectedIssue.assignee.department}
+                </p>
+              </div>
+            </div>
+          </UserHoverCard>
+        )}
+        <CustomSelect
+          value={selectedIssue.assignee?.id || 'unassigned'}
+          onChange={(val) => {
+            const u = users.find((user) => user.id === val) || null;
+            updateIssue(selectedIssue.id, {
+              assignee: u,
+              status: selectedIssue.status === 'NEW' && u ? 'ASSIGNED' : selectedIssue.status,
+            });
+          }}
+          options={assigneeOptions}
+          searchable={users.length > 5}
+        />
+      </div>
+
+      {/* Meta Info */}
+      <div className="pt-3 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Reporter:</span>
+          <UserHoverCard user={selectedIssue.reporter}>
+            <div className="inline-flex items-center gap-1.5 hover:text-black group/rep cursor-pointer">
+              <UserAvatar user={selectedIssue.reporter} size="xs" />
+              <span className="font-semibold text-gray-800 font-sans group-hover/rep:underline decoration-dotted decoration-gray-400">
+                {selectedIssue.reporter.name}
+              </span>
+              {selectedIssue.reporter.nickname && (
+                <span className="text-gray-400 font-mono text-[10px]">
+                  @{selectedIssue.reporter.nickname}
+                </span>
+              )}
+            </div>
+          </UserHoverCard>
+        </div>
+        <p>Created: {formatDateTime(selectedIssue.createdAt)}</p>
+        <p>Modified: {formatDateTime(selectedIssue.updatedAt)}</p>
+        <p>
+          Audit Log: <strong className="text-gray-800">{selectedIssue.history?.length || 0} revisions</strong>
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex-1 overflow-hidden bg-white flex flex-col h-full min-h-0">
       {/* Top Header */}
-      <div className="px-3 sm:px-4 py-2 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between text-xs shrink-0 select-none">
+      <div className="px-3 sm:px-4 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between text-xs shrink-0 select-none">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button
             onClick={() => setSelectedIssue(null)}
@@ -238,9 +425,9 @@ export const IssueDetail: React.FC = () => {
       </div>
 
       {/* Main Split Layout: Description & Comments on Left, Properties on Right */}
-      <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-y-auto lg:overflow-hidden min-h-0">
-        {/* Left Column: Title, Description, Thread */}
-        <div className="flex-1 min-w-0 p-3.5 sm:p-6 space-y-5 overflow-visible lg:overflow-y-auto min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-y-auto lg:overflow-hidden min-h-0 bg-white">
+        {/* Left Column: Title, Description, Mobile Properties Card, Thread */}
+        <div className="flex-1 min-w-0 p-3.5 sm:p-6 space-y-6 overflow-visible lg:overflow-y-auto min-h-0">
           {/* Title & Metadata */}
           <div className="space-y-2">
             {isEditingTitle ? (
@@ -332,47 +519,21 @@ export const IssueDetail: React.FC = () => {
             <TicketLifecycleBar issue={selectedIssue} compact={true} />
           </div>
 
-          {/* Mobile Section Tabs (< lg) */}
-          <div className="lg:hidden flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200 text-xs font-mono">
-            <button
-              type="button"
-              onClick={() => setMobileTab('activity')}
-              className={`flex-1 py-1.5 px-2 rounded-md font-semibold text-center transition-all cursor-pointer ${
-                mobileTab === 'activity'
-                  ? 'bg-white text-gray-900 shadow-2xs'
-                  : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              Activity ({(selectedIssue.comments?.length || 0) + (selectedIssue.history?.length || 0)})
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab('properties')}
-              className={`flex-1 py-1.5 px-2 rounded-md font-semibold text-center transition-all cursor-pointer ${
-                mobileTab === 'properties'
-                  ? 'bg-white text-gray-900 shadow-2xs'
-                  : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              Properties ({selectedIssue.status})
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab('all')}
-              className={`py-1.5 px-2.5 rounded-md font-semibold text-center transition-all cursor-pointer ${
-                mobileTab === 'all'
-                  ? 'bg-white text-gray-900 shadow-2xs'
-                  : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              All
-            </button>
+          {/* Mobile Properties Card (< lg) - SOLID, beautifully styled, non-seethrough */}
+          <div className="lg:hidden bg-gray-50 border border-gray-200 rounded-lg p-3.5 sm:p-4 space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-700 font-bold">
+                Ticket Properties
+              </span>
+              <span className="font-mono text-[10px] text-gray-500 bg-white border border-gray-200 px-1.5 py-0.2 rounded font-semibold">
+                #{selectedIssue.number} • {selectedIssue.code}
+              </span>
+            </div>
+            {renderPropertiesContent()}
           </div>
 
-          {/* Activity / Comments & History Stream (Visible on desktop OR when mobileTab is 'activity' or 'all') */}
-          <div className={`space-y-4 pt-3 border-t border-gray-200 ${
-            mobileTab === 'properties' ? 'hidden lg:block' : 'block'
-          }`}>
+          {/* Activity / Comments & History Stream */}
+          <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-gray-500 shrink-0" />
@@ -471,7 +632,7 @@ export const IssueDetail: React.FC = () => {
                   return (
                     <div
                       key={item.id}
-                      className="px-3 sm:px-3.5 py-2.5 rounded-md border border-gray-200 bg-gray-50/70 text-xs flex items-start gap-2.5 transition-colors hover:bg-gray-50"
+                      className="px-3 sm:px-3.5 py-2.5 rounded-md border border-gray-200 bg-gray-50 text-xs flex items-start gap-2.5 transition-colors hover:bg-gray-100/70"
                     >
                       <div className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5">
                         <UserHoverCard user={hist.actor}>
@@ -571,198 +732,13 @@ export const IssueDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Properties Sidebar (Responsive & Connected to mobileTab) */}
-        <div className={`w-full lg:w-72 xl:w-80 p-4 sm:p-6 space-y-5 bg-gray-50/50 text-xs select-none shrink-0 min-h-0 [scrollbar-gutter:stable] ${
-          mobileTab === 'activity' ? 'hidden lg:block' : 'block'
-        } lg:overflow-y-auto`}>
-          <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold block pb-2 border-b border-gray-100">
+        {/* Right Column: Properties Sidebar (Desktop only >= lg) */}
+        <aside className="hidden lg:block w-72 xl:w-80 p-5 xl:p-6 space-y-5 bg-gray-50 border-l border-gray-200 text-xs select-none shrink-0 overflow-y-auto min-h-0 [scrollbar-gutter:stable]">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-bold block pb-2 border-b border-gray-200">
             Issue Properties
           </span>
-
-          {/* Status */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Status</label>
-            <CustomSelect
-              value={selectedIssue.status}
-              onChange={(val) =>
-                updateIssue(selectedIssue.id, { status: val as Status })
-              }
-              options={STATUS_OPTIONS}
-            />
-          </div>
-
-          {/* Priority with Visible SLA Property */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-[11px] font-mono text-gray-500">Priority</label>
-              <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200">
-                SLA: {PRIORITY_SLAS[selectedIssue.priority]?.stageMaxFormatted} max
-              </span>
-            </div>
-            <CustomSelect
-              value={selectedIssue.priority}
-              onChange={(val) =>
-                updateIssue(selectedIssue.id, { priority: val as Priority })
-              }
-              options={PRIORITY_OPTIONS}
-            />
-          </div>
-
-          {/* Linked Tickets (Cross-Department & Multi-Link) */}
-          <LinkedTicketsProperty currentIssue={selectedIssue} />
-
-          {/* Department Specific Properties */}
-          {currentDept?.customFields && currentDept.customFields.length > 0 &&
-            currentDept.customFields.map((field) => {
-              const currentVal =
-                selectedIssue.customAttributes?.[field.id] !== undefined
-                  ? selectedIssue.customAttributes[field.id]
-                  : (selectedIssue as any)[field.id] ?? field.defaultValue ?? field.options?.[0] ?? '';
-
-              if (field.type === 'select') {
-                return (
-                  <div key={field.id} className="space-y-1.5">
-                    <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
-                    <CustomSelect
-                      value={currentVal}
-                      onChange={(newVal) => {
-                        const updates: any = {
-                          customAttributes: {
-                            ...(selectedIssue.customAttributes || {}),
-                            [field.id]: newVal,
-                          },
-                        };
-                        if (field.id === 'issueType') updates.issueType = newVal;
-                        if (field.id === 'environment') updates.environment = newVal;
-                        if (field.id === 'marketingChannel') updates.marketingChannel = newVal;
-                        if (field.id === 'deliverableType') updates.deliverableType = newVal;
-                        if (field.id === 'dealSegment') updates.dealSegment = newVal;
-                        if (field.id === 'dealStage') updates.dealStage = newVal;
-                        if (field.id === 'opsCategory') updates.opsCategory = newVal;
-                        if (field.id === 'impactLevel') updates.impactLevel = newVal;
-                        if (field.id === 'devScope') {
-                          updates.devScope = newVal.toLowerCase().includes('both')
-                            ? 'both'
-                            : newVal.toLowerCase().includes('front')
-                            ? 'frontend'
-                            : 'backend';
-                        }
-                        updateIssue(selectedIssue.id, updates);
-                      }}
-                      options={field.options || []}
-                    />
-                  </div>
-                );
-              }
-
-              return (
-                <div key={field.id} className="space-y-1.5">
-                  <label className="block text-[11px] font-mono text-gray-500">{field.name}</label>
-                  <input
-                    type="text"
-                    defaultValue={currentVal}
-                    onBlur={(e) => {
-                      if (e.target.value !== currentVal) {
-                        updateIssue(selectedIssue.id, {
-                          customAttributes: {
-                            ...(selectedIssue.customAttributes || {}),
-                            [field.id]: e.target.value,
-                          },
-                        });
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        (e.target as HTMLInputElement).blur();
-                      }
-                    }}
-                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded text-gray-900 font-mono focus:outline-none"
-                  />
-                </div>
-              );
-            })}
-
-          {/* Department */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Department</label>
-            <CustomSelect
-              value={selectedIssue.departmentId}
-              onChange={(newDeptId) => {
-                const newDept = departments.find((d) => d.id === newDeptId);
-                const updates: any = { departmentId: newDeptId };
-                if (newDept) {
-                  updates.code = `${newDept.code}-${selectedIssue.number}`;
-                }
-                updateIssue(selectedIssue.id, updates);
-              }}
-              options={departmentOptions}
-            />
-          </div>
-
-          {/* Assignee */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Assignee</label>
-            {selectedIssue.assignee && (
-              <UserHoverCard user={selectedIssue.assignee} className="w-full">
-                <div className="w-full p-2 bg-white border border-gray-200 rounded flex items-center gap-2 mb-1.5 shadow-2xs hover:border-gray-400 transition-colors cursor-pointer">
-                  <UserAvatar user={selectedIssue.assignee} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <span className="font-semibold text-gray-900 text-xs truncate">
-                        {selectedIssue.assignee.name}
-                      </span>
-                      {selectedIssue.assignee.nickname && (
-                        <span className="text-gray-400 font-mono text-[10px]">
-                          @{selectedIssue.assignee.nickname}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-gray-500 font-mono truncate">
-                      {selectedIssue.assignee.role || 'Member'} • {selectedIssue.assignee.department}
-                    </p>
-                  </div>
-                </div>
-              </UserHoverCard>
-            )}
-            <CustomSelect
-              value={selectedIssue.assignee?.id || 'unassigned'}
-              onChange={(val) => {
-                const u = users.find((user) => user.id === val) || null;
-                updateIssue(selectedIssue.id, {
-                  assignee: u,
-                  status: selectedIssue.status === 'NEW' && u ? 'ASSIGNED' : selectedIssue.status,
-                });
-              }}
-              options={assigneeOptions}
-              searchable={users.length > 5}
-            />
-          </div>
-
-          {/* Meta Info */}
-          <div className="pt-4 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400">Reporter:</span>
-              <UserHoverCard user={selectedIssue.reporter}>
-                <div className="inline-flex items-center gap-1.5 hover:text-black group/rep">
-                  <UserAvatar user={selectedIssue.reporter} size="xs" />
-                  <span className="font-semibold text-gray-800 font-sans group-hover/rep:underline decoration-dotted decoration-gray-400">
-                    {selectedIssue.reporter.name}
-                  </span>
-                  {selectedIssue.reporter.nickname && (
-                    <span className="text-gray-400 font-mono text-[10px]">
-                      @{selectedIssue.reporter.nickname}
-                    </span>
-                  )}
-                </div>
-              </UserHoverCard>
-            </div>
-            <p>Created: {formatDateTime(selectedIssue.createdAt)}</p>
-            <p>Modified: {formatDateTime(selectedIssue.updatedAt)}</p>
-            <p>
-              Audit Log: <strong className="text-gray-800">{selectedIssue.history?.length || 0} revisions</strong>
-            </p>
-          </div>
-        </div>
+          {renderPropertiesContent()}
+        </aside>
       </div>
     </div>
   );

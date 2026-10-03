@@ -209,7 +209,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
       {isAdding && (
         <div
           ref={popoverRef}
-          className="w-full box-border p-3 bg-white border border-blue-200 rounded-md shadow-md space-y-2.5 animate-fade-in text-xs min-w-0 overflow-hidden"
+          className="w-full box-border p-3 bg-white border border-blue-300 rounded-md shadow-lg space-y-2.5 text-xs min-w-0 overflow-hidden"
         >
           {/* Relation picker */}
           <div className="space-y-1">
@@ -262,7 +262,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search code, title, or department..."
-              className="w-full pl-7 pr-7 py-1 text-xs border border-gray-300 rounded bg-gray-50/50 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white font-mono"
+              className="w-full pl-7 pr-7 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 font-mono"
             />
             {searchQuery && (
               <button
@@ -276,7 +276,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
           </div>
 
           {/* Candidates list (scrollable) */}
-          <div className="max-h-44 overflow-y-auto space-y-1 divide-y divide-gray-100 border border-gray-100 rounded bg-gray-50/30 p-1">
+          <div className="max-h-44 overflow-y-auto space-y-1 divide-y divide-gray-100 border border-gray-200 rounded bg-gray-50 p-1">
             {candidateIssues.length > 0 ? (
               candidateIssues.slice(0, 10).map((iss) => {
                 const dept = departments.find((d) => d.id === iss.departmentId);
@@ -363,7 +363,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               <div
                 key={target.id}
                 onClick={() => setSelectedIssue(target)}
-                className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 hover:shadow-2xs transition-all cursor-pointer"
+                className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-2xs transition-all cursor-pointer"
                 title={`Open ${target.code}: ${target.title}`}
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
@@ -415,7 +415,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
         </div>
       ) : (
         !isAdding && (
-          <div className="py-2 px-2.5 rounded border border-dashed border-gray-200 bg-gray-50/50 text-[11px] font-mono text-gray-400 flex items-center justify-between">
+          <div className="py-2 px-2.5 rounded border border-dashed border-gray-300 bg-gray-50 text-[11px] font-mono text-gray-400 flex items-center justify-between">
             <span>No linked tickets</span>
             <button
               type="button"

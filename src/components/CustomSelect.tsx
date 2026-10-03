@@ -185,7 +185,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       {/* Popover Dropdown Menu */}
       {isOpen && (
         <div
-          className={`absolute left-0 w-full min-w-[200px] bg-white border border-gray-200 rounded-md shadow-xl z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100 ${
+          className={`absolute left-0 w-full min-w-[200px] bg-white border border-gray-300 rounded-md shadow-2xl z-50 overflow-hidden flex flex-col ${
             openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
           } ${menuClassName}`}
         >
