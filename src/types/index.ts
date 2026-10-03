@@ -120,6 +120,71 @@ export interface HistoryEntry {
   createdAt: string;
 }
 
+// ====================================================================
+// Ticket Linking Models
+// ====================================================================
+
+export type LinkRelationType =
+  | 'relates_to'
+  | 'blocks'
+  | 'blocked_by'
+  | 'duplicates'
+  | 'duplicated_by';
+
+export interface IssueLink {
+  issueId: string;
+  relation: LinkRelationType;
+  createdAt?: string;
+}
+
+export const INVERSE_RELATIONS: Record<LinkRelationType, LinkRelationType> = {
+  relates_to: 'relates_to',
+  blocks: 'blocked_by',
+  blocked_by: 'blocks',
+  duplicates: 'duplicated_by',
+  duplicated_by: 'duplicates',
+};
+
+export interface RelationConfig {
+  label: string;
+  inverseLabel: string;
+  badgeClass: string;
+  description: string;
+}
+
+export const RELATION_CONFIG: Record<LinkRelationType, RelationConfig> = {
+  relates_to: {
+    label: 'Relates to',
+    inverseLabel: 'Relates to',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    description: 'General relationship between tickets',
+  },
+  blocks: {
+    label: 'Blocks',
+    inverseLabel: 'Blocked by',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+    description: 'Blocks target ticket from proceeding',
+  },
+  blocked_by: {
+    label: 'Blocked by',
+    inverseLabel: 'Blocks',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    description: 'Blocked until target ticket is resolved',
+  },
+  duplicates: {
+    label: 'Duplicates',
+    inverseLabel: 'Duplicated by',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+    description: 'Identical scope or duplicate ticket',
+  },
+  duplicated_by: {
+    label: 'Duplicated by',
+    inverseLabel: 'Duplicates',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+    description: 'Duplicated by another ticket',
+  },
+};
+
 export interface Issue {
   id: string;
   orgId?: string;
@@ -133,6 +198,9 @@ export interface Issue {
 
   // Dynamic custom attributes stored per department custom field ID
   customAttributes?: Record<string, any>;
+
+  // Linked tickets across departments
+  linkedIssues?: IssueLink[];
 
   // Engineering Specific Rules (backward compatible)
   issueType?: IssueType; // 'Bug' | 'Feature'
@@ -161,3 +229,4 @@ export interface Issue {
 }
 
 export type NavView = 'open' | 'assigned_to_me' | 'reported_by_me' | 'starred' | 'closed';
+

@@ -1,9 +1,46 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { Priority, CustomFieldDefinition } from '../types';
+import {
+  Priority,
+  CustomFieldDefinition,
+  LinkRelationType,
+  IssueLink,
+  RELATION_CONFIG,
+} from '../types';
 import { CustomSelect, SelectOption } from './CustomSelect';
 import { UserAvatar } from './UserAvatar';
-import { X, SlidersHorizontal } from 'lucide-react';
+import { X, SlidersHorizontal, Link2, Plus, Search } from 'lucide-react';
+
+const RELATION_OPTIONS: SelectOption[] = [
+  {
+    value: 'relates_to',
+    label: 'Relates to',
+    badge: 'Relates',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-mono text-[9px]',
+    description: 'General relationship between tickets',
+  },
+  {
+    value: 'blocks',
+    label: 'Blocks',
+    badge: 'Blocks',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 font-mono text-[9px]',
+    description: 'Prevents target ticket from proceeding',
+  },
+  {
+    value: 'blocked_by',
+    label: 'Blocked by',
+    badge: 'Blocked by',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-mono text-[9px]',
+    description: 'Blocked until target ticket is resolved',
+  },
+  {
+    value: 'duplicates',
+    label: 'Duplicates',
+    badge: 'Duplicates',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
+    description: 'Reports identical or duplicate scope',
+  },
+];
 
 const PRIORITY_OPTIONS: SelectOption[] = [
   {
@@ -44,6 +81,7 @@ export const CreateIssueModal: React.FC = () => {
     selectedDepartment,
     createIssue,
     users,
+    issues,
   } = useIssues();
 
   const [title, setTitle] = useState('');
@@ -51,6 +89,12 @@ export const CreateIssueModal: React.FC = () => {
   const [departmentId, setDepartmentId] = useState<string>('engineering');
   const [priority, setPriority] = useState<Priority>('P2');
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
+
+  // Linked tickets state
+  const [selectedLinks, setSelectedLinks] = useState<IssueLink[]>([]);
+  const [isLinking, setIsLinking] = useState(false);
+  const [linkRelation, setLinkRelation] = useState<LinkRelationType>('relates_to');
+  const [linkSearch, setLinkSearch] = useState('');
 
   // Dynamic custom attribute values: { [fieldId]: value }
   const [customValues, setCustomValues] = useState<Record<string, any>>({});
@@ -129,6 +173,34 @@ export const CreateIssueModal: React.FC = () => {
 
   const currentDept = departments.find((d) => d.id === departmentId) || departments[0];
 
+  const candidateIssuesToLink = useMemo(() => {
+    const q = linkSearch.trim().toLowerCase();
+    const alreadySelectedIds = new Set(selectedLinks.map((l) => l.issueId));
+    return issues.filter((iss) => {
+      if (alreadySelectedIds.has(iss.id)) return false;
+      if (!q) return true;
+      const codeMatch = iss.code.toLowerCase().includes(q);
+      const titleMatch = iss.title.toLowerCase().includes(q);
+      const numMatch = String(iss.number).includes(q);
+      const dept = departments.find((d) => d.id === iss.departmentId);
+      const deptMatch =
+        dept?.name.toLowerCase().includes(q) ||
+        dept?.code.toLowerCase().includes(q);
+      return codeMatch || titleMatch || numMatch || Boolean(deptMatch);
+    });
+  }, [issues, selectedLinks, linkSearch, departments]);
+
+  const handleAddLink = (targetId: string) => {
+    setSelectedLinks((prev) => [
+      ...prev.filter((l) => l.issueId !== targetId),
+      { issueId: targetId, relation: linkRelation },
+    ]);
+  };
+
+  const handleRemoveLink = (targetId: string) => {
+    setSelectedLinks((prev) => prev.filter((l) => l.issueId !== targetId));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -163,12 +235,16 @@ export const CreateIssueModal: React.FC = () => {
       opsCategory: finalCustomAttrs.opsCategory,
       impactLevel: finalCustomAttrs.impactLevel,
       assigneeId: assigneeId !== 'unassigned' ? assigneeId : undefined,
+      linkedIssues: selectedLinks,
     });
 
     setTitle('');
     setDescription('');
     setIsFrontend(true);
     setIsBackend(false);
+    setSelectedLinks([]);
+    setIsLinking(false);
+    setLinkSearch('');
     setIsCreateModalOpen(false);
   };
 
@@ -338,6 +414,128 @@ export const CreateIssueModal: React.FC = () => {
               options={assigneeOptions}
               searchable={users.length > 5}
             />
+          </div>
+
+          {/* Linked Tickets (Available for all departments) */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="text-gray-700 font-medium text-[11px] flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-gray-500" />
+                <span>Linked Tickets</span>
+                {selectedLinks.length > 0 && (
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded-full font-bold">
+                    {selectedLinks.length}
+                  </span>
+                )}
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLinking(!isLinking);
+                  setLinkSearch('');
+                }}
+                className="text-[11px] font-mono text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+              >
+                {isLinking ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                <span>{isLinking ? 'Close' : '+ Link ticket'}</span>
+              </button>
+            </div>
+
+            {/* Display selected linked tickets chips */}
+            {selectedLinks.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 py-1">
+                {selectedLinks.map((link) => {
+                  const targetIss = issues.find((i) => i.id === link.issueId);
+                  const config = RELATION_CONFIG[link.relation] || RELATION_CONFIG.relates_to;
+                  return (
+                    <div
+                      key={link.issueId}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-xs"
+                    >
+                      <span className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded border ${config.badgeClass}`}>
+                        {config.label}
+                      </span>
+                      <span className="font-mono font-bold text-gray-900 text-[11px]">
+                        {targetIss ? targetIss.code : link.issueId}
+                      </span>
+                      <span className="text-gray-600 truncate max-w-[130px] text-[11px]">
+                        {targetIss?.title || ''}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLink(link.issueId)}
+                        className="text-gray-400 hover:text-red-600 p-0.5 rounded cursor-pointer"
+                        title="Remove link"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Search & picker dropdown */}
+            {isLinking && (
+              <div className="p-2.5 bg-gray-50 border border-blue-200 rounded-md space-y-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-40 shrink-0">
+                    <CustomSelect
+                      value={linkRelation}
+                      onChange={(val) => setLinkRelation(val as LinkRelationType)}
+                      options={RELATION_OPTIONS}
+                      size="xs"
+                    />
+                  </div>
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2" />
+                    <input
+                      type="text"
+                      value={linkSearch}
+                      onChange={(e) => setLinkSearch(e.target.value)}
+                      placeholder="Search tickets to link..."
+                      className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded bg-white font-mono focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="max-h-36 overflow-y-auto divide-y divide-gray-200 border border-gray-200 rounded bg-white">
+                  {candidateIssuesToLink.length > 0 ? (
+                    candidateIssuesToLink.slice(0, 8).map((iss) => {
+                      const dept = departments.find((d) => d.id === iss.departmentId);
+                      return (
+                        <div
+                          key={iss.id}
+                          onClick={() => handleAddLink(iss.id)}
+                          className="p-1.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-left group"
+                        >
+                          <div className="min-w-0 flex-1 flex items-center gap-2">
+                            {dept && (
+                              <span className="font-mono text-[9px] px-1 py-0.2 bg-gray-100 border border-gray-200 text-gray-700 rounded font-semibold">
+                                {dept.code}
+                              </span>
+                            )}
+                            <span className="font-mono font-bold text-gray-900 text-xs">
+                              {iss.code}
+                            </span>
+                            <span className="truncate text-gray-700 text-xs">
+                              {iss.title}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono text-blue-600 opacity-0 group-hover:opacity-100 shrink-0 pl-2">
+                            + Link
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-2 text-center text-gray-400 font-mono text-[11px]">
+                      {linkSearch ? 'No matching tickets' : 'No available tickets'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

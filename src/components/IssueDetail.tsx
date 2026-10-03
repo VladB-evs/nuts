@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { TicketLifecycleBar } from './TicketLifecycleBar';
 import { PRIORITY_SLAS } from '../lib/timelineUtils';
+import { LinkedTicketsProperty } from './LinkedTicketsProperty';
 
 export const IssueDetail: React.FC = () => {
   const {
@@ -557,6 +558,9 @@ export const IssueDetail: React.FC = () => {
               options={PRIORITY_OPTIONS}
             />
           </div>
+
+          {/* Linked Tickets (Cross-Department & Multi-Link) */}
+          <LinkedTicketsProperty currentIssue={selectedIssue} />
 
           {/* Department Specific Properties */}
           {currentDept?.customFields && currentDept.customFields.length > 0 &&

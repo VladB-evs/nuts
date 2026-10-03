@@ -4,7 +4,7 @@ import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
-import { Star, Plus, Clock, List } from 'lucide-react';
+import { Star, Plus, Clock, List, Link2 } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 
 export const IssueTable: React.FC = () => {
@@ -330,6 +330,15 @@ export const IssueTable: React.FC = () => {
                         <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
                           {issue.title}
                         </span>
+                        {issue.linkedIssues && issue.linkedIssues.length > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 font-mono text-[9px] text-gray-500 bg-gray-100 border border-gray-200 px-1 py-0.2 rounded shrink-0"
+                            title={`${issue.linkedIssues.length} linked ticket${issue.linkedIssues.length > 1 ? 's' : ''}`}
+                          >
+                            <Link2 className="w-2.5 h-2.5 text-gray-400" />
+                            <span>{issue.linkedIssues.length}</span>
+                          </span>
+                        )}
                         {badges.slice(0, 1).map((b, i) => (
                           <span
                             key={i}

@@ -93,7 +93,21 @@ export const INITIAL_ISSUES: Issue[] = [
       issueType: 'Bug',
       environment: 'PROD',
       devScope: 'Both (Frontend + Backend)',
+      linkedIssues: [
+        {
+          issueId: 'iss-102',
+          relation: 'relates_to',
+          createdAt: '2026-09-28T09:25:00Z',
+        },
+      ],
     },
+    linkedIssues: [
+      {
+        issueId: 'iss-102',
+        relation: 'relates_to',
+        createdAt: '2026-09-28T09:25:00Z',
+      },
+    ],
     issueType: 'Bug',
     environment: 'PROD',
     devScope: 'both',
@@ -145,6 +159,15 @@ export const INITIAL_ISSUES: Issue[] = [
         message: 'Status changed from NEW to ASSIGNED',
         createdAt: '2026-09-28T10:30:00Z',
       },
+      {
+        id: 'h-101-4',
+        actor: USERS[3],
+        field: 'Linked Issue',
+        oldValue: '',
+        newValue: 'DEV-102 (Relates to)',
+        message: 'Linked issue DEV-102 (Relates to)',
+        createdAt: '2026-09-28T09:25:00Z',
+      },
     ],
   },
   {
@@ -160,7 +183,21 @@ export const INITIAL_ISSUES: Issue[] = [
       issueType: 'Feature',
       environment: 'STAGING',
       devScope: 'Frontend only',
+      linkedIssues: [
+        {
+          issueId: 'iss-101',
+          relation: 'relates_to',
+          createdAt: '2026-09-28T09:25:00Z',
+        },
+      ],
     },
+    linkedIssues: [
+      {
+        issueId: 'iss-101',
+        relation: 'relates_to',
+        createdAt: '2026-09-28T09:25:00Z',
+      },
+    ],
     issueType: 'Feature',
     environment: 'STAGING',
     devScope: 'frontend',
@@ -195,6 +232,15 @@ export const INITIAL_ISSUES: Issue[] = [
         message: 'Status changed from NEW to ACCEPTED',
         createdAt: '2026-09-28T08:00:00Z',
       },
+      {
+        id: 'h-102-3',
+        actor: USERS[3],
+        field: 'Linked Issue',
+        oldValue: '',
+        newValue: 'DEV-101 (Relates to)',
+        message: 'Linked from DEV-101 (Relates to)',
+        createdAt: '2026-09-28T09:25:00Z',
+      },
     ],
   },
   {
@@ -210,7 +256,21 @@ export const INITIAL_ISSUES: Issue[] = [
       issueType: 'Feature',
       environment: 'PROD',
       devScope: 'Backend only',
+      linkedIssues: [
+        {
+          issueId: 'iss-106',
+          relation: 'blocked_by',
+          createdAt: '2026-09-28T11:15:00Z',
+        },
+      ],
     },
+    linkedIssues: [
+      {
+        issueId: 'iss-106',
+        relation: 'blocked_by',
+        createdAt: '2026-09-28T11:15:00Z',
+      },
+    ],
     issueType: 'Feature',
     environment: 'PROD',
     devScope: 'backend',
@@ -237,6 +297,15 @@ export const INITIAL_ISSUES: Issue[] = [
         newValue: 'ASSIGNED',
         message: 'Status changed from NEW to ASSIGNED',
         createdAt: '2026-09-27T16:00:00Z',
+      },
+      {
+        id: 'h-103-3',
+        actor: USERS[1],
+        field: 'Linked Issue',
+        oldValue: '',
+        newValue: 'DEV-106 (Blocked by)',
+        message: 'Linked from DEV-106 (Blocked by)',
+        createdAt: '2026-09-28T11:15:00Z',
       },
     ],
   },
@@ -338,7 +407,21 @@ export const INITIAL_ISSUES: Issue[] = [
       issueType: 'Bug',
       environment: 'STAGING',
       devScope: 'Backend only',
+      linkedIssues: [
+        {
+          issueId: 'iss-103',
+          relation: 'blocks',
+          createdAt: '2026-09-28T11:15:00Z',
+        },
+      ],
     },
+    linkedIssues: [
+      {
+        issueId: 'iss-103',
+        relation: 'blocks',
+        createdAt: '2026-09-28T11:15:00Z',
+      },
+    ],
     issueType: 'Bug',
     environment: 'STAGING',
     devScope: 'backend',
@@ -356,6 +439,15 @@ export const INITIAL_ISSUES: Issue[] = [
         newValue: 'Created',
         message: 'Created issue DEV-106 in Engineering',
         createdAt: '2026-09-28T11:00:00Z',
+      },
+      {
+        id: 'h-106-2',
+        actor: USERS[1],
+        field: 'Linked Issue',
+        oldValue: '',
+        newValue: 'DEV-103 (Blocks)',
+        message: 'Linked issue DEV-103 (Blocks)',
+        createdAt: '2026-09-28T11:15:00Z',
       },
     ],
   },

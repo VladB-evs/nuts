@@ -17,6 +17,10 @@ import {
   ImpactLevel,
   HistoryEntry,
   CustomFieldDefinition,
+  LinkRelationType,
+  IssueLink,
+  INVERSE_RELATIONS,
+  RELATION_CONFIG,
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 import { getUserDepartmentId } from '../lib/departmentRules';
@@ -90,8 +94,11 @@ interface IssueContextType {
     opsCategory?: OpsCategory;
     impactLevel?: ImpactLevel;
     assigneeId?: string;
+    linkedIssues?: IssueLink[];
   }) => Issue;
   updateIssue: (id: string, updates: Partial<Issue>) => void;
+  linkIssues: (sourceIssueId: string, targetIssueId: string, relation?: LinkRelationType) => void;
+  unlinkIssues: (sourceIssueId: string, targetIssueId: string) => void;
   addComment: (issueId: string, text: string, newStatus?: Status) => void;
   toggleStar: (issueId: string) => void;
   deleteIssue: (issueId: string) => void;
@@ -137,6 +144,7 @@ const getFieldLabel = (key: string): string => {
     dealStage: 'Deal Stage',
     opsCategory: 'Ops Category',
     impactLevel: 'Impact Level',
+    linkedIssues: 'Linked Tickets',
   };
   return labels[key] || key;
 };
@@ -462,6 +470,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     opsCategory?: OpsCategory;
     impactLevel?: ImpactLevel;
     assigneeId?: string;
+    linkedIssues?: IssueLink[];
   }): Issue => {
     const dept = departments.find((d) => d.id === data.departmentId) || departments[0];
     const maxNum = issues.reduce((max, i) => Math.max(max, i.number || 100), 100);
@@ -509,6 +518,11 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       department: 'Engineering',
     };
 
+    const initialLinkedIssues: IssueLink[] = data.linkedIssues || [];
+    if (initialLinkedIssues.length > 0) {
+      customAttrs.linkedIssues = initialLinkedIssues;
+    }
+
     const newIssue: Issue = {
       id: `iss-${Date.now()}`,
       orgId: currentUser?.orgId,
@@ -520,6 +534,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       priority: data.priority,
       status: assignee ? 'ASSIGNED' : 'NEW',
       customAttributes: customAttrs,
+      linkedIssues: initialLinkedIssues,
       issueType: (customAttrs.issueType as IssueType) || data.issueType || 'Bug',
       environment: (customAttrs.environment as Environment) || data.environment,
       devScope: data.devScope,
@@ -547,7 +562,54 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ],
     };
 
-    setIssues((prev) => [newIssue, ...prev]);
+    setIssues((prev) => {
+      if (initialLinkedIssues.length === 0) {
+        return [newIssue, ...prev];
+      }
+
+      const targetLinkMap = new Map<string, LinkRelationType>();
+      initialLinkedIssues.forEach((l) => {
+        targetLinkMap.set(l.issueId, INVERSE_RELATIONS[l.relation] || 'relates_to');
+      });
+
+      const updatedPrev = prev.map((item) => {
+        if (targetLinkMap.has(item.id)) {
+          const inverseRel = targetLinkMap.get(item.id)!;
+          const nextTargetLinks: IssueLink[] = [
+            ...(item.linkedIssues || []).filter((l) => l.issueId !== newIssue.id),
+            { issueId: newIssue.id, relation: inverseRel, createdAt: now },
+          ];
+          const histEntry: HistoryEntry = {
+            id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            actor: reporterUser,
+            field: 'Linked Issue',
+            oldValue: '',
+            newValue: `${newIssue.code} (${RELATION_CONFIG[inverseRel]?.label || inverseRel})`,
+            message: `Linked from new issue ${newIssue.code} (${RELATION_CONFIG[inverseRel]?.label || inverseRel})`,
+            createdAt: now,
+          };
+          const updatedItem: Issue = {
+            ...item,
+            linkedIssues: nextTargetLinks,
+            customAttributes: {
+              ...(item.customAttributes || {}),
+              linkedIssues: nextTargetLinks,
+            },
+            history: [...(item.history || []), histEntry],
+            updatedAt: now,
+          };
+
+          if (!isDemoMode && isNeonConfigured()) {
+            updateIssueInNeon(item.id, { customAttributes: updatedItem.customAttributes }, reporterUser, currentUser?.orgId);
+          }
+
+          return updatedItem;
+        }
+        return item;
+      });
+
+      return [newIssue, ...updatedPrev];
+    });
     setSelectedIssue(newIssue);
 
     if (!isDemoMode && isNeonConfigured()) {
@@ -568,16 +630,31 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ).then((neonIssue) => {
         if (neonIssue) {
           setIssues((prev) =>
-            prev.map((i) =>
-              i.id === newIssue.id
-                ? {
-                    ...i,
-                    id: neonIssue.id,
-                    code: neonIssue.code,
-                    number: neonIssue.number,
-                  }
-                : i
-            )
+            prev.map((i) => {
+              if (i.id === newIssue.id) {
+                return {
+                  ...i,
+                  id: neonIssue.id,
+                  code: neonIssue.code,
+                  number: neonIssue.number,
+                };
+              }
+              // If target had link to temporary id, update it to neonIssue.id
+              if (i.linkedIssues && i.linkedIssues.some((l) => l.issueId === newIssue.id)) {
+                const fixedLinks = i.linkedIssues.map((l) =>
+                  l.issueId === newIssue.id ? { ...l, issueId: neonIssue.id } : l
+                );
+                return {
+                  ...i,
+                  linkedIssues: fixedLinks,
+                  customAttributes: {
+                    ...(i.customAttributes || {}),
+                    linkedIssues: fixedLinks,
+                  },
+                };
+              }
+              return i;
+            })
           );
           setSelectedIssue((curr) =>
             curr && curr.id === newIssue.id
@@ -618,6 +695,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const newAttrs = updates.customAttributes;
 
             Object.keys(newAttrs).forEach((attrKey) => {
+              if (attrKey === 'linkedIssues') return;
               const oldVal = oldAttrs[attrKey] !== undefined ? oldAttrs[attrKey] : (iss as any)[attrKey];
               const newVal = newAttrs[attrKey];
 
@@ -659,7 +737,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               key === 'createdAt' ||
               key === 'reporter' ||
               key === 'starred' ||
-              key === 'customAttributes'
+              key === 'customAttributes' ||
+              key === 'linkedIssues'
             ) {
               return;
             }
@@ -800,8 +879,237 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const linkIssues = (
+    sourceIssueId: string,
+    targetIssueId: string,
+    relation: LinkRelationType = 'relates_to'
+  ) => {
+    if (!sourceIssueId || !targetIssueId || sourceIssueId === targetIssueId) return;
+
+    const now = new Date().toISOString();
+    const actorUser: UserProfile = currentUser || users[0] || {
+      id: 'default-user',
+      name: 'Team Member',
+      nickname: 'member',
+      email: 'member@nuts.internal',
+      role: 'Member',
+      department: 'Engineering',
+    };
+
+    const inverseRelation = INVERSE_RELATIONS[relation] || 'relates_to';
+
+    setIssues((prev) => {
+      const sourceIssue = prev.find((i) => i.id === sourceIssueId);
+      const targetIssue = prev.find((i) => i.id === targetIssueId);
+      if (!sourceIssue || !targetIssue) return prev;
+
+      // Check if already linked with the exact same relation
+      const existingSourceLink = sourceIssue.linkedIssues?.find((l) => l.issueId === targetIssueId);
+      if (existingSourceLink && existingSourceLink.relation === relation) {
+        return prev;
+      }
+
+      const sourceLinks: IssueLink[] = [
+        ...(sourceIssue.linkedIssues || []).filter((l) => l.issueId !== targetIssueId),
+        { issueId: targetIssueId, relation, createdAt: now },
+      ];
+
+      const targetLinks: IssueLink[] = [
+        ...(targetIssue.linkedIssues || []).filter((l) => l.issueId !== sourceIssueId),
+        { issueId: sourceIssueId, relation: inverseRelation, createdAt: now },
+      ];
+
+      const sourceHistory: HistoryEntry = {
+        id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        actor: actorUser,
+        field: 'Linked Issue',
+        oldValue: existingSourceLink
+          ? `${targetIssue.code} (${RELATION_CONFIG[existingSourceLink.relation]?.label || existingSourceLink.relation})`
+          : '',
+        newValue: `${targetIssue.code} (${RELATION_CONFIG[relation]?.label || relation})`,
+        message: existingSourceLink
+          ? `Changed relationship with ${targetIssue.code} to "${RELATION_CONFIG[relation]?.label || relation}"`
+          : `Linked ticket ${targetIssue.code} (${RELATION_CONFIG[relation]?.label || relation})`,
+        createdAt: now,
+      };
+
+      const targetHistory: HistoryEntry = {
+        id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        actor: actorUser,
+        field: 'Linked Issue',
+        oldValue: '',
+        newValue: `${sourceIssue.code} (${RELATION_CONFIG[inverseRelation]?.label || inverseRelation})`,
+        message: `Linked from ${sourceIssue.code} (${RELATION_CONFIG[inverseRelation]?.label || inverseRelation})`,
+        createdAt: now,
+      };
+
+      const updatedIssues = prev.map((iss) => {
+        if (iss.id === sourceIssueId) {
+          return {
+            ...iss,
+            linkedIssues: sourceLinks,
+            customAttributes: {
+              ...(iss.customAttributes || {}),
+              linkedIssues: sourceLinks,
+            },
+            history: [...(iss.history || []), sourceHistory],
+            updatedAt: now,
+          };
+        }
+        if (iss.id === targetIssueId) {
+          return {
+            ...iss,
+            linkedIssues: targetLinks,
+            customAttributes: {
+              ...(iss.customAttributes || {}),
+              linkedIssues: targetLinks,
+            },
+            history: [...(iss.history || []), targetHistory],
+            updatedAt: now,
+          };
+        }
+        return iss;
+      });
+
+      // Synchronize selectedIssue if it is source or target
+      if (selectedIssue?.id === sourceIssueId) {
+        const updatedSource = updatedIssues.find((i) => i.id === sourceIssueId);
+        if (updatedSource) setSelectedIssue(updatedSource);
+      } else if (selectedIssue?.id === targetIssueId) {
+        const updatedTarget = updatedIssues.find((i) => i.id === targetIssueId);
+        if (updatedTarget) setSelectedIssue(updatedTarget);
+      }
+
+      if (!isDemoMode && isNeonConfigured()) {
+        const s = updatedIssues.find((i) => i.id === sourceIssueId);
+        const t = updatedIssues.find((i) => i.id === targetIssueId);
+        if (s) {
+          updateIssueInNeon(sourceIssueId, { customAttributes: s.customAttributes }, actorUser, currentUser?.orgId);
+        }
+        if (t) {
+          updateIssueInNeon(targetIssueId, { customAttributes: t.customAttributes }, actorUser, currentUser?.orgId);
+        }
+      }
+
+      return updatedIssues;
+    });
+  };
+
+  const unlinkIssues = (sourceIssueId: string, targetIssueId: string) => {
+    if (!sourceIssueId || !targetIssueId) return;
+
+    const now = new Date().toISOString();
+    const actorUser: UserProfile = currentUser || users[0] || {
+      id: 'default-user',
+      name: 'Team Member',
+      nickname: 'member',
+      email: 'member@nuts.internal',
+      role: 'Member',
+      department: 'Engineering',
+    };
+
+    setIssues((prev) => {
+      const sourceIssue = prev.find((i) => i.id === sourceIssueId);
+      const targetIssue = prev.find((i) => i.id === targetIssueId);
+      if (!sourceIssue) return prev;
+
+      const sourceLinks = (sourceIssue.linkedIssues || []).filter((l) => l.issueId !== targetIssueId);
+      const targetLinks = targetIssue
+        ? (targetIssue.linkedIssues || []).filter((l) => l.issueId !== sourceIssueId)
+        : [];
+
+      const sourceHistory: HistoryEntry = {
+        id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        actor: actorUser,
+        field: 'Linked Issue',
+        oldValue: targetIssue ? targetIssue.code : targetIssueId,
+        newValue: 'Unlinked',
+        message: `Removed link to ticket ${targetIssue ? targetIssue.code : targetIssueId}`,
+        createdAt: now,
+      };
+
+      const targetHistory: HistoryEntry | null = targetIssue
+        ? {
+            id: `h-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            actor: actorUser,
+            field: 'Linked Issue',
+            oldValue: sourceIssue.code,
+            newValue: 'Unlinked',
+            message: `Removed link from ticket ${sourceIssue.code}`,
+            createdAt: now,
+          }
+        : null;
+
+      const updatedIssues = prev.map((iss) => {
+        if (iss.id === sourceIssueId) {
+          return {
+            ...iss,
+            linkedIssues: sourceLinks,
+            customAttributes: {
+              ...(iss.customAttributes || {}),
+              linkedIssues: sourceLinks,
+            },
+            history: [...(iss.history || []), sourceHistory],
+            updatedAt: now,
+          };
+        }
+        if (iss.id === targetIssueId && targetIssue && targetHistory) {
+          return {
+            ...iss,
+            linkedIssues: targetLinks,
+            customAttributes: {
+              ...(iss.customAttributes || {}),
+              linkedIssues: targetLinks,
+            },
+            history: [...(iss.history || []), targetHistory],
+            updatedAt: now,
+          };
+        }
+        return iss;
+      });
+
+      if (selectedIssue?.id === sourceIssueId) {
+        const updatedSource = updatedIssues.find((i) => i.id === sourceIssueId);
+        if (updatedSource) setSelectedIssue(updatedSource);
+      } else if (selectedIssue?.id === targetIssueId) {
+        const updatedTarget = updatedIssues.find((i) => i.id === targetIssueId);
+        if (updatedTarget) setSelectedIssue(updatedTarget);
+      }
+
+      if (!isDemoMode && isNeonConfigured()) {
+        const s = updatedIssues.find((i) => i.id === sourceIssueId);
+        const t = updatedIssues.find((i) => i.id === targetIssueId);
+        if (s) {
+          updateIssueInNeon(sourceIssueId, { customAttributes: s.customAttributes }, actorUser, currentUser?.orgId);
+        }
+        if (t) {
+          updateIssueInNeon(targetIssueId, { customAttributes: t.customAttributes }, actorUser, currentUser?.orgId);
+        }
+      }
+
+      return updatedIssues;
+    });
+  };
+
   const deleteIssue = (issueId: string) => {
-    setIssues((prev) => prev.filter((i) => i.id !== issueId));
+    setIssues((prev) =>
+      prev
+        .filter((i) => i.id !== issueId)
+        .map((iss) => {
+          if (iss.linkedIssues && iss.linkedIssues.some((l) => l.issueId === issueId)) {
+            const nextLinks = iss.linkedIssues.filter((l) => l.issueId !== issueId);
+            return {
+              ...iss,
+              linkedIssues: nextLinks,
+              customAttributes: {
+                ...(iss.customAttributes || {}),
+                linkedIssues: nextLinks,
+              },
+            };
+          }
+          return iss;
+        })
+    );
     if (selectedIssue?.id === issueId) {
       setSelectedIssue(null);
     }
@@ -1131,6 +1439,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsCreateModalOpen,
         createIssue,
         updateIssue,
+        linkIssues,
+        unlinkIssues,
         addComment,
         toggleStar,
         deleteIssue,

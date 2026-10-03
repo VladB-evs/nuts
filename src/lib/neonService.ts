@@ -621,6 +621,7 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
         priority: row.priority as Priority,
         status: row.status as Status,
         customAttributes: customAttrs,
+        linkedIssues: Array.isArray(customAttrs.linkedIssues) ? customAttrs.linkedIssues : [],
         issueType: (row.issue_type as IssueType) || undefined,
         environment: (row.environment as Environment) || undefined,
         devScope: (row.dev_scope as DevScope) || undefined,
