@@ -230,3 +230,20 @@ export interface Issue {
 
 export type NavView = 'open' | 'assigned_to_me' | 'reported_by_me' | 'starred' | 'closed';
 
+// ====================================================================
+// Toast Notification Models
+// ====================================================================
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface ToastNotification {
+  id: string;
+  type: 'info' | 'success' | 'warning';
+  title: string;
+  message?: string;
+  action?: ToastAction;
+}
+

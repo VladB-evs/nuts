@@ -12,8 +12,8 @@ import {
   X,
   Search,
   CheckCircle2,
-  ArrowRight,
   ExternalLink,
+  Zap,
 } from 'lucide-react';
 
 interface LinkedTicketsPropertyProps {
@@ -44,10 +44,17 @@ const RELATION_OPTIONS: SelectOption[] = [
   },
   {
     value: 'duplicates',
-    label: 'Duplicates',
+    label: 'Duplicates (⚡ closes this ticket)',
     badge: 'Duplicates',
     badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
-    description: 'Reports identical or duplicate scope',
+    description: 'This ticket will be automatically closed as a duplicate',
+  },
+  {
+    value: 'duplicated_by',
+    label: 'Duplicated by (⚡ closes target ticket)',
+    badge: 'Duplicated by',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
+    description: 'Target ticket will be automatically closed as a duplicate',
   },
 ];
 
@@ -57,14 +64,43 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
   const [isAdding, setIsAdding] = useState(false);
   const [selectedRelation, setSelectedRelation] = useState<LinkRelationType>('relates_to');
   const [searchQuery, setSearchQuery] = useState('');
+  const [deptFilter, setDeptFilter] = useState<string>('all');
   const [justLinkedId, setJustLinkedId] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
+  // Auto-focus search input when opening
   useEffect(() => {
     if (isAdding && searchInputRef.current) {
       searchInputRef.current.focus();
     }
+  }, [isAdding]);
+
+  // Click-outside and Escape key detection for frictionless dismiss
+  useEffect(() => {
+    if (!isAdding) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setIsAdding(false);
+        setSearchQuery('');
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsAdding(false);
+        setSearchQuery('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isAdding]);
 
   // Existing linked items with resolved targets
@@ -96,6 +132,9 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
       if (iss.id === currentIssue.id) return false;
       if (linkedIssueIds.has(iss.id)) return false;
 
+      // Department filter
+      if (deptFilter !== 'all' && iss.departmentId !== deptFilter) return false;
+
       if (!q) return true;
 
       const codeMatch = iss.code.toLowerCase().includes(q);
@@ -108,7 +147,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
       return codeMatch || numMatch || titleMatch || Boolean(deptMatch);
     });
-  }, [issues, currentIssue.id, linkedIssueIds, searchQuery, departments]);
+  }, [issues, currentIssue.id, linkedIssueIds, searchQuery, deptFilter, departments]);
 
   const handleLink = (targetId: string) => {
     linkIssues(currentIssue.id, targetId, selectedRelation);
@@ -179,10 +218,20 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
       {/* Add Link Dropdown / Popover panel */}
       {isAdding && (
-        <div className="p-2.5 bg-white border border-blue-200 rounded-md shadow-xs space-y-2.5 animate-fade-in">
+        <div
+          ref={popoverRef}
+          className="p-3 bg-white border border-blue-200 rounded-md shadow-md space-y-2.5 animate-fade-in text-xs"
+        >
           {/* Relation picker */}
           <div className="space-y-1">
-            <span className="text-[10px] font-mono text-gray-500 font-medium">Relationship:</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-gray-500 font-medium">Relationship:</span>
+              {(selectedRelation === 'duplicates' || selectedRelation === 'duplicated_by') && (
+                <span className="text-[9px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1 rounded flex items-center gap-0.5">
+                  <Zap className="w-2.5 h-2.5" /> Auto-Close
+                </span>
+              )}
+            </div>
             <CustomSelect
               value={selectedRelation}
               onChange={(val) => setSelectedRelation(val as LinkRelationType)}
@@ -190,6 +239,55 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               size="xs"
             />
           </div>
+
+          {/* Automation explanation banner */}
+          {selectedRelation === 'duplicates' && (
+            <div className="flex items-center gap-1.5 p-1.5 bg-purple-50 border border-purple-200 rounded text-[10px] text-purple-800 font-mono">
+              <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>
+                <strong>Automation:</strong> Linking will automatically mark this ticket as <strong>CLOSED</strong>.
+              </span>
+            </div>
+          )}
+          {selectedRelation === 'duplicated_by' && (
+            <div className="flex items-center gap-1.5 p-1.5 bg-purple-50 border border-purple-200 rounded text-[10px] text-purple-800 font-mono">
+              <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>
+                <strong>Automation:</strong> Target ticket will automatically be marked as <strong>CLOSED</strong>.
+              </span>
+            </div>
+          )}
+
+          {/* Department Quick Filter Tabs if > 1 department */}
+          {departments.length > 1 && (
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+              <button
+                type="button"
+                onClick={() => setDeptFilter('all')}
+                className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-semibold cursor-pointer transition-colors ${
+                  deptFilter === 'all'
+                    ? 'bg-black text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                All
+              </button>
+              {departments.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setDeptFilter(d.id)}
+                  className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-semibold cursor-pointer transition-colors ${
+                    deptFilter === d.id
+                      ? 'bg-black text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {d.code}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Search box */}
           <div className="relative">
@@ -265,14 +363,14 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
             )}
           </div>
 
-          <div className="text-[10px] font-mono text-gray-400 flex items-center justify-between">
+          <div className="text-[10px] font-mono text-gray-400 flex items-center justify-between pt-0.5">
             <span>Multiple tickets can be linked.</span>
             <button
               type="button"
               onClick={() => setIsAdding(false)}
               className="text-gray-600 hover:text-black font-semibold cursor-pointer underline"
             >
-              Done
+              Done (Esc)
             </button>
           </div>
         </div>
@@ -304,12 +402,17 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
             }
 
             const isDone = target.status === 'FIXED' || target.status === 'CLOSED';
+            const isDup = link.relation === 'duplicates' || link.relation === 'duplicated_by';
 
             return (
               <div
                 key={target.id}
                 onClick={() => setSelectedIssue(target)}
-                className="group relative flex items-start justify-between gap-2 p-2 rounded-md bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 shadow-2xs transition-all cursor-pointer"
+                className={`group relative flex items-start justify-between gap-2 p-2 rounded-md bg-white border hover:shadow-2xs transition-all cursor-pointer ${
+                  isDup
+                    ? 'border-purple-200 hover:border-purple-300 hover:bg-purple-50/20'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                }`}
                 title={`Open ${target.code}: ${target.title}`}
               >
                 <div className="min-w-0 flex-1 space-y-1">

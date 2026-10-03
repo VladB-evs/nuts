@@ -10,6 +10,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { LoginScreen } from './components/LoginScreen';
 import { DepartmentOnboardingModal } from './components/DepartmentOnboardingModal';
 import { TicketLifecycleTimeline } from './components/TicketLifecycleTimeline';
+import { ToastContainer } from './components/ToastContainer';
 
 const AppContent: React.FC = () => {
   const {
@@ -78,6 +79,7 @@ const AppContent: React.FC = () => {
       <DepartmentModal />
       <ProfileModal />
       <DepartmentOnboardingModal />
+      <ToastContainer />
     </div>
   );
 };

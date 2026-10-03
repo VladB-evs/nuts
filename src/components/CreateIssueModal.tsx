@@ -38,7 +38,14 @@ const RELATION_OPTIONS: SelectOption[] = [
     label: 'Duplicates',
     badge: 'Duplicates',
     badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
-    description: 'Reports identical or duplicate scope',
+    description: 'This new ticket duplicates an existing ticket (will be created as CLOSED)',
+  },
+  {
+    value: 'duplicated_by',
+    label: 'Duplicated by',
+    badge: 'Duplicated by',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
+    description: 'Target ticket duplicates this new ticket (target ticket will be auto-closed)',
   },
 ];
 
@@ -475,6 +482,18 @@ export const CreateIssueModal: React.FC = () => {
               </div>
             )}
 
+            {/* Duplicate status alert when a duplicate link is active */}
+            {selectedLinks.some((l) => l.relation === 'duplicates') && (
+              <div className="bg-purple-50 border border-purple-200 text-purple-900 rounded px-2.5 py-1.5 text-xs flex items-center gap-1.5">
+                <span className="font-semibold px-1.5 py-0.2 bg-purple-200 text-purple-800 rounded font-mono text-[9px] uppercase">
+                  Duplicate
+                </span>
+                <span>
+                  This ticket will automatically be created in <strong>CLOSED</strong> status.
+                </span>
+              </div>
+            )}
+
             {/* Search & picker dropdown */}
             {isLinking && (
               <div className="p-2.5 bg-gray-50 border border-blue-200 rounded-md space-y-2 text-xs">
@@ -498,6 +517,20 @@ export const CreateIssueModal: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Live Duplicate Automation Callout */}
+                {linkRelation === 'duplicates' && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-2 text-[11px] text-purple-900 flex items-center gap-1.5 font-sans">
+                    <span className="font-bold text-purple-700">⚡ Automation:</span>
+                    <span>This new ticket will be automatically marked as <strong>CLOSED</strong> upon creation.</span>
+                  </div>
+                )}
+                {linkRelation === 'duplicated_by' && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-2 text-[11px] text-purple-900 flex items-center gap-1.5 font-sans">
+                    <span className="font-bold text-purple-700">⚡ Automation:</span>
+                    <span>The selected target ticket will be automatically closed as duplicate.</span>
+                  </div>
+                )}
 
                 <div className="max-h-36 overflow-y-auto divide-y divide-gray-200 border border-gray-200 rounded bg-white">
                   {candidateIssuesToLink.length > 0 ? (
