@@ -10,12 +10,15 @@ import {
   CheckCircle2,
   Plus,
   Settings2,
+  Clock,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const {
     navView,
     setNavView,
+    activeTab,
+    setActiveTab,
     departments,
     currentUser,
     selectedDepartment,
@@ -88,21 +91,22 @@ export const Sidebar: React.FC = () => {
                 setNavView(v.id);
                 setSelectedDepartment('all');
                 setSelectedIssue(null);
+                setActiveTab('table');
               }}
               title={v.tooltip}
               className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group ${
-                isSelected
+                isSelected && activeTab === 'table'
                   ? 'bg-gray-100 font-semibold text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               <div className="flex items-center gap-2 truncate">
-                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-black' : 'text-gray-400'}`} />
+                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected && activeTab === 'table' ? 'text-black' : 'text-gray-400'}`} />
                 <span className="truncate">{v.label}</span>
                 {v.badge && (
                   <span
                     className={`font-mono text-[9px] px-1 py-0.2 rounded border ${
-                      isSelected
+                      isSelected && activeTab === 'table'
                         ? 'bg-white text-gray-800 border-gray-300 font-bold'
                         : 'bg-gray-50 text-gray-400 border-gray-200'
                     }`}
@@ -115,6 +119,33 @@ export const Sidebar: React.FC = () => {
             </button>
           );
         })}
+      </div>
+
+      {/* Lifecycle Timeline Tab */}
+      <div className="space-y-0.5 mb-5">
+        <div className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+          Analytics & Flow
+        </div>
+        <button
+          onClick={() => {
+            setActiveTab('timeline');
+            setSelectedIssue(null);
+          }}
+          title="Visualize ticket lifecycle durations, bottlenecks, and transitions"
+          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group cursor-pointer ${
+            activeTab === 'timeline'
+              ? 'bg-gray-100 font-semibold text-gray-900'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <Clock className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'timeline' ? 'text-black' : 'text-gray-400'}`} />
+            <span className="truncate">Lifecycle Timeline</span>
+          </div>
+          <span className="font-mono text-[9px] px-1.5 py-0.2 rounded border bg-sky-50 text-sky-700 border-sky-200 font-medium">
+            Stages
+          </span>
+        </button>
       </div>
 
       {/* Departments */}
@@ -142,7 +173,7 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {departments.map((dept) => {
-          const isSelected = selectedDepartment === dept.id;
+          const isSelected = selectedDepartment === dept.id && activeTab === 'table';
           const count = issues.filter((i) => i.departmentId === dept.id).length;
 
           return (
@@ -151,6 +182,7 @@ export const Sidebar: React.FC = () => {
               onClick={() => {
                 setSelectedDepartment(dept.id);
                 setSelectedIssue(null);
+                setActiveTab('table');
               }}
               className={`group w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
                 isSelected

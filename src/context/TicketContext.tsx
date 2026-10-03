@@ -70,6 +70,8 @@ interface IssueContextType {
   setSubFilter: (filter: string) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
+  activeTab: 'table' | 'timeline';
+  setActiveTab: (tab: 'table' | 'timeline') => void;
 
   // Actions
   createIssue: (data: {
@@ -339,6 +341,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [subFilter, setSubFilter] = useState('ALL');
+  const [activeTab, setActiveTab] = useState<'table' | 'timeline'>('table');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
@@ -1122,6 +1125,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setEnvFilter: setSubFilter,
         subFilter,
         setSubFilter,
+        activeTab,
+        setActiveTab,
         isCreateModalOpen,
         setIsCreateModalOpen,
         createIssue,

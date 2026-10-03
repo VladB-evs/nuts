@@ -9,10 +9,12 @@ import { DepartmentModal } from './components/DepartmentModal';
 import { ProfileModal } from './components/ProfileModal';
 import { LoginScreen } from './components/LoginScreen';
 import { DepartmentOnboardingModal } from './components/DepartmentOnboardingModal';
+import { TicketLifecycleTimeline } from './components/TicketLifecycleTimeline';
 
 const AppContent: React.FC = () => {
   const {
     selectedIssue,
+    activeTab,
     currentUser,
     setCurrentUser,
     isDemoMode,
@@ -59,9 +61,15 @@ const AppContent: React.FC = () => {
         {/* Left Navigation */}
         <Sidebar />
 
-        {/* Center Main Area: Either Detail view or Table list */}
+        {/* Center Main Area: Detail view, Timeline view, or Table list */}
         <main className="flex-1 flex flex-col overflow-hidden bg-white">
-          {selectedIssue ? <IssueDetail /> : <IssueTable />}
+          {selectedIssue ? (
+            <IssueDetail />
+          ) : activeTab === 'timeline' ? (
+            <TicketLifecycleTimeline />
+          ) : (
+            <IssueTable />
+          )}
         </main>
       </div>
 

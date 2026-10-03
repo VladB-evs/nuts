@@ -4,9 +4,8 @@ import { Priority, Status } from '../types';
 import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
-import { Star, Plus } from 'lucide-react';
+import { Star, Plus, Clock, List } from 'lucide-react';
 import { formatDate } from '../lib/utils';
-import { getTicketLifecycle } from '../lib/lifecycle';
 
 export const IssueTable: React.FC = () => {
   const {
@@ -22,6 +21,8 @@ export const IssueTable: React.FC = () => {
     currentUser,
     navView,
     setIsCreateModalOpen,
+    activeTab,
+    setActiveTab,
   } = useIssues();
 
   if (!currentUser) return null;
@@ -190,6 +191,32 @@ export const IssueTable: React.FC = () => {
             {viewHeader.subtitle}
           </span>
         </div>
+
+        {/* View Switcher: Table View vs Lifecycle Timeline */}
+        <div className="flex items-center bg-gray-100 p-0.5 rounded border border-gray-200 text-[11px] font-mono shrink-0">
+          <button
+            onClick={() => setActiveTab('table')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors cursor-pointer ${
+              activeTab === 'table'
+                ? 'bg-white text-gray-900 font-bold shadow-2xs'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            <span>Table View</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('timeline')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors cursor-pointer ${
+              activeTab === 'timeline'
+                ? 'bg-white text-gray-900 font-bold shadow-2xs'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Lifecycle Timeline</span>
+          </button>
+        </div>
       </div>
 
       {/* Table Toolbar */}
@@ -256,7 +283,7 @@ export const IssueTable: React.FC = () => {
                   <th className="py-2 px-3 w-28 hidden md:table-cell">DEPARTMENT</th>
                 )}
                 <th className="py-2 px-3 w-48 hidden sm:table-cell">ATTRIBUTES</th>
-                <th className="py-2 px-3 w-36">STATUS & STAGE</th>
+                <th className="py-2 px-3 w-24">STATUS</th>
                 <th className="py-2 px-3 w-32 hidden sm:table-cell">ASSIGNEE</th>
                 <th className="py-2 px-3 w-24 text-right hidden md:table-cell">MODIFIED</th>
               </tr>
@@ -265,7 +292,6 @@ export const IssueTable: React.FC = () => {
               {filteredIssues.map((issue) => {
                 const dept = departments.find((d) => d.id === issue.departmentId);
                 const badges = getDepartmentBadges(issue, departments);
-                const lifecycle = getTicketLifecycle(issue);
 
                 return (
                   <tr
@@ -343,30 +369,8 @@ export const IssueTable: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Status & Lifecycle Duration */}
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {getStatusBadge(issue.status)}
-                        <span
-                          className={`font-mono text-[10px] px-1.5 py-0.5 rounded border inline-flex items-center gap-1 ${
-                            lifecycle.isStalled
-                              ? 'bg-amber-50 text-amber-800 border-amber-300 font-semibold'
-                              : lifecycle.isTerminal
-                              ? 'text-gray-400 bg-gray-50 border-gray-200'
-                              : 'text-gray-600 bg-gray-50 border-gray-200'
-                          }`}
-                          title={`Time in ${issue.status}: ${lifecycle.currentStageFormatted} • Lead time: ${lifecycle.leadTimeFormatted}${lifecycle.isStalled ? ` • SLA WARNING: ${lifecycle.stalledReason}` : ''}`}
-                        >
-                          {!lifecycle.isTerminal && !lifecycle.isStalled && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          )}
-                          {lifecycle.isStalled && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          )}
-                          <span>{lifecycle.currentStageFormatted}</span>
-                        </span>
-                      </div>
-                    </td>
+                    {/* Status */}
+                    <td className="py-2.5 px-3">{getStatusBadge(issue.status)}</td>
 
                     {/* Assignee */}
                     <td

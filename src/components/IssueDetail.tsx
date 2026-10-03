@@ -38,7 +38,7 @@ import {
   User,
   History,
 } from 'lucide-react';
-import { TicketLifecycle } from './TicketLifecycle';
+import { TicketLifecycleBar } from './TicketLifecycleBar';
 
 export const IssueDetail: React.FC = () => {
   const {
@@ -282,9 +282,6 @@ export const IssueDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Ticket Lifecycle & Duration Engine */}
-          <TicketLifecycle issue={selectedIssue} />
-
           {/* Description */}
           <div className="space-y-1.5">
             <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold block">
@@ -295,6 +292,11 @@ export const IssueDetail: React.FC = () => {
                 <span className="text-gray-400 italic">No description provided.</span>
               )}
             </div>
+          </div>
+
+          {/* Ticket Lifecycle Progression & Bottleneck Tracker */}
+          <div className="pt-1 pb-1">
+            <TicketLifecycleBar issue={selectedIssue} showDetails={true} />
           </div>
 
           {/* Activity / Comments & History Stream */}
