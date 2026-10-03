@@ -46,19 +46,26 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Normalize options to SelectOption objects
+  // Normalize options to SelectOption objects safely
   const normalizedOptions = useMemo<SelectOption[]>(() => {
-    return options.map((opt) => {
-      if (typeof opt === 'string') {
-        return { value: opt, label: opt };
-      }
-      return opt;
-    });
+    if (!Array.isArray(options)) return [];
+    return options
+      .filter((opt): opt is string | SelectOption => opt != null)
+      .map((opt) => {
+        if (typeof opt === 'string') {
+          return { value: opt, label: opt };
+        }
+        return {
+          ...opt,
+          value: String(opt.value ?? ''),
+          label: String(opt.label ?? opt.value ?? ''),
+        };
+      });
   }, [options]);
 
   // Current selected option
   const selectedOption = useMemo(() => {
-    return normalizedOptions.find((opt) => opt.value === value);
+    return normalizedOptions.find((opt) => opt && opt.value === value);
   }, [normalizedOptions, value]);
 
   // Should show search input? (If explicitly true or >= 8 options)
@@ -70,11 +77,12 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     const q = search.toLowerCase().trim();
     return normalizedOptions.filter(
       (opt) =>
-        opt.label.toLowerCase().includes(q) ||
-        opt.value.toLowerCase().includes(q) ||
-        (opt.badge && opt.badge.toLowerCase().includes(q)) ||
-        (opt.description && opt.description.toLowerCase().includes(q)) ||
-        (opt.subtext && opt.subtext.toLowerCase().includes(q))
+        opt &&
+        (String(opt.label || '').toLowerCase().includes(q) ||
+          String(opt.value || '').toLowerCase().includes(q) ||
+          Boolean(opt.badge && String(opt.badge).toLowerCase().includes(q)) ||
+          Boolean(opt.description && String(opt.description).toLowerCase().includes(q)) ||
+          Boolean(opt.subtext && String(opt.subtext).toLowerCase().includes(q)))
     );
   }, [normalizedOptions, search, isSearchEnabled]);
 

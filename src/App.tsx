@@ -11,6 +11,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { DepartmentOnboardingModal } from './components/DepartmentOnboardingModal';
 import { TicketLifecycleTimeline } from './components/TicketLifecycleTimeline';
 import { ToastContainer } from './components/ToastContainer';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const AppContent: React.FC = () => {
   const {
@@ -75,7 +76,9 @@ const AppContent: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <CreateIssueModal />
+      <ErrorBoundary fallbackTitle="Create Issue Dialog Error">
+        <CreateIssueModal />
+      </ErrorBoundary>
       <DepartmentModal />
       <ProfileModal />
       <DepartmentOnboardingModal />
@@ -86,8 +89,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <IssueProvider>
-      <AppContent />
-    </IssueProvider>
+    <ErrorBoundary fallbackTitle="NUTS Application Error">
+      <IssueProvider>
+        <AppContent />
+      </IssueProvider>
+    </ErrorBoundary>
   );
 }

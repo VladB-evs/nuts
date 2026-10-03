@@ -493,7 +493,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     assigneeId?: string;
     linkedIssues?: IssueLink[];
   }): Issue => {
-    const dept = departments.find((d) => d.id === data.departmentId) || departments[0];
+    const dept =
+      departments.find((d) => d.id === data.departmentId) ||
+      departments[0] ||
+      { id: 'engineering', name: 'Engineering', code: 'DEV' };
     const maxNum = issues.reduce((max, i) => Math.max(max, i.number || 100), 100);
     const newNum = maxNum + 1;
     const assignee = users.find((u) => u.id === data.assigneeId) || null;
@@ -717,6 +720,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               : curr
           );
         }
+      }).catch((err) => {
+        console.error('Failed to create issue in Neon:', err);
       });
     }
 
@@ -1444,18 +1449,18 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesCode = issue.code.toLowerCase().includes(q);
-        const matchesNum = String(issue.number).includes(q);
-        const matchesTitle = issue.title.toLowerCase().includes(q);
-        const matchesDesc = issue.description.toLowerCase().includes(q);
+        const matchesCode = String(issue.code || '').toLowerCase().includes(q);
+        const matchesNum = String(issue.number ?? '').includes(q);
+        const matchesTitle = String(issue.title || '').toLowerCase().includes(q);
+        const matchesDesc = String(issue.description || '').toLowerCase().includes(q);
         const matchesAssignee =
-          issue.assignee?.name.toLowerCase().includes(q) ||
+          issue.assignee?.name?.toLowerCase().includes(q) ||
           issue.assignee?.nickname?.toLowerCase().includes(q) ||
           issue.assignee?.role?.toLowerCase().includes(q);
         const matchesReporter =
-          issue.reporter.name.toLowerCase().includes(q) ||
-          issue.reporter.nickname?.toLowerCase().includes(q) ||
-          issue.reporter.role?.toLowerCase().includes(q);
+          issue.reporter?.name?.toLowerCase().includes(q) ||
+          issue.reporter?.nickname?.toLowerCase().includes(q) ||
+          issue.reporter?.role?.toLowerCase().includes(q);
         const matchesDeptTag =
           issue.environment?.toLowerCase().includes(q) ||
           issue.marketingChannel?.toLowerCase().includes(q) ||

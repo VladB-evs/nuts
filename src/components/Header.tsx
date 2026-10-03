@@ -177,8 +177,10 @@ export const Header: React.FC<HeaderProps> = () => {
 
         {/* New Issue Button */}
         <button
+          type="button"
           onClick={() => setIsCreateModalOpen(true)}
           className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm cursor-pointer shrink-0"
+          title="Create New Issue"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span className="hidden sm:inline">New Issue</span>

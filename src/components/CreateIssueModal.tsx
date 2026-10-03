@@ -104,12 +104,12 @@ export const CreateIssueModal: React.FC = () => {
   const [isBackend, setIsBackend] = useState(false);
 
   const departmentOptions: SelectOption[] = useMemo(() => {
-    return departments.map((d) => ({
-      value: d.id,
-      label: d.name,
-      badge: d.code,
+    return (departments || []).map((d) => ({
+      value: d?.id || '',
+      label: d?.name || 'Department',
+      badge: d?.code,
       badgeClass: 'bg-gray-100 text-gray-800 border-gray-300 font-mono',
-      description: d.description,
+      description: d?.description,
     }));
   }, [departments]);
 
@@ -125,13 +125,13 @@ export const CreateIssueModal: React.FC = () => {
         ),
         description: 'Triage queue / unassigned',
       },
-      ...users.map((u) => ({
+      ...(users || []).map((u) => ({
         value: u.id,
         label: u.name,
         badge: u.nickname ? `@${u.nickname}` : undefined,
         badgeClass: 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
         icon: <UserAvatar user={u} size="xs" />,
-        description: `${u.role || 'Member'} • ${u.department}`,
+        description: `${u.role || 'Member'} • ${u.department || 'General'}`,
       })),
     ];
   }, [users]);
@@ -171,22 +171,32 @@ export const CreateIssueModal: React.FC = () => {
 
   if (!isCreateModalOpen) return null;
 
-  const currentDept = departments.find((d) => d.id === departmentId) || departments[0];
+  const currentDept =
+    departments.find((d) => d.id === departmentId) ||
+    departments[0] ||
+    ({
+      id: 'engineering',
+      name: 'Engineering',
+      code: 'DEV',
+      description: 'Core Engineering',
+      customFields: [],
+    } as any);
 
   const candidateIssuesToLink = useMemo(() => {
     const q = linkSearch.trim().toLowerCase();
     const alreadySelectedIds = new Set(selectedLinks.map((l) => l.issueId));
-    return issues.filter((iss) => {
+    return (issues || []).filter((iss) => {
+      if (!iss) return false;
       if (alreadySelectedIds.has(iss.id)) return false;
       if (!q) return true;
-      const codeMatch = iss.code.toLowerCase().includes(q);
-      const titleMatch = iss.title.toLowerCase().includes(q);
-      const numMatch = String(iss.number).includes(q);
+      const codeMatch = String(iss.code || '').toLowerCase().includes(q);
+      const titleMatch = String(iss.title || '').toLowerCase().includes(q);
+      const numMatch = String(iss.number ?? '').includes(q);
       const dept = departments.find((d) => d.id === iss.departmentId);
       const deptMatch =
-        dept?.name.toLowerCase().includes(q) ||
-        dept?.code.toLowerCase().includes(q);
-      return codeMatch || titleMatch || numMatch || Boolean(deptMatch);
+        Boolean(dept?.name && String(dept.name).toLowerCase().includes(q)) ||
+        Boolean(dept?.code && String(dept.code).toLowerCase().includes(q));
+      return codeMatch || titleMatch || numMatch || deptMatch;
     });
   }, [issues, selectedLinks, linkSearch, departments]);
 
@@ -223,7 +233,7 @@ export const CreateIssueModal: React.FC = () => {
     createIssue({
       title: title.trim(),
       description: description.trim(),
-      departmentId,
+      departmentId: currentDept?.id || departmentId || 'engineering',
       priority,
       customAttributes: finalCustomAttrs,
       environment: finalCustomAttrs.environment,
@@ -252,12 +262,12 @@ export const CreateIssueModal: React.FC = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => setIsCreateModalOpen(false)}
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-lg bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden z-10 animate-fade-in text-xs max-h-[92vh] flex flex-col font-sans">
+      <div className="relative w-full max-w-lg bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden z-10 text-xs max-h-[90vh] flex flex-col font-sans">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center gap-2">
@@ -314,7 +324,7 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* DYNAMIC DEPARTMENT PROPERTIES */}
           {currentDept?.customFields && currentDept.customFields.length > 0 && (
-            <div className="p-3 bg-gray-50/80 rounded border border-gray-200 space-y-3">
+            <div className="p-3 bg-gray-50 rounded border border-gray-200 space-y-3">
               <div className="flex items-center justify-between pb-1 border-b border-gray-200">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-gray-800 font-bold flex items-center gap-1.5">
                   <SlidersHorizontal className="w-3 h-3 text-gray-600" />

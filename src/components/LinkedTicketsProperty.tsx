@@ -133,15 +133,15 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
       if (!q) return true;
 
-      const codeMatch = iss.code.toLowerCase().includes(q);
-      const numMatch = String(iss.number).includes(q);
-      const titleMatch = iss.title.toLowerCase().includes(q);
+      const codeMatch = String(iss.code || '').toLowerCase().includes(q);
+      const numMatch = String(iss.number ?? '').includes(q);
+      const titleMatch = String(iss.title || '').toLowerCase().includes(q);
       const dept = departments.find((d) => d.id === iss.departmentId);
       const deptMatch =
-        dept?.name.toLowerCase().includes(q) ||
-        dept?.code.toLowerCase().includes(q);
+        Boolean(dept?.name && String(dept.name).toLowerCase().includes(q)) ||
+        Boolean(dept?.code && String(dept.code).toLowerCase().includes(q));
 
-      return codeMatch || numMatch || titleMatch || Boolean(deptMatch);
+      return codeMatch || numMatch || titleMatch || deptMatch;
     });
   }, [issues, currentIssue.id, linkedIssueIds, searchQuery, deptFilter, departments]);
 

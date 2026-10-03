@@ -43,10 +43,10 @@ export const TicketLifecycleTimeline: React.FC = () => {
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchesCode = iss.code.toLowerCase().includes(q);
-        const matchesNum = String(iss.number).includes(q);
-        const matchesTitle = iss.title.toLowerCase().includes(q);
-        const matchesAssignee = iss.assignee?.name.toLowerCase().includes(q) || false;
+        const matchesCode = String(iss.code || '').toLowerCase().includes(q);
+        const matchesNum = String(iss.number ?? '').includes(q);
+        const matchesTitle = String(iss.title || '').toLowerCase().includes(q);
+        const matchesAssignee = iss.assignee?.name ? iss.assignee.name.toLowerCase().includes(q) : false;
         if (!matchesCode && !matchesNum && !matchesTitle && !matchesAssignee) {
           return false;
         }
@@ -74,8 +74,8 @@ export const TicketLifecycleTimeline: React.FC = () => {
         return pOrder[a.priority] - pOrder[b.priority];
       }
       if (sortBy === 'id') {
-        const aNum = parseInt(a.code.split('-')[1] || '0', 10);
-        const bNum = parseInt(b.code.split('-')[1] || '0', 10);
+        const aNum = parseInt(String(a.code || '').split('-')[1] || '0', 10);
+        const bNum = parseInt(String(b.code || '').split('-')[1] || '0', 10);
         return bNum - aNum;
       }
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
