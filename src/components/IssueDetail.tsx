@@ -37,8 +37,6 @@ import {
   Clock,
   User,
   History,
-  ExternalLink,
-  RotateCcw,
 } from 'lucide-react';
 import { TicketLifecycleBar } from './TicketLifecycleBar';
 import { PRIORITY_SLAS } from '../lib/timelineUtils';
@@ -67,9 +65,6 @@ export const IssueDetail: React.FC = () => {
 
   const currentDept = departments.find((d) => d.id === selectedIssue.departmentId);
   const ruleKind = getDepartmentRuleKind(selectedIssue.departmentId);
-
-  const duplicateLink = (selectedIssue.linkedIssues || []).find((l) => l.relation === 'duplicates');
-  const canonicalIssue = duplicateLink ? issues.find((i) => i.id === duplicateLink.issueId) : null;
 
   const STATUS_OPTIONS: SelectOption[] = [
     { value: 'NEW', label: 'NEW', badge: 'NEW', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -242,75 +237,6 @@ export const IssueDetail: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-hidden min-h-0">
         {/* Left Column: Title, Description, Thread */}
         <div className="flex-1 min-w-0 p-6 space-y-6 overflow-y-auto min-h-0">
-          {/* Duplicate Auto-Close Callout Banner */}
-          {selectedIssue.status === 'CLOSED' && duplicateLink && (
-            <div className="bg-purple-50/90 border border-purple-200 rounded-lg p-3.5 text-xs flex items-center justify-between gap-3 text-purple-900 shadow-2xs">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="font-semibold px-2 py-0.5 bg-purple-200 text-purple-800 rounded font-mono text-[10px] uppercase tracking-wider shrink-0">
-                  Duplicate
-                </span>
-                <span className="truncate leading-normal">
-                  Automatically closed as duplicate of{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (canonicalIssue) {
-                        setSelectedIssue(canonicalIssue);
-                      }
-                    }}
-                    className={`font-mono font-bold inline-flex items-center gap-1 ml-0.5 ${
-                      canonicalIssue ? 'underline hover:text-purple-700 cursor-pointer' : ''
-                    }`}
-                  >
-                    #{canonicalIssue?.code || duplicateLink.issueId}
-                    {canonicalIssue?.title ? ` (${canonicalIssue.title})` : ''}
-                    {canonicalIssue && <ExternalLink className="w-3 h-3 inline ml-0.5" />}
-                  </button>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  updateIssue(selectedIssue.id, { status: 'NEW' });
-                }}
-                className="shrink-0 px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-700 border border-purple-300 rounded font-medium shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Reopen Ticket
-              </button>
-            </div>
-          )}
-
-          {/* Manually Reopened Duplicate Warning Banner */}
-          {selectedIssue.status !== 'CLOSED' && duplicateLink && (
-            <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-3 text-xs flex items-center justify-between gap-3 text-amber-900 shadow-2xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-semibold px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-mono text-[10px] shrink-0">
-                  Linked Duplicate
-                </span>
-                <span className="truncate">
-                  Marked as duplicate of{' '}
-                  <button
-                    type="button"
-                    onClick={() => canonicalIssue && setSelectedIssue(canonicalIssue)}
-                    className="font-mono font-bold underline hover:text-amber-700 inline-flex items-center gap-1 ml-0.5 cursor-pointer"
-                  >
-                    #{canonicalIssue?.code || duplicateLink.issueId}
-                    {canonicalIssue && <ExternalLink className="w-3 h-3 inline ml-0.5" />}
-                  </button>
-                  , but currently open.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => updateIssue(selectedIssue.id, { status: 'CLOSED' })}
-                className="shrink-0 px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded font-medium shadow-2xs transition-colors text-xs cursor-pointer"
-              >
-                Close as Duplicate
-              </button>
-            </div>
-          )}
-
           {/* Title */}
           <div>
             {isEditingTitle ? (

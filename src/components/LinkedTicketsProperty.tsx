@@ -13,7 +13,6 @@ import {
   Search,
   CheckCircle2,
   ExternalLink,
-  Zap,
 } from 'lucide-react';
 
 interface LinkedTicketsPropertyProps {
@@ -41,20 +40,6 @@ const RELATION_OPTIONS: SelectOption[] = [
     badge: 'Blocked by',
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-mono text-[9px]',
     description: 'Blocked until target ticket is resolved',
-  },
-  {
-    value: 'duplicates',
-    label: 'Duplicates (⚡ closes this ticket)',
-    badge: 'Duplicates',
-    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
-    description: 'This ticket will be automatically closed as a duplicate',
-  },
-  {
-    value: 'duplicated_by',
-    label: 'Duplicated by (⚡ closes target ticket)',
-    badge: 'Duplicated by',
-    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
-    description: 'Target ticket will be automatically closed as a duplicate',
   },
 ];
 
@@ -221,14 +206,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
         >
           {/* Relation picker */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-gray-500 font-medium">Relationship:</span>
-              {(selectedRelation === 'duplicates' || selectedRelation === 'duplicated_by') && (
-                <span className="text-[9px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1 rounded flex items-center gap-0.5">
-                  <Zap className="w-2.5 h-2.5" /> Auto-Close
-                </span>
-              )}
-            </div>
+            <span className="text-[10px] font-mono text-gray-500 font-medium block">Relationship:</span>
             <CustomSelect
               value={selectedRelation}
               onChange={(val) => setSelectedRelation(val as LinkRelationType)}
@@ -236,24 +214,6 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               size="xs"
             />
           </div>
-
-          {/* Automation explanation banner */}
-          {selectedRelation === 'duplicates' && (
-            <div className="flex items-center gap-1.5 p-1.5 bg-purple-50 border border-purple-200 rounded text-[10px] text-purple-800 font-mono">
-              <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              <span>
-                <strong>Automation:</strong> Linking will automatically mark this ticket as <strong>CLOSED</strong>.
-              </span>
-            </div>
-          )}
-          {selectedRelation === 'duplicated_by' && (
-            <div className="flex items-center gap-1.5 p-1.5 bg-purple-50 border border-purple-200 rounded text-[10px] text-purple-800 font-mono">
-              <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              <span>
-                <strong>Automation:</strong> Target ticket will automatically be marked as <strong>CLOSED</strong>.
-              </span>
-            </div>
-          )}
 
           {/* Department Quick Filter Tabs if > 1 department */}
           {departments.length > 1 && (
@@ -392,17 +352,11 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
             }
 
             const isDone = target.status === 'FIXED' || target.status === 'CLOSED';
-            const isDup = link.relation === 'duplicates' || link.relation === 'duplicated_by';
-
             return (
               <div
                 key={target.id}
                 onClick={() => setSelectedIssue(target)}
-                className={`group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border hover:shadow-2xs transition-all cursor-pointer ${
-                  isDup
-                    ? 'border-purple-200 hover:border-purple-300 hover:bg-purple-50/20'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
-                }`}
+                className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 hover:shadow-2xs transition-all cursor-pointer"
                 title={`Open ${target.code}: ${target.title}`}
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
