@@ -39,6 +39,7 @@ import {
   History,
 } from 'lucide-react';
 import { TicketLifecycleBar } from './TicketLifecycleBar';
+import { PRIORITY_SLAS } from '../lib/timelineUtils';
 
 export const IssueDetail: React.FC = () => {
   const {
@@ -78,10 +79,34 @@ export const IssueDetail: React.FC = () => {
   ], [selectedIssue.status]);
 
   const PRIORITY_OPTIONS: SelectOption[] = [
-    { value: 'P0', label: 'P0', badge: 'P0', badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold', description: 'Blocker (Immediate fix)' },
-    { value: 'P1', label: 'P1', badge: 'P1', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold', description: 'Critical (High priority)' },
-    { value: 'P2', label: 'P2', badge: 'P2', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200', description: 'Major (Regular queue)' },
-    { value: 'P3', label: 'P3', badge: 'P3', badgeClass: 'bg-gray-50 text-gray-700 border-gray-200', description: 'Minor (Low priority)' },
+    {
+      value: 'P0',
+      label: 'P0 — Blocker (24h SLA)',
+      badge: 'P0',
+      badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+      description: '24h Stage SLA • 48h Resolution target',
+    },
+    {
+      value: 'P1',
+      label: 'P1 — Critical (3d SLA)',
+      badge: 'P1',
+      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold',
+      description: '3d Stage SLA • 7d Resolution target',
+    },
+    {
+      value: 'P2',
+      label: 'P2 — Major (7d SLA)',
+      badge: 'P2',
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+      description: '7d Stage SLA • 14d Resolution target',
+    },
+    {
+      value: 'P3',
+      label: 'P3 — Minor (14d SLA)',
+      badge: 'P3',
+      badgeClass: 'bg-gray-50 text-gray-700 border-gray-200',
+      description: '14d Stage SLA • 30d Resolution target',
+    },
   ];
 
   const departmentOptions: SelectOption[] = useMemo(() => {
@@ -294,9 +319,9 @@ export const IssueDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Ticket Lifecycle Progression & Bottleneck Tracker */}
+          {/* Ticket Lifecycle Progression (Compact & Out of the way) */}
           <div className="pt-1 pb-1">
-            <TicketLifecycleBar issue={selectedIssue} showDetails={true} />
+            <TicketLifecycleBar issue={selectedIssue} compact={true} />
           </div>
 
           {/* Activity / Comments & History Stream */}
@@ -516,9 +541,14 @@ export const IssueDetail: React.FC = () => {
             />
           </div>
 
-          {/* Priority */}
+          {/* Priority with Visible SLA Property */}
           <div className="space-y-1.5">
-            <label className="block text-[11px] font-mono text-gray-500">Priority</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-mono text-gray-500">Priority</label>
+              <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200">
+                SLA: {PRIORITY_SLAS[selectedIssue.priority]?.stageMaxFormatted} max
+              </span>
+            </div>
             <CustomSelect
               value={selectedIssue.priority}
               onChange={(val) =>

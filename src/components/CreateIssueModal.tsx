@@ -6,10 +6,34 @@ import { UserAvatar } from './UserAvatar';
 import { X, SlidersHorizontal } from 'lucide-react';
 
 const PRIORITY_OPTIONS: SelectOption[] = [
-  { value: 'P0', label: 'P0 — Blocker', badge: 'P0', badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold', description: 'Immediate fix required' },
-  { value: 'P1', label: 'P1 — Critical', badge: 'P1', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold', description: 'High priority queue' },
-  { value: 'P2', label: 'P2 — Major', badge: 'P2', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200', description: 'Standard sprint task' },
-  { value: 'P3', label: 'P3 — Minor', badge: 'P3', badgeClass: 'bg-gray-50 text-gray-700 border-gray-200', description: 'Low priority backlog' },
+  {
+    value: 'P0',
+    label: 'P0 — Blocker (24h SLA)',
+    badge: 'P0',
+    badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+    description: '24h Stage SLA • 48h Resolution target',
+  },
+  {
+    value: 'P1',
+    label: 'P1 — Critical (3d SLA)',
+    badge: 'P1',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold',
+    description: '3d Stage SLA • 7d Resolution target',
+  },
+  {
+    value: 'P2',
+    label: 'P2 — Major (7d SLA)',
+    badge: 'P2',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    description: '7d Stage SLA • 14d Resolution target',
+  },
+  {
+    value: 'P3',
+    label: 'P3 — Minor (14d SLA)',
+    badge: 'P3',
+    badgeClass: 'bg-gray-50 text-gray-700 border-gray-200',
+    description: '14d Stage SLA • 30d Resolution target',
+  },
 ];
 
 export const CreateIssueModal: React.FC = () => {
