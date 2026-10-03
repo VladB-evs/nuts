@@ -38,6 +38,7 @@ import {
   User,
   History,
 } from 'lucide-react';
+import { TicketLifecycle } from './TicketLifecycle';
 
 export const IssueDetail: React.FC = () => {
   const {
@@ -280,6 +281,9 @@ export const IssueDetail: React.FC = () => {
               <span>{formatDateTime(selectedIssue.createdAt)}</span>
             </div>
           </div>
+
+          {/* Ticket Lifecycle & Duration Engine */}
+          <TicketLifecycle issue={selectedIssue} />
 
           {/* Description */}
           <div className="space-y-1.5">
