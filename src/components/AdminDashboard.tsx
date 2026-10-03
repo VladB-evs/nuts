@@ -15,7 +15,6 @@ import {
   Check,
   X,
   AlertCircle,
-  Building2,
   Lock,
   RotateCcw,
   Sparkles,
@@ -292,50 +291,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div className="text-2xl font-bold text-amber-600 font-mono">{adminCount}</div>
             <div className="text-[10px] text-gray-400 mt-1 font-mono">Workspace managers</div>
-          </div>
-        </div>
-
-        {/* Company Workspace Code & Employee Onboarding Card */}
-        <div className="bg-gradient-to-r from-gray-900 via-neutral-900 to-black text-white rounded-xl p-4 sm:p-5 shadow-xs border border-gray-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
-                <h3 className="font-bold text-sm text-white tracking-tight">
-                  {companyName} Workspace
-                </h3>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded font-semibold">
-                  Invite Code
-                </span>
-              </div>
-              <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
-                To onboard new team members, share your <strong>Company Code</strong> below. Employees use this code when creating their verified login accounts during signup.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 bg-white/10 backdrop-blur-xs p-1.5 rounded-lg border border-white/15">
-              <span className="px-3 py-1 bg-black/40 rounded border border-white/10 font-mono text-sm sm:text-base font-bold text-amber-300 tracking-wider select-all">
-                {companyCode}
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyCompanyCode}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black hover:bg-gray-100 rounded font-semibold text-xs transition-colors cursor-pointer shadow-xs"
-                title="Copy company code to clipboard"
-              >
-                {copiedCode ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                    <span className="text-emerald-700">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Code</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
 
