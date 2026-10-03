@@ -125,14 +125,16 @@ export const CreateIssueModal: React.FC = () => {
         ),
         description: 'Triage queue / unassigned',
       },
-      ...(users || []).map((u) => ({
-        value: u.id,
-        label: u.name,
-        badge: u.nickname ? `@${u.nickname}` : undefined,
-        badgeClass: 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
-        icon: <UserAvatar user={u} size="xs" />,
-        description: `${u.role || 'Member'} • ${u.department || 'General'}`,
-      })),
+      ...(users || [])
+        .filter((u) => u.status !== 'departed')
+        .map((u) => ({
+          value: u.id,
+          label: u.name,
+          badge: u.nickname ? `@${u.nickname}` : undefined,
+          badgeClass: 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
+          icon: <UserAvatar user={u} size="xs" />,
+          description: `${u.role || 'Member'} • ${u.department || 'General'}`,
+        })),
     ];
   }, [users]);
 

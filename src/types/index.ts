@@ -78,6 +78,8 @@ export interface Organization {
   createdAt?: string;
 }
 
+export type EmploymentStatus = 'active' | 'departed';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -88,6 +90,9 @@ export interface UserProfile {
   department: string;
   role?: string;
   isAdmin?: boolean;
+  status?: EmploymentStatus;
+  departureReason?: string;
+  departedAt?: string;
   orgId?: string;
   organization?: Organization;
 }
@@ -233,7 +238,7 @@ export interface ToastAction {
 
 export interface ToastNotification {
   id: string;
-  type: 'info' | 'success' | 'warning';
+  type: 'info' | 'success' | 'warning' | 'error';
   title: string;
   message?: string;
   action?: ToastAction;

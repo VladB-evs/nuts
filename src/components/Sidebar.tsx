@@ -12,6 +12,7 @@ import {
   Settings2,
   Clock,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -171,6 +172,37 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
+      {/* Admin Dashboard Tab (Admin Only) */}
+      {currentUser?.isAdmin && (
+        <div className="space-y-0.5 mb-5">
+          <div className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            Governance
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('admin');
+              setSelectedIssue(null);
+              setIsMobileMenuOpen(false);
+            }}
+            title="Team directory, role permissions, and account offboarding"
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group cursor-pointer ${
+              activeTab === 'admin'
+                ? 'bg-gray-100 font-semibold text-gray-900'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center gap-2 truncate">
+              <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'admin' ? 'text-amber-600' : 'text-gray-400'}`} />
+              <span className="truncate">Admin Dashboard</span>
+            </div>
+            <span className="font-mono text-[9px] px-1.5 py-0.2 rounded border bg-amber-50 text-amber-700 border-amber-200 font-medium">
+              Admin
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Departments */}
       <div className="flex-1 overflow-y-auto space-y-0.5">
         <div className="flex items-center justify-between px-2 pb-1">
@@ -178,28 +210,32 @@ export const Sidebar: React.FC = () => {
             Departments
           </span>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                openDepartmentModal(selectedDepartment !== 'all' ? selectedDepartment : undefined);
-                setIsMobileMenuOpen(false);
-              }}
-              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
-              title="Department Settings"
-            >
-              <Settings2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                openDepartmentModal();
-                setIsMobileMenuOpen(false);
-              }}
-              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
-              title="Add new department"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+            {currentUser?.isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openDepartmentModal(selectedDepartment !== 'all' ? selectedDepartment : undefined);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                  title="Department Settings"
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openDepartmentModal();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                  title="Add new department (Admin only)"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -229,18 +265,20 @@ export const Sidebar: React.FC = () => {
               <div className="flex items-center gap-1 font-mono text-[10px] text-gray-400 shrink-0">
                 <span>[{dept.code}]</span>
                 <span>{count}</span>
-                <button
-                  type="button"
-                  title={`Department Settings: ${dept.name}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDepartmentModal(dept.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-black p-0.5 ml-0.5 rounded hover:bg-gray-200 transition-opacity"
-                >
-                  <Settings2 className="w-3 h-3" />
-                </button>
+                {currentUser?.isAdmin && (
+                  <button
+                    type="button"
+                    title={`Department Settings: ${dept.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDepartmentModal(dept.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-black p-0.5 ml-0.5 rounded hover:bg-gray-200 transition-opacity"
+                  >
+                    <Settings2 className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           );

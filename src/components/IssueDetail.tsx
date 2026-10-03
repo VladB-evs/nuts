@@ -116,6 +116,10 @@ export const IssueDetail: React.FC = () => {
   }, [departments]);
 
   const assigneeOptions: SelectOption[] = useMemo(() => {
+    const activeOrCurrentUsers = users.filter(
+      (u) => u.status !== 'departed' || u.id === selectedIssue?.assignee?.id
+    );
+
     return [
       {
         value: 'unassigned',
@@ -127,16 +131,23 @@ export const IssueDetail: React.FC = () => {
         ),
         description: 'Ticket is unassigned / in triage queue',
       },
-      ...users.map((u) => ({
-        value: u.id,
-        label: u.name,
-        badge: u.nickname ? `@${u.nickname}` : undefined,
-        badgeClass: 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
-        icon: <UserAvatar user={u} size="xs" />,
-        description: `${u.role || 'Member'} • ${u.department}`,
-      })),
+      ...activeOrCurrentUsers.map((u) => {
+        const isDeparted = u.status === 'departed';
+        return {
+          value: u.id,
+          label: isDeparted ? `${u.name} (Former Member)` : u.name,
+          badge: isDeparted ? 'Offboarded' : u.nickname ? `@${u.nickname}` : undefined,
+          badgeClass: isDeparted
+            ? 'bg-gray-100 text-gray-500 border-gray-300 font-mono text-[9px]'
+            : 'bg-gray-50 text-gray-500 border-gray-200 font-mono text-[9px]',
+          icon: <UserAvatar user={u} size="xs" />,
+          description: isDeparted
+            ? `Former Member • ${u.department}`
+            : `${u.role || 'Member'} • ${u.department}`,
+        };
+      }),
     ];
-  }, [users]);
+  }, [users, selectedIssue?.assignee?.id]);
 
   const [activityFilter, setActivityFilter] = useState<'all' | 'comments' | 'history'>('all');
 

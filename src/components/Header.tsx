@@ -14,6 +14,7 @@ import {
   Users as UsersIcon,
   Menu,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface HeaderProps {}
@@ -30,6 +31,8 @@ export const Header: React.FC<HeaderProps> = () => {
     setSelectedIssue,
     setIsProfileModalOpen,
     openDepartmentModal,
+    activeTab,
+    setActiveTab,
     isDemoMode,
     exitDemoMode,
     isMobileMenuOpen,
@@ -165,15 +168,33 @@ export const Header: React.FC<HeaderProps> = () => {
           >
             <Search className="w-4 h-4" />
           </button>
-        {/* Department Settings */}
-        <button
-          onClick={() => openDepartmentModal()}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-          title="Department Settings & Custom Fields"
-        >
-          <Settings2 className="w-3.5 h-3.5 text-gray-500" />
-          <span className="font-mono text-[11px]">Departments</span>
-        </button>
+        {/* Admin Dashboard Quick Button in Header */}
+        {currentUser.isAdmin && (
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors cursor-pointer ${
+              activeTab === 'admin'
+                ? 'bg-amber-500 text-white font-semibold shadow-xs'
+                : 'text-gray-700 hover:text-black border border-gray-200 hover:border-gray-400 bg-white'
+            }`}
+            title="Open Admin Dashboard"
+          >
+            <ShieldCheck className={`w-3.5 h-3.5 ${activeTab === 'admin' ? 'text-white' : 'text-amber-600'}`} />
+            <span className="font-mono text-[11px]">Admin</span>
+          </button>
+        )}
+
+        {/* Department Settings (Admin Exclusive) */}
+        {currentUser.isAdmin && (
+          <button
+            onClick={() => openDepartmentModal()}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
+            title="Department Settings & Custom Fields"
+          >
+            <Settings2 className="w-3.5 h-3.5 text-gray-500" />
+            <span className="font-mono text-[11px]">Departments</span>
+          </button>
+        )}
 
         {/* New Issue Button */}
         <button
@@ -241,16 +262,31 @@ export const Header: React.FC<HeaderProps> = () => {
                     <span>Edit Profile & Avatar</span>
                   </button>
 
-                  <button
-                    onClick={() => {
-                      setUserDropdown(false);
-                      openDepartmentModal();
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200 rounded font-medium text-xs transition-colors cursor-pointer"
-                  >
-                    <Settings2 className="w-3.5 h-3.5" />
-                    <span>Department Settings</span>
-                  </button>
+                  {currentUser.isAdmin && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setUserDropdown(false);
+                          setActiveTab('admin');
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium text-xs transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Admin Dashboard</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setUserDropdown(false);
+                          openDepartmentModal();
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200 rounded font-medium text-xs transition-colors cursor-pointer"
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                        <span>Department Settings</span>
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Real Company Workspace Info (Production Users) */}
@@ -370,6 +406,16 @@ export const Header: React.FC<HeaderProps> = () => {
                                 {u.nickname && (
                                   <span className="text-[10px] text-gray-400 font-mono">
                                     @{u.nickname}
+                                  </span>
+                                )}
+                                {u.isAdmin && (
+                                  <span className="text-[9px] font-mono px-1 py-0.1 bg-amber-50 text-amber-800 border border-amber-200 rounded">
+                                    Admin
+                                  </span>
+                                )}
+                                {u.status === 'departed' && (
+                                  <span className="text-[9px] font-mono px-1 py-0.1 bg-slate-100 text-slate-600 border border-slate-300 rounded">
+                                    Offboarded
                                   </span>
                                 )}
                               </div>

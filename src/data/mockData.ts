@@ -39,6 +39,8 @@ export const USERS: UserProfile[] = [
     email: 'liam@nuts.internal',
     department: 'Engineering',
     role: 'Staff Systems Architect',
+    isAdmin: true,
+    status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   },
   {
@@ -48,6 +50,8 @@ export const USERS: UserProfile[] = [
     email: 'alex@nuts.internal',
     department: 'Engineering',
     role: 'Senior Frontend Engineer',
+    isAdmin: false,
+    status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
   },
   {
@@ -57,6 +61,8 @@ export const USERS: UserProfile[] = [
     email: 'maya@nuts.internal',
     department: 'Engineering',
     role: 'Lead UI/UX Engineer',
+    isAdmin: false,
+    status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
   },
   {
@@ -66,6 +72,8 @@ export const USERS: UserProfile[] = [
     email: 'david@nuts.internal',
     department: 'Engineering',
     role: 'Infrastructure & Backend Engineer',
+    isAdmin: false,
+    status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
   },
   {
@@ -75,6 +83,8 @@ export const USERS: UserProfile[] = [
     email: 'elena@nuts.internal',
     department: 'Engineering',
     role: 'DevOps & Security Lead',
+    isAdmin: false,
+    status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
   },
 ];

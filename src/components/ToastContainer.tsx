@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { ToastNotification } from '../types';
-import { CheckCircle2, AlertTriangle, Info, X, Zap } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Info, X, Zap, AlertCircle } from 'lucide-react';
 
 interface ToastItemProps {
   toast: ToastNotification;
@@ -22,6 +22,8 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
         return <Zap className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />;
       case 'warning':
         return <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />;
+      case 'error':
+        return <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />;
       case 'info':
       default:
         return <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />;
@@ -34,6 +36,8 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
         return 'border-purple-200 bg-white';
       case 'warning':
         return 'border-amber-200 bg-white';
+      case 'error':
+        return 'border-red-200 bg-white';
       case 'info':
       default:
         return 'border-gray-200 bg-white';

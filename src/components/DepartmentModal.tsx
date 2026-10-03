@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { CustomFieldDefinition, CustomFieldType } from '../types';
 import { CustomSelect, SelectOption } from './CustomSelect';
-import { X, Plus, Trash2, Sliders, AlertTriangle } from 'lucide-react';
+import { X, Plus, Trash2, Sliders, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 const FIELD_TYPE_OPTIONS: SelectOption[] = [
   { value: 'select', label: 'Dropdown Menu (Select)', description: 'Predefined options list' },
@@ -16,6 +16,7 @@ export const DepartmentModal: React.FC = () => {
     editingDepartmentId,
     departments,
     issues,
+    currentUser,
     addDepartment,
     updateDepartment,
     deleteDepartment,
@@ -141,6 +142,7 @@ export const DepartmentModal: React.FC = () => {
         customFields,
       });
     } else {
+      if (!currentUser?.isAdmin) return;
       addDepartment(name.trim(), code.trim().toUpperCase(), description.trim(), customFields);
     }
 
@@ -181,8 +183,29 @@ export const DepartmentModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Content Form */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+        {/* Non-admin access denial for creation */}
+        {!isEditing && !currentUser?.isAdmin ? (
+          <div className="p-6 text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-gray-900">Administrator Privileges Required</h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">
+              Only workspace administrators have permission to create new departments. Please contact your workspace administrator to set up new departments.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={closeDepartmentModal}
+                className="px-4 py-1.5 bg-black text-white hover:bg-gray-800 rounded font-medium text-xs transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Content Form */
+          <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           {/* Basic Details */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 space-y-1">
@@ -466,6 +489,7 @@ export const DepartmentModal: React.FC = () => {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

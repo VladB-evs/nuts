@@ -76,8 +76,22 @@ interface IssueContextType {
   setSubFilter: (filter: string) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
-  activeTab: 'table' | 'timeline';
-  setActiveTab: (tab: 'table' | 'timeline') => void;
+  activeTab: 'table' | 'timeline' | 'admin';
+  setActiveTab: (tab: 'table' | 'timeline' | 'admin') => void;
+  setUserEmploymentStatus: (
+    userId: string,
+    status: 'active' | 'departed',
+    departureReason?: string
+  ) => void;
+  setUserAdminRole: (userId: string, isAdmin: boolean) => boolean;
+  addTeamMember: (data: {
+    name: string;
+    email: string;
+    department: string;
+    role?: string;
+    nickname?: string;
+    isAdmin?: boolean;
+  }) => UserProfile;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -191,7 +205,11 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const saved = localStorage.getItem(STORAGE_CURRENT_USER);
       if (saved) {
-        return JSON.parse(saved);
+        const u = JSON.parse(saved);
+        if (u.id === 'u1' && !u.isAdmin) {
+          u.isAdmin = true;
+        }
+        return u;
       }
       return null;
     } catch {
@@ -220,6 +238,19 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [users, setUsers] = useState<UserProfile[]>(() => {
     if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+      try {
+        const saved = localStorage.getItem(STORAGE_USERS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const hasAdmin = parsed.some((u: UserProfile) => u.isAdmin);
+            if (!hasAdmin) {
+              parsed[0].isAdmin = true;
+            }
+            return parsed;
+          }
+        }
+      } catch {}
       return USERS;
     }
     try {
@@ -263,7 +294,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const enterDemoMode = () => {
     setIsDemoMode(true);
     localStorage.setItem(STORAGE_DEMO_KEY, 'true');
-    setCurrentUserState(USERS[1]); // Alex Rivera
+    setCurrentUserState(USERS[0]); // Liam Vance (Workspace Admin)
     setDepartments(INITIAL_DEPARTMENTS);
     setUsers(USERS);
     setIssues(INITIAL_ISSUES);
@@ -369,7 +400,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [subFilter, setSubFilter] = useState('ALL');
-  const [activeTab, setActiveTab] = useState<'table' | 'timeline'>('table');
+  const [activeTab, setActiveTab] = useState<'table' | 'timeline' | 'admin'>('table');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -1268,6 +1299,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     description?: string,
     customFields?: CustomFieldDefinition[]
   ): Department => {
+    if (!currentUser?.isAdmin) {
+      showToast({
+        type: 'error',
+        title: 'Action Restricted',
+        message: 'Only workspace administrators have permission to create departments.',
+      });
+      throw new Error('Only workspace administrators have permission to create departments.');
+    }
+
     const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'dept';
     const id = currentUser?.orgId
       ? `${baseSlug}-${currentUser.orgId.substring(0, 8)}`
@@ -1360,6 +1400,15 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteDepartment = (deptId: string) => {
+    if (!currentUser?.isAdmin) {
+      showToast({
+        type: 'error',
+        title: 'Action Restricted',
+        message: 'Only workspace administrators have permission to delete departments.',
+      });
+      return;
+    }
+
     setDepartments((prev) => prev.filter((d) => d.id !== deptId));
     setIssues((prev) => prev.filter((i) => i.departmentId !== deptId));
 
@@ -1373,6 +1422,126 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!isDemoMode && isNeonConfigured()) {
       deleteDepartmentInNeon(deptId);
     }
+  };
+
+  const setUserEmploymentStatus = (
+    userId: string,
+    status: 'active' | 'departed',
+    departureReason?: string
+  ) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return;
+
+    // Safety: Cannot offboard the last active admin
+    if (status === 'departed' && targetUser.isAdmin) {
+      const remainingActiveAdmins = users.filter(
+        (u) => u.id !== userId && u.isAdmin && u.status !== 'departed'
+      );
+      if (remainingActiveAdmins.length === 0) {
+        showToast({
+          type: 'error',
+          title: 'Action Restricted',
+          message: 'Cannot offboard the only remaining active administrator. Please assign another admin first.',
+        });
+        return;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const updates: Partial<UserProfile> = {
+      status,
+      departureReason: status === 'departed' ? departureReason || 'Transitioned' : undefined,
+      departedAt: status === 'departed' ? now : undefined,
+    };
+
+    updateUserProfile(userId, updates);
+
+    showToast({
+      type: status === 'departed' ? 'info' : 'success',
+      title: status === 'departed' ? 'Team Member Offboarded' : 'Account Reactivated',
+      message:
+        status === 'departed'
+          ? `${targetUser.name}'s account has been deactivated respectfully. Historical ticket contributions remain intact.`
+          : `${targetUser.name}'s account has been reactivated successfully.`,
+    });
+  };
+
+  const setUserAdminRole = (userId: string, isAdmin: boolean): boolean => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return false;
+
+    // Safety check: Cannot revoke admin from the last active admin
+    if (!isAdmin && targetUser.isAdmin) {
+      const otherActiveAdmins = users.filter(
+        (u) => u.id !== userId && u.isAdmin && u.status !== 'departed'
+      );
+      if (otherActiveAdmins.length === 0) {
+        showToast({
+          type: 'error',
+          title: 'Action Restricted',
+          message: 'At least one active administrator is required in the workspace.',
+        });
+        return false;
+      }
+    }
+
+    updateUserProfile(userId, { isAdmin });
+
+    showToast({
+      type: 'success',
+      title: isAdmin ? 'Admin Privileges Granted' : 'Admin Privileges Revoked',
+      message: isAdmin
+        ? `${targetUser.name} is now a Workspace Administrator.`
+        : `${targetUser.name} is now a standard Team Member.`,
+    });
+    return true;
+  };
+
+  const addTeamMember = (data: {
+    name: string;
+    email: string;
+    department: string;
+    role?: string;
+    nickname?: string;
+    isAdmin?: boolean;
+  }): UserProfile => {
+    const newId = `u_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const avatarList = [
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80',
+    ];
+    const randomAvatar = avatarList[Math.floor(Math.random() * avatarList.length)];
+
+    const newMember: UserProfile = {
+      id: newId,
+      name: data.name.trim(),
+      email: data.email.trim().toLowerCase(),
+      nickname: data.nickname?.trim() || data.name.trim().toLowerCase().replace(/\s+/g, '_'),
+      department: data.department || 'Engineering',
+      role: data.role?.trim() || 'Team Member',
+      isAdmin: Boolean(data.isAdmin),
+      status: 'active',
+      avatarUrl: randomAvatar,
+      orgId: currentUser?.orgId,
+      organization: currentUser?.organization,
+    };
+
+    setUsers((prev) => {
+      const next = [...prev, newMember];
+      localStorage.setItem(STORAGE_USERS, JSON.stringify(next));
+      return next;
+    });
+
+    showToast({
+      type: 'success',
+      title: 'Team Member Added',
+      message: `${newMember.name} has been added to ${newMember.department}.`,
+    });
+
+    return newMember;
   };
 
   // Filtered Issues computation
@@ -1595,6 +1764,9 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addDepartment,
         updateDepartment,
         deleteDepartment,
+        setUserEmploymentStatus,
+        setUserAdminRole,
+        addTeamMember,
         filteredIssues,
         counts,
       }}

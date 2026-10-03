@@ -10,6 +10,8 @@ import { ProfileModal } from './components/ProfileModal';
 import { LoginScreen } from './components/LoginScreen';
 import { DepartmentOnboardingModal } from './components/DepartmentOnboardingModal';
 import { TicketLifecycleTimeline } from './components/TicketLifecycleTimeline';
+import { AdminDashboard } from './components/AdminDashboard';
+import { AccountDisabledScreen } from './components/AccountDisabledScreen';
 import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -31,6 +33,10 @@ const AppContent: React.FC = () => {
         onEnterDemoMode={enterDemoMode}
       />
     );
+  }
+
+  if (currentUser.status === 'departed') {
+    return <AccountDisabledScreen />;
   }
 
   return (
@@ -67,6 +73,8 @@ const AppContent: React.FC = () => {
         <main className="flex-1 flex flex-col overflow-hidden bg-white min-h-0">
           {selectedIssue ? (
             <IssueDetail />
+          ) : activeTab === 'admin' ? (
+            <AdminDashboard />
           ) : activeTab === 'timeline' ? (
             <TicketLifecycleTimeline />
           ) : (
