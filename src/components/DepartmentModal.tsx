@@ -159,33 +159,33 @@ export const DepartmentModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" onClick={closeDepartmentModal} />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[90vh] flex flex-col font-sans">
+      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[92vh] flex flex-col font-sans">
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-black" />
-            <h2 className="text-sm font-semibold text-gray-900">
+            <h2 className="text-sm font-semibold text-gray-900 truncate">
               {isEditing ? `Department Settings: ${targetDept?.name || name}` : 'Create New Department'}
             </h2>
           </div>
           <button
             onClick={closeDepartmentModal}
-            className="text-gray-400 hover:text-black p-1 rounded hover:bg-gray-200 transition-colors"
+            className="text-gray-400 hover:text-black p-1 rounded hover:bg-gray-200 transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content Form */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           {/* Basic Details */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2 space-y-1">
               <label className="block text-gray-700 font-semibold">Department Name *</label>
               <input
                 type="text"
@@ -346,7 +346,7 @@ export const DepartmentModal: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <label className="block text-[11px] text-gray-600 font-medium">Property Name</label>
                     <input

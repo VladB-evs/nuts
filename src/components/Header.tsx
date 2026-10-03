@@ -13,6 +13,7 @@ import {
   Copy,
   Users as UsersIcon,
   Menu,
+  X,
 } from 'lucide-react';
 
 interface HeaderProps {}
@@ -36,6 +37,7 @@ export const Header: React.FC<HeaderProps> = () => {
   } = useIssues();
 
   const [userDropdown, setUserDropdown] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [copiedOrgCode, setCopiedOrgCode] = useState(false);
   const [copiedSalesLink, setCopiedSalesLink] = useState(false);
 
@@ -61,93 +63,108 @@ export const Header: React.FC<HeaderProps> = () => {
   const coworkers = users.filter((u) => u.id !== currentUser.id);
 
   return (
-    <header className="h-14 border-b border-gray-200 bg-white px-3 sm:px-4 flex items-center justify-between shrink-0 select-none z-30">
-      {/* Brand & Organization */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Mobile Hamburger Menu Toggle */}
-        <button
-          type="button"
-          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-          className="md:hidden p-1.5 -ml-1 text-gray-700 hover:text-black hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
-          aria-label="Toggle navigation menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+    <div className="shrink-0 select-none z-30 bg-white">
+      <header className="h-14 border-b border-gray-200 bg-white px-3 sm:px-4 flex items-center justify-between">
+        {/* Brand & Organization */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Hamburger Menu Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="md:hidden p-1.5 -ml-1 text-gray-700 hover:text-black hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-        <button
-          onClick={() => setSelectedIssue(null)}
-          className="flex items-center gap-2 sm:gap-2.5 focus:outline-none cursor-pointer"
-        >
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-xs sm:text-sm tracking-wider">
-            N
-          </div>
-          <div className="text-left">
-            <span className="font-bold text-sm text-gray-900 tracking-tight">NUTS</span>
-            <span className="hidden sm:inline text-[11px] text-gray-500 ml-1.5 font-mono">Issue Tracker</span>
-          </div>
-        </button>
+          <button
+            onClick={() => setSelectedIssue(null)}
+            className="flex items-center gap-2 sm:gap-2.5 focus:outline-none cursor-pointer"
+          >
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-xs sm:text-sm tracking-wider">
+              N
+            </div>
+            <div className="text-left">
+              <span className="font-bold text-sm text-gray-900 tracking-tight">NUTS</span>
+              <span className="hidden sm:inline text-[11px] text-gray-500 ml-1.5 font-mono">Issue Tracker</span>
+            </div>
+          </button>
 
-        {/* Multi-Tenant Org Badge (Production) */}
-        {!isDemoMode && currentUser.organization && (
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-xs">
-            <Building2 className="w-3.5 h-3.5 text-gray-500" />
-            <span
-              className="font-semibold text-gray-900 max-w-[130px] truncate"
-              title={currentUser.organization.name}
-            >
-              {currentUser.organization.name}
-            </span>
-            {currentUser.isAdmin ? (
-              <button
-                type="button"
-                onClick={handleCopyOrgCode}
-                title="Click to copy employee invite code (Admin)"
-                className="font-mono text-[10px] bg-white border border-gray-300 hover:border-black px-1.5 py-0.5 rounded text-gray-700 flex items-center gap-1 transition-colors cursor-pointer ml-1"
+          {/* Multi-Tenant Org Badge (Production) */}
+          {!isDemoMode && currentUser.organization && (
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-xs">
+              <Building2 className="w-3.5 h-3.5 text-gray-500" />
+              <span
+                className="font-semibold text-gray-900 max-w-[130px] truncate"
+                title={currentUser.organization.name}
               >
-                <span>{currentUser.organization.code}</span>
-                {copiedOrgCode ? (
-                  <Check className="w-3 h-3 text-emerald-600" />
-                ) : (
-                  <Copy className="w-3 h-3 text-gray-400" />
-                )}
+                {currentUser.organization.name}
+              </span>
+              {currentUser.isAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleCopyOrgCode}
+                  title="Click to copy employee invite code (Admin)"
+                  className="font-mono text-[10px] bg-white border border-gray-300 hover:border-black px-1.5 py-0.5 rounded text-gray-700 flex items-center gap-1 transition-colors cursor-pointer ml-1"
+                >
+                  <span>{currentUser.organization.code}</span>
+                  {copiedOrgCode ? (
+                    <Check className="w-3 h-3 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-gray-400" />
+                  )}
+                </button>
+              ) : (
+                <span className="text-[10px] text-gray-400 font-mono ml-1">Team</span>
+              )}
+            </div>
+          )}
+
+          {/* Demo Mode Badge */}
+          {isDemoMode && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-md text-[11px] font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span>Demo Mode</span>
+              <button
+                onClick={exitDemoMode}
+                className="ml-1 text-[10px] underline hover:text-black font-semibold cursor-pointer"
+              >
+                Exit
               </button>
-            ) : (
-              <span className="text-[10px] text-gray-400 font-mono ml-1">Team</span>
-            )}
-          </div>
-        )}
-
-        {/* Demo Mode Badge */}
-        {isDemoMode && (
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-md text-[11px] font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            <span>Demo Mode</span>
-            <button
-              onClick={exitDemoMode}
-              className="ml-1 text-[10px] underline hover:text-black font-semibold cursor-pointer"
-            >
-              Exit
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Center Search Input (Google Buganizer style) */}
-      <div className="hidden sm:block flex-1 max-w-xl mx-2 sm:mx-4">
-        <div className="relative">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by ID, title, @nickname, role, or assignee..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-gray-500 transition-colors"
-          />
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Center Search Input (Google Buganizer style) */}
+        <div className="hidden sm:block flex-1 max-w-xl mx-2 sm:mx-4">
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by ID, title, @nickname, role, or assignee..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-gray-500 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Right Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Mobile Search Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+            className={`sm:hidden p-1.5 rounded-md transition-colors cursor-pointer ${
+              isMobileSearchOpen
+                ? 'bg-black text-white'
+                : 'text-gray-600 hover:text-black hover:bg-gray-100'
+            }`}
+            aria-label="Toggle search"
+            title="Search tickets"
+          >
+            <Search className="w-4 h-4" />
+          </button>
         {/* Department Settings */}
         <button
           onClick={() => openDepartmentModal()}
@@ -192,7 +209,7 @@ export const Header: React.FC<HeaderProps> = () => {
                 className="fixed inset-0 z-40"
                 onClick={() => setUserDropdown(false)}
               />
-              <div className="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2.5 text-xs animate-fade-in">
+              <div className="absolute right-0 mt-1 w-72 max-w-[calc(100vw-1.5rem)] bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2.5 text-xs animate-fade-in">
                 {/* Active Profile Info */}
                 <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-md mb-2 space-y-2">
                   <div className="flex items-start gap-2.5">
@@ -387,5 +404,42 @@ export const Header: React.FC<HeaderProps> = () => {
         </div>
       </div>
     </header>
-  );
+
+    {/* Mobile Search Bar Drawer */}
+    {isMobileSearchOpen && (
+      <div className="sm:hidden px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2 animate-fade-in">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search tickets, IDs, people..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+            className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black font-sans"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black p-0.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIsMobileSearchOpen(false);
+            setSearchQuery('');
+          }}
+          className="text-xs text-gray-500 hover:text-black font-medium px-1 cursor-pointer"
+        >
+          Cancel
+        </button>
+      </div>
+    )}
+  </div>
+);
 };

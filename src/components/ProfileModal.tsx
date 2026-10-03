@@ -92,7 +92,7 @@ export const ProfileModal: React.FC = () => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-xs"
@@ -100,9 +100,9 @@ export const ProfileModal: React.FC = () => {
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[90vh] flex flex-col select-none">
+      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[92vh] flex flex-col select-none">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
           <div>
             <h2 className="font-semibold text-gray-900 text-sm">Edit Profile & Role</h2>
             <p className="text-[11px] text-gray-500 font-mono">
@@ -118,7 +118,7 @@ export const ProfileModal: React.FC = () => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-5 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
           {/* Top Live Preview Card */}
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-md space-y-2">
             <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 font-bold block">
@@ -163,7 +163,7 @@ export const ProfileModal: React.FC = () => {
           </div>
 
           {/* Nickname & Department */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-700 font-medium mb-1 text-[11px]">
                 Nickname / Handle

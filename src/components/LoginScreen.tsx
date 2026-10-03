@@ -316,8 +316,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4 selection:bg-black selection:text-white">
-      <div className="w-full max-w-md bg-white border border-gray-300 rounded-xl shadow-lg p-7">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-3 sm:p-4 selection:bg-black selection:text-white">
+      <div className="w-full max-w-md bg-white border border-gray-300 rounded-xl shadow-lg p-5 sm:p-7">
         {/* ================================================================ */}
         {/* GUARDED ADMIN ONBOARDING VIEW (Only accessible via special sales/onboarding link) */}
         {/* ================================================================ */}

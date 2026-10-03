@@ -5,7 +5,7 @@ import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from 
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
 import { Star, Plus, Link2 } from 'lucide-react';
-import { formatDate } from '../lib/utils';
+import { formatDate, timeAgo } from '../lib/utils';
 
 export const IssueTable: React.FC = () => {
   const {
@@ -192,16 +192,16 @@ export const IssueTable: React.FC = () => {
       </div>
 
       {/* Table Toolbar */}
-      <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/70 flex flex-wrap items-center justify-between gap-2 text-xs select-none">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="px-3 sm:px-4 py-2 border-b border-gray-200 bg-gray-50/70 flex flex-wrap items-center justify-between gap-2 text-xs select-none">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
           {/* Priority filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-gray-500 font-medium mr-1">Priority:</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full py-0.5">
+            <span className="text-gray-500 font-medium mr-1 text-[11px] shrink-0">Priority:</span>
             {['ALL', 'P0', 'P1', 'P2', 'P3'].map((p) => (
               <button
                 key={p}
                 onClick={() => setPriorityFilter(p)}
-                className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors ${
+                className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors shrink-0 ${
                   priorityFilter === p
                     ? 'bg-black text-white font-medium'
                     : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
@@ -215,14 +215,14 @@ export const IssueTable: React.FC = () => {
           {/* Department-specific sub filter */}
           {subFilterConfig && (
             <>
-              <div className="h-4 w-px bg-gray-200 hidden sm:block" />
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-gray-500 font-medium mr-1">{subFilterConfig.label}:</span>
+              <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
+              <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full py-0.5">
+                <span className="text-gray-500 font-medium mr-1 text-[11px] shrink-0">{subFilterConfig.label}:</span>
                 {subFilterConfig.options.map((opt) => (
                   <button
                     key={opt}
                     onClick={() => setSubFilter(opt)}
-                    className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors ${
+                    className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors shrink-0 ${
                       subFilter === opt
                         ? 'bg-black text-white font-medium'
                         : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
@@ -236,163 +236,265 @@ export const IssueTable: React.FC = () => {
           )}
         </div>
 
-        <span className="font-mono text-[11px] text-gray-500">
+        <span className="font-mono text-[11px] text-gray-500 shrink-0">
           {filteredIssues.length} {filteredIssues.length === 1 ? 'issue' : 'issues'}
         </span>
       </div>
 
-      {/* Issues Table */}
+      {/* Issues Content: Mobile Card List (< 768px) and Desktop Table (>= 768px) */}
       {filteredIssues.length > 0 ? (
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full min-w-[600px] text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200 bg-white text-gray-500 font-mono text-[11px] select-none">
-                <th className="py-2 px-3 w-8 text-center"></th>
-                <th className="py-2 px-3 w-16">ID</th>
-                <th className="py-2 px-3 w-14">PRI</th>
-                <th className="py-2 px-3">TITLE</th>
-                {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
-                  <th className="py-2 px-3 w-28 hidden md:table-cell">DEPARTMENT</th>
-                )}
-                <th className="py-2 px-3 w-48 hidden sm:table-cell">ATTRIBUTES</th>
-                <th className="py-2 px-3 w-24">STATUS</th>
-                <th className="py-2 px-3 w-32 hidden sm:table-cell">ASSIGNEE</th>
-                <th className="py-2 px-3 w-24 text-right hidden md:table-cell">MODIFIED</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredIssues.map((issue) => {
-                const dept = departments.find((d) => d.id === issue.departmentId);
-                const badges = getDepartmentBadges(issue, departments);
+        <>
+          {/* 1. Mobile & Narrow Screen Card List (< 768px) - Zero Horizontal Scrolling */}
+          <div className="md:hidden divide-y divide-gray-100 flex-1 overflow-y-auto">
+            {filteredIssues.map((issue) => {
+              const dept = departments.find((d) => d.id === issue.departmentId);
+              const badges = getDepartmentBadges(issue, departments);
 
-                return (
-                  <tr
-                    key={issue.id}
-                    onClick={() => setSelectedIssue(issue)}
-                    className="hover:bg-gray-50/80 cursor-pointer transition-colors group"
-                  >
-                    {/* Star */}
-                    <td
-                      className="py-2.5 px-3 text-center"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleStar(issue.id);
-                      }}
-                    >
-                      <Star
-                        className={`w-3.5 h-3.5 mx-auto ${
-                          issue.starred
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-gray-300 group-hover:text-gray-400'
-                        }`}
-                      />
-                    </td>
-
-                    {/* ID */}
-                    <td className="py-2.5 px-3 font-mono font-medium text-gray-600 group-hover:text-black">
-                      #{issue.number}
-                    </td>
-
-                    {/* Priority */}
-                    <td className="py-2.5 px-3">{getPriorityBadge(issue.priority)}</td>
-
-                    {/* Title */}
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {issue.title}
+              return (
+                <div
+                  key={issue.id}
+                  onClick={() => setSelectedIssue(issue)}
+                  className="p-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer space-y-2 select-none"
+                >
+                  {/* Top Row: Star + ID + Dept Code | Priority + Status */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStar(issue.id);
+                        }}
+                        className="p-1 -ml-1 text-gray-300 hover:text-amber-500 rounded cursor-pointer shrink-0"
+                        aria-label="Star issue"
+                      >
+                        <Star
+                          className={`w-3.5 h-3.5 ${
+                            issue.starred
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      </button>
+                      <span className="font-mono font-bold text-xs text-gray-900 shrink-0">
+                        #{issue.number}
+                      </span>
+                      {dept && (
+                        <span className="font-mono text-[10px] font-semibold bg-gray-100 border border-gray-200 text-gray-700 px-1.5 py-0.2 rounded shrink-0">
+                          {dept.code}
                         </span>
-                        {issue.linkedIssues && issue.linkedIssues.length > 0 && (
-                          <span
-                            className="inline-flex items-center gap-0.5 font-mono text-[9px] text-gray-500 bg-gray-100 border border-gray-200 px-1 py-0.2 rounded shrink-0"
-                            title={`${issue.linkedIssues.length} linked ticket${issue.linkedIssues.length > 1 ? 's' : ''}`}
-                          >
-                            <Link2 className="w-2.5 h-2.5 text-gray-400" />
-                            <span>{issue.linkedIssues.length}</span>
-                          </span>
-                        )}
-                        {badges.slice(0, 1).map((b, i) => (
-                          <span
-                            key={i}
-                            className={`sm:hidden font-mono text-[9px] px-1 py-0.5 rounded border ${b.badgeClass}`}
-                          >
-                            {b.label}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* Department (shown when viewing all departments or cross-department assigned_to_me) */}
-                    {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
-                      <td className="py-2.5 px-3 font-mono text-gray-600 hidden md:table-cell truncate">
-                        <span className="font-semibold text-gray-700 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded text-[10px]">
-                          {dept?.name || issue.departmentId}
-                        </span>
-                      </td>
-                    )}
-
-                    {/* Department Specific Attributes */}
-                    <td className="py-2.5 px-3 hidden sm:table-cell">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {badges.length > 0 ? (
-                          badges.map((badge, idx) => (
-                            <span
-                              key={idx}
-                              className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${badge.badgeClass}`}
-                              title={badge.tooltip}
-                            >
-                              {badge.label}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-400 font-mono text-[10px]">—</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-2.5 px-3">{getStatusBadge(issue.status)}</td>
-
-                    {/* Assignee */}
-                    <td
-                      className="py-2.5 px-3 text-gray-700 hidden sm:table-cell"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {issue.assignee ? (
-                        <UserHoverCard user={issue.assignee}>
-                          <div className="flex items-center gap-1.5 truncate group/assignee hover:text-black">
-                            <UserAvatar user={issue.assignee} size="xs" />
-                            <span className="truncate group-hover/assignee:underline decoration-dotted decoration-gray-400">
-                              {issue.assignee.name}
-                            </span>
-                            {issue.assignee.nickname && (
-                              <span className="text-[10px] text-gray-400 font-mono hidden xl:inline">
-                                @{issue.assignee.nickname}
-                              </span>
-                            )}
-                          </div>
-                        </UserHoverCard>
-                      ) : (
-                        <span className="text-gray-400 font-mono">—</span>
                       )}
-                    </td>
+                      {issue.linkedIssues && issue.linkedIssues.length > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 font-mono text-[9px] text-gray-500 bg-gray-100 border border-gray-200 px-1 py-0.2 rounded shrink-0"
+                          title={`${issue.linkedIssues.length} linked ticket${issue.linkedIssues.length > 1 ? 's' : ''}`}
+                        >
+                          <Link2 className="w-2.5 h-2.5 text-gray-400" />
+                          <span>{issue.linkedIssues.length}</span>
+                        </span>
+                      )}
+                    </div>
 
-                    {/* Modified */}
-                    <td className="py-2.5 px-3 text-right text-gray-400 font-mono text-[11px] hidden md:table-cell">
-                      {formatDate(issue.updatedAt)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {getPriorityBadge(issue.priority)}
+                      {getStatusBadge(issue.status)}
+                    </div>
+                  </div>
+
+                  {/* Middle Row: Ticket Title (wraps naturally, 100% visible, NO side-scroll!) */}
+                  <div className="min-w-0">
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors break-words leading-snug">
+                      {issue.title}
+                    </h3>
+                  </div>
+
+                  {/* Bottom Row: Attributes on left, Assignee & Time on right */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5 text-[11px] font-mono text-gray-500 flex-wrap">
+                    <div className="flex items-center gap-1 flex-wrap min-w-0">
+                      {badges.slice(0, 2).map((b, i) => (
+                        <span
+                          key={i}
+                          className={`text-[9px] px-1.5 py-0.2 rounded border font-mono shrink-0 ${b.badgeClass}`}
+                        >
+                          {b.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
+                      {issue.assignee ? (
+                        <div className="flex items-center gap-1 text-gray-700">
+                          <UserAvatar user={issue.assignee} size="xs" />
+                          <span className="font-sans text-[11px] font-medium max-w-[90px] truncate">
+                            {issue.assignee.name.split(' ')[0]}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-[10px]">—</span>
+                      )}
+                      <span className="text-gray-300">•</span>
+                      <span className="text-gray-400 text-[10px]">
+                        {timeAgo(issue.updatedAt)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 2. Desktop Full Table (>= 768px) */}
+          <div className="hidden md:block flex-1 overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 bg-white text-gray-500 font-mono text-[11px] select-none">
+                  <th className="py-2 px-3 w-8 text-center"></th>
+                  <th className="py-2 px-3 w-16">ID</th>
+                  <th className="py-2 px-3 w-14">PRI</th>
+                  <th className="py-2 px-3">TITLE</th>
+                  {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
+                    <th className="py-2 px-3 w-28 hidden md:table-cell">DEPARTMENT</th>
+                  )}
+                  <th className="py-2 px-3 w-48 hidden sm:table-cell">ATTRIBUTES</th>
+                  <th className="py-2 px-3 w-24">STATUS</th>
+                  <th className="py-2 px-3 w-32 hidden sm:table-cell">ASSIGNEE</th>
+                  <th className="py-2 px-3 w-24 text-right hidden md:table-cell">MODIFIED</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredIssues.map((issue) => {
+                  const dept = departments.find((d) => d.id === issue.departmentId);
+                  const badges = getDepartmentBadges(issue, departments);
+
+                  return (
+                    <tr
+                      key={issue.id}
+                      onClick={() => setSelectedIssue(issue)}
+                      className="hover:bg-gray-50/80 cursor-pointer transition-colors group"
+                    >
+                      {/* Star */}
+                      <td
+                        className="py-2.5 px-3 text-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStar(issue.id);
+                        }}
+                      >
+                        <Star
+                          className={`w-3.5 h-3.5 mx-auto ${
+                            issue.starred
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-gray-300 group-hover:text-gray-400'
+                          }`}
+                        />
+                      </td>
+
+                      {/* ID */}
+                      <td className="py-2.5 px-3 font-mono font-medium text-gray-600 group-hover:text-black">
+                        #{issue.number}
+                      </td>
+
+                      {/* Priority */}
+                      <td className="py-2.5 px-3">{getPriorityBadge(issue.priority)}</td>
+
+                      {/* Title */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {issue.title}
+                          </span>
+                          {issue.linkedIssues && issue.linkedIssues.length > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 font-mono text-[9px] text-gray-500 bg-gray-100 border border-gray-200 px-1 py-0.2 rounded shrink-0"
+                              title={`${issue.linkedIssues.length} linked ticket${issue.linkedIssues.length > 1 ? 's' : ''}`}
+                            >
+                              <Link2 className="w-2.5 h-2.5 text-gray-400" />
+                              <span>{issue.linkedIssues.length}</span>
+                            </span>
+                          )}
+                          {badges.slice(0, 1).map((b, i) => (
+                            <span
+                              key={i}
+                              className={`sm:hidden font-mono text-[9px] px-1 py-0.5 rounded border ${b.badgeClass}`}
+                            >
+                              {b.label}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* Department (shown when viewing all departments or cross-department assigned_to_me) */}
+                      {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
+                        <td className="py-2.5 px-3 font-mono text-gray-600 hidden md:table-cell truncate">
+                          <span className="font-semibold text-gray-700 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded text-[10px]">
+                            {dept?.name || issue.departmentId}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Department Specific Attributes */}
+                      <td className="py-2.5 px-3 hidden sm:table-cell">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {badges.length > 0 ? (
+                            badges.map((badge, idx) => (
+                              <span
+                                key={idx}
+                                className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${badge.badgeClass}`}
+                                title={badge.tooltip}
+                              >
+                                {badge.label}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-gray-400 font-mono text-[10px]">—</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-2.5 px-3">{getStatusBadge(issue.status)}</td>
+
+                      {/* Assignee */}
+                      <td
+                        className="py-2.5 px-3 text-gray-700 hidden sm:table-cell"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {issue.assignee ? (
+                          <UserHoverCard user={issue.assignee}>
+                            <div className="flex items-center gap-1.5 truncate group/assignee hover:text-black">
+                              <UserAvatar user={issue.assignee} size="xs" />
+                              <span className="truncate group-hover/assignee:underline decoration-dotted decoration-gray-400">
+                                {issue.assignee.name}
+                              </span>
+                              {issue.assignee.nickname && (
+                                <span className="text-[10px] text-gray-400 font-mono hidden xl:inline">
+                                  @{issue.assignee.nickname}
+                                </span>
+                              )}
+                            </div>
+                          </UserHoverCard>
+                        ) : (
+                          <span className="text-gray-400 font-mono">—</span>
+                        )}
+                      </td>
+
+                      {/* Modified */}
+                      <td className="py-2.5 px-3 text-right text-gray-400 font-mono text-[11px] hidden md:table-cell">
+                        {formatDate(issue.updatedAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-3">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center space-y-3">
           <p className="text-sm font-medium text-gray-500">No issues match this view or query.</p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-black text-white rounded-md hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-black text-white rounded-md hover:bg-gray-800 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Create Issue</span>

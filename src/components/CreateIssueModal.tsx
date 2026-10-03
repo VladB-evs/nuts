@@ -292,7 +292,7 @@ export const CreateIssueModal: React.FC = () => {
           </div>
 
           {/* Department and Priority */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-700 font-medium mb-1">Department *</label>
               <CustomSelect
@@ -481,8 +481,8 @@ export const CreateIssueModal: React.FC = () => {
             {/* Search & picker dropdown */}
             {isLinking && (
               <div className="p-2.5 bg-gray-50 border border-blue-200 rounded-md space-y-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-40 shrink-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="w-full sm:w-40 shrink-0">
                     <CustomSelect
                       value={linkRelation}
                       onChange={(val) => setLinkRelation(val as LinkRelationType)}
