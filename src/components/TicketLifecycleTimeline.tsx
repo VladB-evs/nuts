@@ -392,7 +392,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
                     {/* Stalled Alert */}
                     {ticket.isStalled && (
                       <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
                         title={`Stalled in ${ticket.currentStatus} for ${formatDuration(ticket.stalledDurationMs)}`}
                       >
                         <AlertTriangle className="w-3 h-3 text-amber-600" />
@@ -425,7 +425,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
                           meta.barColor
                         } text-white ${
                           seg.isCurrent
-                            ? 'ring-1 ring-black/40 ring-inset animate-pulse'
+                            ? 'ring-1 ring-black/40 ring-inset'
                             : 'opacity-90 hover:opacity-100'
                         }`}
                         title={`${meta.label}: ${formatDuration(seg.durationMs)} ${

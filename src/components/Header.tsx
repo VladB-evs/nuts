@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = () => {
         {/* Demo Mode Badge */}
         {isDemoMode && (
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-md text-[11px] font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             <span>Demo Mode</span>
             <button
               onClick={exitDemoMode}

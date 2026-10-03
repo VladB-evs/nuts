@@ -76,7 +76,7 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
               style={{ flexGrow: Math.max(1, Math.round(seg.durationMs / 1000)) }}
               className={`relative h-full flex items-center justify-between px-2 text-[10px] font-mono font-medium rounded-xs transition-all duration-150 group cursor-default ${
                 meta.barColor
-              } text-white ${seg.isCurrent ? 'ring-1 ring-black/40 ring-inset animate-pulse' : 'opacity-90 hover:opacity-100'}`}
+              } text-white ${seg.isCurrent ? 'ring-1 ring-black/40 ring-inset' : 'opacity-90 hover:opacity-100'}`}
               title={`${meta.label}: ${formatDuration(seg.durationMs)} ${
                 seg.isCurrent ? '(Active / Ongoing)' : ''
               }${seg.actor ? ` • by ${seg.actor.name}` : ''}`}
