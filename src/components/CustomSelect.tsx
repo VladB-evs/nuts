@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
 
 export interface SelectOption {
@@ -26,6 +27,15 @@ export interface CustomSelectProps {
   id?: string;
 }
 
+interface DropdownPosition {
+  top?: number;
+  bottom?: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+  openUpward: boolean;
+}
+
 export const CustomSelect: React.FC<CustomSelectProps> = ({
   value,
   onChange,
@@ -42,8 +52,10 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [openUpward, setOpenUpward] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<DropdownPosition | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Normalize options to SelectOption objects safely
@@ -86,21 +98,63 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     );
   }, [normalizedOptions, search, isSearchEnabled]);
 
-  // Detect available viewport space to open upward if near bottom
+  // Calculate and update fixed position in viewport
+  const updatePosition = () => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+
+    // If trigger button is completely scrolled out of view, close
+    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+      setIsOpen(false);
+      return;
+    }
+
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const shouldOpenUpward = spaceBelow < 220 && spaceAbove > spaceBelow;
+
+    const availableHeight = shouldOpenUpward ? spaceAbove : spaceBelow;
+    const maxHeight = Math.max(120, Math.min(260, availableHeight));
+
+    const minWidth = Math.max(rect.width, 200);
+    let left = rect.left;
+    if (left + minWidth > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - minWidth - 8);
+    }
+    if (left < 8) left = 8;
+
+    setDropdownPos({
+      left,
+      width: Math.max(rect.width, Math.min(minWidth, window.innerWidth - 16)),
+      maxHeight,
+      openUpward: shouldOpenUpward,
+      top: shouldOpenUpward ? undefined : rect.bottom + 4,
+      bottom: shouldOpenUpward ? window.innerHeight - rect.top + 4 : undefined,
+    });
+  };
+
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow < 230 && rect.top > 230) {
-        setOpenUpward(true);
-      } else {
-        setOpenUpward(false);
-      }
+    if (isOpen) {
+      updatePosition();
+
+      const handleScrollOrResize = () => {
+        updatePosition();
+      };
+
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+
       if (isSearchEnabled && searchInputRef.current) {
         setTimeout(() => searchInputRef.current?.focus(), 20);
       }
+
+      return () => {
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
     } else {
       setSearch('');
+      setDropdownPos(null);
     }
   }, [isOpen, isSearchEnabled]);
 
@@ -109,9 +163,12 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     if (!isOpen) return;
 
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
       }
@@ -190,103 +247,113 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         />
       </button>
 
-      {/* Popover Dropdown Menu */}
-      {isOpen && (
-        <div
-          className={`absolute left-0 w-full min-w-[200px] bg-white border border-gray-300 rounded-md shadow-2xl z-50 overflow-hidden flex flex-col ${
-            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-          } ${menuClassName}`}
-        >
-          {/* Optional Search Filter inside Menu */}
-          {isSearchEnabled && (
-            <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-1.5 shrink-0">
-              <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filter options..."
-                className="w-full text-xs bg-transparent focus:outline-none placeholder-gray-400 font-sans"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="text-gray-400 hover:text-black p-0.5 rounded cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Options List */}
-          <div className="py-1 max-h-56 overflow-y-auto divide-y divide-gray-50">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((opt) => {
-                const isSelected = opt.value === value;
-
-                return (
-                  <div
-                    key={opt.value}
-                    onClick={() => {
-                      onChange(opt.value);
-                      setIsOpen(false);
-                    }}
-                    className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-gray-100 font-semibold text-black'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-black'
-                    }`}
+      {/* Popover Dropdown Menu via Portal */}
+      {isOpen && dropdownPos &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPos.top !== undefined ? `${dropdownPos.top}px` : 'auto',
+              bottom: dropdownPos.bottom !== undefined ? `${dropdownPos.bottom}px` : 'auto',
+              left: `${dropdownPos.left}px`,
+              width: `${dropdownPos.width}px`,
+              maxHeight: `${dropdownPos.maxHeight}px`,
+              zIndex: 99999,
+            }}
+            className={`bg-white border border-gray-300 rounded-md shadow-2xl overflow-hidden flex flex-col animate-fade-in ${menuClassName}`}
+          >
+            {/* Optional Search Filter inside Menu */}
+            {isSearchEnabled && (
+              <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-1.5 shrink-0">
+                <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filter options..."
+                  className="w-full text-xs bg-transparent focus:outline-none placeholder-gray-400 font-sans"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="text-gray-400 hover:text-black p-0.5 rounded cursor-pointer"
                   >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {opt.icon && (
-                        <div className="shrink-0 flex items-center">{opt.icon}</div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="truncate font-sans font-medium text-gray-900">
-                            {opt.label}
-                          </span>
-                          {opt.badge && (
-                            <span
-                              className={`font-mono text-[9px] px-1 py-0.2 rounded border shrink-0 ${
-                                opt.badgeClass ||
-                                'bg-gray-100 text-gray-700 border-gray-200'
-                              }`}
-                            >
-                              {opt.badge}
-                            </span>
-                          )}
-                        </div>
-                        {opt.description && (
-                          <p className="text-[11px] text-gray-500 font-mono truncate mt-0.5">
-                            {opt.description}
-                          </p>
-                        )}
-                        {opt.subtext && (
-                          <p className="text-[10px] text-gray-400 font-mono truncate">
-                            {opt.subtext}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-black shrink-0 ml-1 stroke-[2.5]" />
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="px-3 py-3 text-xs text-center text-gray-400 font-mono">
-                {emptyMessage}
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             )}
-          </div>
-        </div>
-      )}
+
+            {/* Options List */}
+            <div className="py-1 overflow-y-auto divide-y divide-gray-50 flex-1">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((opt) => {
+                  const isSelected = opt.value === value;
+
+                  return (
+                    <div
+                      key={opt.value}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setIsOpen(false);
+                      }}
+                      className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-gray-100 font-semibold text-black'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-black'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {opt.icon && (
+                          <div className="shrink-0 flex items-center">{opt.icon}</div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="truncate font-sans font-medium text-gray-900">
+                              {opt.label}
+                            </span>
+                            {opt.badge && (
+                              <span
+                                className={`font-mono text-[9px] px-1 py-0.2 rounded border shrink-0 ${
+                                  opt.badgeClass ||
+                                  'bg-gray-100 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {opt.badge}
+                              </span>
+                            )}
+                          </div>
+                          {opt.description && (
+                            <p className="text-[11px] text-gray-500 font-mono truncate mt-0.5">
+                              {opt.description}
+                            </p>
+                          )}
+                          {opt.subtext && (
+                            <p className="text-[10px] text-gray-400 font-mono truncate">
+                              {opt.subtext}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-black shrink-0 ml-1 stroke-[2.5]" />
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-3 text-xs text-center text-gray-400 font-mono">
+                  {emptyMessage}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
