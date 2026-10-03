@@ -16,7 +16,6 @@ import {
 } from '../types';
 import {
   getDepartmentRuleKind,
-  getDepartmentBadges,
   MARKETING_CHANNELS,
   DELIVERABLE_TYPES,
   DEAL_SEGMENTS,
@@ -458,44 +457,17 @@ export const IssueDetail: React.FC = () => {
               </h1>
             )}
 
-            {/* Metadata row with clean wrapping */}
-            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500 font-mono flex-wrap">
-              <span className="font-semibold text-gray-800 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded text-[11px] shrink-0">
-                {currentDept?.name || selectedIssue.departmentId}
-              </span>
-              {getDepartmentBadges(selectedIssue, departments).map((badge, idx) => (
-                <span
-                  key={idx}
-                  className={`font-semibold border px-2 py-0.5 rounded text-[11px] shrink-0 ${badge.badgeClass}`}
-                  title={badge.tooltip}
-                >
-                  {badge.label}
-                </span>
-              ))}
-              <span className="text-gray-300 hidden sm:inline">•</span>
-              <div className="inline-flex items-center gap-1.5 font-sans shrink-0">
-                <span className="text-gray-400 font-mono text-[11px]">Reported by</span>
-                <UserHoverCard user={selectedIssue.reporter}>
-                  <div className="inline-flex items-center gap-1.5 hover:text-black group/reporter cursor-pointer">
-                    <UserAvatar user={selectedIssue.reporter} size="xs" />
-                    <span className="font-semibold text-gray-900 group-hover/reporter:underline decoration-dotted decoration-gray-400">
-                      {selectedIssue.reporter.name}
-                    </span>
-                    {selectedIssue.reporter.nickname && (
-                      <span className="text-gray-400 font-mono text-[10px] hidden sm:inline">
-                        @{selectedIssue.reporter.nickname}
-                      </span>
-                    )}
-                  </div>
-                </UserHoverCard>
-                {selectedIssue.reporter.role && (
-                  <span className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.2 rounded font-mono hidden sm:inline">
-                    {selectedIssue.reporter.role}
+            {/* Minimal metadata */}
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span>Opened {timeAgo(selectedIssue.createdAt)} by</span>
+              <UserHoverCard user={selectedIssue.reporter}>
+                <div className="inline-flex items-center gap-1.5 hover:text-black cursor-pointer">
+                  <UserAvatar user={selectedIssue.reporter} size="xs" />
+                  <span className="font-medium text-gray-800 hover:underline">
+                    {selectedIssue.reporter.name}
                   </span>
-                )}
-              </div>
-              <span className="text-gray-300 hidden sm:inline">•</span>
-              <span className="text-[11px] text-gray-400 shrink-0">{formatDateTime(selectedIssue.createdAt)}</span>
+                </div>
+              </UserHoverCard>
             </div>
           </div>
 
