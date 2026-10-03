@@ -65,7 +65,6 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
   const [selectedRelation, setSelectedRelation] = useState<LinkRelationType>('relates_to');
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<string>('all');
-  const [justLinkedId, setJustLinkedId] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -151,10 +150,8 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
   const handleLink = (targetId: string) => {
     linkIssues(currentIssue.id, targetId, selectedRelation);
-    setJustLinkedId(targetId);
-    setTimeout(() => {
-      setJustLinkedId(null);
-    }, 1200);
+    setIsAdding(false);
+    setSearchQuery('');
   };
 
   const getStatusBadge = (status: string) => {
@@ -190,30 +187,24 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setIsAdding(!isAdding);
-            setSearchQuery('');
-          }}
-          className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer ${
-            isAdding
-              ? 'bg-gray-200 text-gray-800 border-gray-300'
-              : 'bg-white hover:bg-gray-100 text-blue-600 hover:text-blue-800 border-gray-200'
-          }`}
-        >
-          {isAdding ? (
-            <>
-              <X className="w-3 h-3" />
-              <span>Done</span>
-            </>
-          ) : (
-            <>
-              <Plus className="w-3 h-3" />
-              <span>Link ticket</span>
-            </>
-          )}
-        </button>
+        {linkedItems.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsAdding(!isAdding);
+              setSearchQuery('');
+            }}
+            className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer shrink-0 ${
+              isAdding
+                ? 'bg-gray-100 text-gray-900 border-gray-300 font-semibold'
+                : 'bg-white hover:bg-gray-100 text-blue-600 hover:text-blue-800 border-gray-200'
+            }`}
+            title={isAdding ? 'Close link popover' : 'Link another ticket'}
+          >
+            <Plus className={`w-3 h-3 transition-transform ${isAdding ? 'rotate-45' : ''}`} />
+            <span>Link</span>
+          </button>
+        )}
       </div>
 
       {/* Add Link Dropdown / Popover panel */}
@@ -316,7 +307,6 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
             {candidateIssues.length > 0 ? (
               candidateIssues.slice(0, 10).map((iss) => {
                 const dept = departments.find((d) => d.id === iss.departmentId);
-                const isJustLinked = justLinkedId === iss.id;
 
                 return (
                   <div
@@ -343,15 +333,9 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
                     </div>
 
                     <div className="shrink-0 pt-0.5">
-                      {isJustLinked ? (
-                        <span className="text-[10px] font-mono text-emerald-600 font-semibold flex items-center gap-0.5">
-                          <CheckCircle2 className="w-3 h-3" /> Linked
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-mono text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                          <Plus className="w-3 h-3" /> Link
-                        </span>
-                      )}
+                      <span className="text-[10px] font-mono text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> Link
+                      </span>
                     </div>
                   </div>
                 );
@@ -364,13 +348,13 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
           </div>
 
           <div className="text-[10px] font-mono text-gray-400 flex items-center justify-between pt-0.5">
-            <span>Multiple tickets can be linked.</span>
+            <span>Click a ticket to link and close.</span>
             <button
               type="button"
               onClick={() => setIsAdding(false)}
               className="text-gray-600 hover:text-black font-semibold cursor-pointer underline"
             >
-              Done (Esc)
+              Cancel (Esc)
             </button>
           </div>
         </div>
@@ -471,7 +455,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               onClick={() => setIsAdding(true)}
               className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer hover:underline"
             >
-              + Link one
+              + Link ticket
             </button>
           </div>
         )
