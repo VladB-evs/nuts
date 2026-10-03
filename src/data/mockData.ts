@@ -1,4 +1,10 @@
-import { Department, Issue, UserProfile } from '../types';
+import { Department, Issue, UserProfile, Organization } from '../types';
+
+export const DEMO_ORG: Organization = {
+  id: 'org_nuts_demo',
+  name: 'Nuts Technologies',
+  code: 'NUTS-2026',
+};
 
 export const INITIAL_DEPARTMENTS: Department[] = [
   {
@@ -42,6 +48,7 @@ export const USERS: UserProfile[] = [
     isAdmin: true,
     status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    organization: DEMO_ORG,
   },
   {
     id: 'u2',
@@ -53,6 +60,7 @@ export const USERS: UserProfile[] = [
     isAdmin: false,
     status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+    organization: DEMO_ORG,
   },
   {
     id: 'u3',
@@ -64,6 +72,7 @@ export const USERS: UserProfile[] = [
     isAdmin: false,
     status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    organization: DEMO_ORG,
   },
   {
     id: 'u4',
@@ -75,6 +84,7 @@ export const USERS: UserProfile[] = [
     isAdmin: false,
     status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    organization: DEMO_ORG,
   },
   {
     id: 'u5',
@@ -86,6 +96,7 @@ export const USERS: UserProfile[] = [
     isAdmin: false,
     status: 'active',
     avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+    organization: DEMO_ORG,
   },
 ];
 

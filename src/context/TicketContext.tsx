@@ -209,6 +209,9 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (u.id === 'u1' && !u.isAdmin) {
           u.isAdmin = true;
         }
+        if (!u.organization) {
+          u.organization = { id: 'org_nuts_demo', name: 'Nuts Technologies', code: 'NUTS-2026' };
+        }
         return u;
       }
       return null;
@@ -1479,7 +1482,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         showToast({
           type: 'error',
           title: 'Action Restricted',
-          message: 'At least one active administrator is required in the workspace.',
+          message: 'You are the only active administrator. Please assign another team member as administrator before revoking your admin privileges.',
         });
         return false;
       }

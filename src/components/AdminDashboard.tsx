@@ -9,7 +9,6 @@ import {
   Users,
   UserCheck,
   UserMinus,
-  UserPlus,
   Search,
   Sliders,
   Plus,
@@ -25,6 +24,7 @@ import {
   Briefcase,
   HelpCircle,
   HeartHandshake,
+  Copy,
 } from 'lucide-react';
 
 const DEPARTURE_REASONS = [
@@ -44,7 +44,6 @@ export const AdminDashboard: React.FC = () => {
     openDepartmentModal,
     setUserEmploymentStatus,
     setUserAdminRole,
-    addTeamMember,
     showToast,
   } = useIssues();
 
@@ -59,13 +58,21 @@ export const AdminDashboard: React.FC = () => {
   const [departureReason, setDepartureReason] = useState(DEPARTURE_REASONS[0]);
   const [departureNotes, setDepartureNotes] = useState('');
 
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
-  const [newMemberName, setNewMemberName] = useState('');
-  const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [newMemberNickname, setNewMemberNickname] = useState('');
-  const [newMemberDepartment, setNewMemberDepartment] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState('');
-  const [newMemberIsAdmin, setNewMemberIsAdmin] = useState(false);
+  // Company Code state
+  const [copiedCode, setCopiedCode] = useState(false);
+  const companyName = currentUser?.organization?.name || 'Nuts Technologies';
+  const companyCode = currentUser?.organization?.code || 'NUTS-2026';
+
+  const handleCopyCompanyCode = () => {
+    navigator.clipboard.writeText(companyCode);
+    setCopiedCode(true);
+    showToast({
+      type: 'success',
+      title: 'Company Code Copied',
+      message: `Copied "${companyCode}". Share this code with new team members to register and join ${companyName}.`,
+    });
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
 
   // Security check: Only admins can view Admin Dashboard
   if (!currentUser?.isAdmin) {
@@ -130,8 +137,23 @@ export const AdminDashboard: React.FC = () => {
     });
   }, [users, statusFilter, roleFilter, deptFilter, search, departments]);
 
+  const activeAdmins = useMemo(() => {
+    return users.filter((u) => u.isAdmin && u.status !== 'departed');
+  }, [users]);
+
   // Handlers
   const handleOpenOffboardModal = (member: UserProfile) => {
+    if (member.isAdmin) {
+      const otherAdmins = users.filter((u) => u.id !== member.id && u.isAdmin && u.status !== 'departed');
+      if (otherAdmins.length === 0) {
+        showToast({
+          type: 'error',
+          title: 'Action Restricted',
+          message: 'Cannot offboard the only active administrator. Please assign another team member as administrator first.',
+        });
+        return;
+      }
+    }
     setOffboardTarget(member);
     setDepartureReason(DEPARTURE_REASONS[0]);
     setDepartureNotes('');
@@ -150,13 +172,13 @@ export const AdminDashboard: React.FC = () => {
 
   const handleToggleAdmin = (member: UserProfile) => {
     if (member.isAdmin) {
-      // Check if last admin
+      // Check if sole admin
       const otherAdmins = users.filter((u) => u.id !== member.id && u.isAdmin && u.status !== 'departed');
       if (otherAdmins.length === 0) {
         showToast({
           type: 'error',
-          title: 'Action Prohibited',
-          message: 'Workspace must retain at least one active administrator.',
+          title: 'Action Restricted',
+          message: 'You are the only active administrator. Please assign another team member as administrator before revoking your admin privileges.',
         });
         return;
       }
@@ -166,30 +188,6 @@ export const AdminDashboard: React.FC = () => {
     } else {
       setUserAdminRole(member.id, true);
     }
-  };
-
-  const handleCreateMember = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMemberName.trim() || !newMemberEmail.trim()) return;
-
-    const chosenDept = newMemberDepartment || departments[0]?.name || 'Engineering';
-
-    addTeamMember({
-      name: newMemberName.trim(),
-      email: newMemberEmail.trim(),
-      nickname: newMemberNickname.trim() || undefined,
-      department: chosenDept,
-      role: newMemberRole.trim() || 'Team Member',
-      isAdmin: newMemberIsAdmin,
-    });
-
-    setIsAddMemberOpen(false);
-    setNewMemberName('');
-    setNewMemberEmail('');
-    setNewMemberNickname('');
-    setNewMemberDepartment('');
-    setNewMemberRole('');
-    setNewMemberIsAdmin(false);
   };
 
   return (
@@ -235,11 +233,16 @@ export const AdminDashboard: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setIsAddMemberOpen(true)}
+              onClick={handleCopyCompanyCode}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white hover:bg-gray-800 rounded-md font-medium text-xs transition-colors shadow-xs cursor-pointer"
+              title={`Copy company invite code (${companyCode}) for onboarding employees`}
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Add Team Member</span>
+              {copiedCode ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+              <span>{copiedCode ? 'Code Copied!' : `Copy Company Code (${companyCode})`}</span>
             </button>
           </div>
         </div>
@@ -289,6 +292,50 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div className="text-2xl font-bold text-amber-600 font-mono">{adminCount}</div>
             <div className="text-[10px] text-gray-400 mt-1 font-mono">Workspace managers</div>
+          </div>
+        </div>
+
+        {/* Company Workspace Code & Employee Onboarding Card */}
+        <div className="bg-gradient-to-r from-gray-900 via-neutral-900 to-black text-white rounded-xl p-4 sm:p-5 shadow-xs border border-gray-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
+                <h3 className="font-bold text-sm text-white tracking-tight">
+                  {companyName} Workspace
+                </h3>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded font-semibold">
+                  Invite Code
+                </span>
+              </div>
+              <p className="text-xs text-gray-300 max-w-2xl leading-relaxed">
+                To onboard new team members, share your <strong>Company Code</strong> below. Employees use this code when creating their verified login accounts during signup.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 bg-white/10 backdrop-blur-xs p-1.5 rounded-lg border border-white/15">
+              <span className="px-3 py-1 bg-black/40 rounded border border-white/10 font-mono text-sm sm:text-base font-bold text-amber-300 tracking-wider select-all">
+                {companyCode}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyCompanyCode}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black hover:bg-gray-100 rounded font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                title="Copy company code to clipboard"
+              >
+                {copiedCode ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                    <span className="text-emerald-700">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Code</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -391,6 +438,7 @@ export const AdminDashboard: React.FC = () => {
               {filteredUsers.map((member) => {
                 const isDeparted = member.status === 'departed';
                 const isSelf = member.id === currentUser.id;
+                const isMemberSoleAdmin = member.isAdmin && activeAdmins.length <= 1;
 
                 return (
                   <div
@@ -480,18 +528,34 @@ export const AdminDashboard: React.FC = () => {
                       )}
 
                       {/* Admin Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAdmin(member)}
-                        className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
-                          member.isAdmin
-                            ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-black'
-                        }`}
-                        title={member.isAdmin ? 'Revoke Administrator Privileges' : 'Promote to Workspace Administrator'}
-                      >
-                        {member.isAdmin ? 'Revoke Admin' : 'Make Admin'}
-                      </button>
+                      {member.isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAdmin(member)}
+                          disabled={isMemberSoleAdmin}
+                          className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors ${
+                            isMemberSoleAdmin
+                              ? 'bg-amber-50/50 text-amber-700/60 border-amber-200/60 cursor-not-allowed'
+                              : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 cursor-pointer'
+                          }`}
+                          title={
+                            isMemberSoleAdmin
+                              ? 'You are the only active administrator. Assign another team member as administrator first.'
+                              : 'Revoke Administrator Privileges'
+                          }
+                        >
+                          {isMemberSoleAdmin ? 'Sole Admin' : 'Revoke Admin'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAdmin(member)}
+                          className="px-2 py-1 rounded text-[11px] font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-black transition-colors cursor-pointer"
+                          title="Promote to Workspace Administrator"
+                        >
+                          Make Admin
+                        </button>
+                      )}
 
                       {/* Employment Status Action (Offboard vs Reactivate) */}
                       {isDeparted ? (
@@ -508,8 +572,17 @@ export const AdminDashboard: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenOffboardModal(member)}
-                          className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                          title="Respectfully transition team member and disable account sign-in"
+                          disabled={isMemberSoleAdmin}
+                          className={`px-2.5 py-1 border rounded text-[11px] font-medium transition-colors ${
+                            isMemberSoleAdmin
+                              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                              : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 cursor-pointer'
+                          }`}
+                          title={
+                            isMemberSoleAdmin
+                              ? 'Cannot offboard the only active administrator. Assign another team member as administrator first.'
+                              : 'Respectfully transition team member and disable account sign-in'
+                          }
                         >
                           <span>Offboard...</span>
                         </button>
@@ -625,155 +698,6 @@ export const AdminDashboard: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================================================================ */}
-      {/* 2. ADD TEAM MEMBER MODAL */}
-      {/* ================================================================ */}
-      {isAddMemberOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs"
-            onClick={() => setIsAddMemberOpen(false)}
-          />
-          <div className="relative w-full max-w-md bg-white rounded-xl border border-gray-300 shadow-2xl overflow-hidden z-10 animate-fade-in text-xs flex flex-col font-sans">
-            {/* Header */}
-            <div className="px-5 py-3.5 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-black" />
-                <h3 className="font-bold text-gray-900 text-sm">
-                  Add New Team Member
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsAddMemberOpen(false)}
-                className="text-gray-400 hover:text-black p-1 rounded hover:bg-gray-200 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateMember} className="p-5 space-y-3.5">
-              {/* Profile-only disclaimer */}
-              <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-md text-[11px] text-blue-800 leading-relaxed">
-                <HelpCircle className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                <span>
-                  This creates a <strong>team directory profile only</strong> — no login credentials. The member registers themselves via the workspace invite link.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Jordan Hayes"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:border-black text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-1">
-                  Work Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. jordan@company.internal"
-                  value={newMemberEmail}
-                  onChange={(e) => setNewMemberEmail(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:border-black text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-1">
-                    Handle / Nickname
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. jhayes"
-                    value={newMemberNickname}
-                    onChange={(e) => setNewMemberNickname(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:border-black text-xs font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-1">
-                    Department *
-                  </label>
-                  <CustomSelect
-                    value={newMemberDepartment}
-                    onChange={(v) => setNewMemberDepartment(v)}
-                    options={departments.map((d) => ({
-                      value: d.name,
-                      label: `${d.name} (${d.code})`,
-                    }))}
-                    placeholder="Select department..."
-                    size="sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-1">
-                  Job Role / Title
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Senior Backend Engineer"
-                  value={newMemberRole}
-                  onChange={(e) => setNewMemberRole(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:border-black text-xs"
-                />
-              </div>
-
-              {/* Admin Checkbox */}
-              <div className="pt-1">
-                <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-amber-200 bg-amber-50/50 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={newMemberIsAdmin}
-                    onChange={(e) => setNewMemberIsAdmin(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-black focus:ring-0 accent-black cursor-pointer mt-0.5"
-                  />
-                  <div>
-                    <span className="font-semibold text-gray-900 text-xs flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                      Grant Administrator Privileges
-                    </span>
-                    <p className="text-[10px] text-gray-500 mt-0.5 leading-normal">
-                      Admins can create departments, invite and offboard team members, and designate other administrators.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setIsAddMemberOpen(false)}
-                  className="px-3 py-1.5 text-xs text-gray-600 hover:text-black font-medium border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 text-xs font-semibold bg-black text-white hover:bg-gray-800 rounded transition-colors shadow-xs cursor-pointer"
-                >
-                  Add Member
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

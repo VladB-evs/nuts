@@ -93,9 +93,9 @@ export const Header: React.FC<HeaderProps> = () => {
             </div>
           </button>
 
-          {/* Multi-Tenant Org Badge (Production) */}
-          {!isDemoMode && currentUser.organization && (
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-xs">
+          {/* Multi-Tenant Org Badge */}
+          {currentUser.organization && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-xs">
               <Building2 className="w-3.5 h-3.5 text-gray-500" />
               <span
                 className="font-semibold text-gray-900 max-w-[130px] truncate"
@@ -277,8 +277,8 @@ export const Header: React.FC<HeaderProps> = () => {
                   )}
                 </div>
 
-                {/* Real Company Workspace Info (Production Users) */}
-                {!isDemoMode && currentUser.organization && (
+                {/* Company Workspace Info */}
+                {currentUser.organization && (
                   <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-gray-900 flex items-center gap-1">
