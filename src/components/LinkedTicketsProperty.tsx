@@ -178,7 +178,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Link2 className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold">
+          <span className="text-[11px] font-mono text-gray-500">
             Linked Tickets
           </span>
           {linkedItems.length > 0 && (
@@ -339,13 +339,13 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
 
       {/* List of currently linked tickets */}
       {linkedItems.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-1.5">
           {linkedItems.map(({ link, target, targetDept, config }) => {
             if (!target) {
               return (
                 <div
                   key={link.issueId}
-                  className="inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 text-xs shadow-2xs"
+                  className="flex items-center justify-between p-2 rounded bg-white border border-gray-200 text-xs shadow-2xs"
                 >
                   <span className="text-gray-400 font-mono text-[10px] italic">
                     Deleted ticket ({link.issueId})
@@ -367,10 +367,10 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
               <div
                 key={target.id}
                 onClick={() => setSelectedIssue(target)}
-                className="group inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 hover:shadow-2xs transition-all cursor-pointer text-xs min-w-0 max-w-full"
+                className="group flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 hover:shadow-2xs transition-all cursor-pointer text-xs min-w-0 w-full"
                 title={`Open ${target.code}: ${target.title}`}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   {/* Relationship */}
                   <span
                     className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border shrink-0 ${config.badgeClass}`}
@@ -385,15 +385,15 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
 
                   {/* Ticket Number */}
                   <span
-                    className={`font-mono font-bold text-xs group-hover:text-blue-600 transition-colors shrink-0 ${
+                    className={`font-mono font-bold text-xs shrink-0 group-hover:text-blue-600 transition-colors ${
                       isDone ? 'line-through text-gray-400' : 'text-gray-900'
                     }`}
                   >
                     #{target.number}
                   </span>
 
-                  {/* Target Title snippet on wider view */}
-                  <span className="text-gray-500 text-xs truncate max-w-[120px] sm:max-w-[200px] md:max-w-xs group-hover:text-black">
+                  {/* Target Title snippet */}
+                  <span className="text-gray-500 text-xs truncate flex-1 group-hover:text-black">
                     {target.title}
                   </span>
                 </div>
@@ -418,14 +418,17 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
         </div>
       ) : (
         !isAdding && (
-          <div className="py-2.5 px-3 rounded-md border border-dashed border-gray-300 bg-gray-50 text-[11px] font-mono text-gray-400 flex items-center justify-between">
+          <div className="py-2 px-2.5 rounded-md border border-dashed border-gray-300 bg-gray-50 text-[11px] font-mono text-gray-400 flex items-center justify-between">
             <span>No linked tickets</span>
             <button
               type="button"
-              onClick={() => setIsAdding(true)}
+              onClick={() => {
+                setIsAdding(true);
+                setSearchQuery('');
+              }}
               className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer hover:underline"
             >
-              + Link ticket
+              + Link
             </button>
           </div>
         )

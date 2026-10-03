@@ -309,28 +309,6 @@ export const IssueDetail: React.FC = () => {
       {/* Assignee */}
       <div className="space-y-1.5">
         <label className="block text-[11px] font-mono text-gray-500">Assignee</label>
-        {selectedIssue.assignee && (
-          <UserHoverCard user={selectedIssue.assignee} className="w-full">
-            <div className="w-full p-2 bg-white border border-gray-200 rounded flex items-center gap-2 mb-1.5 shadow-2xs hover:border-gray-400 transition-colors cursor-pointer">
-              <UserAvatar user={selectedIssue.assignee} size="sm" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-gray-900 text-xs truncate">
-                    {selectedIssue.assignee.name}
-                  </span>
-                  {selectedIssue.assignee.nickname && (
-                    <span className="text-gray-400 font-mono text-[10px]">
-                      @{selectedIssue.assignee.nickname}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] text-gray-500 font-mono truncate">
-                  {selectedIssue.assignee.role || 'Member'} • {selectedIssue.assignee.department}
-                </p>
-              </div>
-            </div>
-          </UserHoverCard>
-        )}
         <CustomSelect
           value={selectedIssue.assignee?.id || 'unassigned'}
           onChange={(val) => {
@@ -344,6 +322,9 @@ export const IssueDetail: React.FC = () => {
           searchable={users.length > 5}
         />
       </div>
+
+      {/* Linked Tickets */}
+      <LinkedTicketsProperty currentIssue={selectedIssue} />
 
       {/* Meta Info */}
       <div className="pt-3 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-1.5">
@@ -471,8 +452,6 @@ export const IssueDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Linked Tickets (Placed above description) */}
-          <LinkedTicketsProperty currentIssue={selectedIssue} />
 
           {/* Description */}
           <div className="space-y-1.5">
@@ -508,9 +487,9 @@ export const IssueDetail: React.FC = () => {
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-gray-500 shrink-0" />
+                <MessageSquare className="w-4 h-4 text-gray-400 shrink-0" />
                 <span className="text-xs font-semibold text-gray-800 uppercase tracking-wider font-mono">
-                  Activity & Audit Log ({(selectedIssue.comments?.length || 0) + (selectedIssue.history?.length || 0)})
+                  Activity
                 </span>
               </div>
 
@@ -525,7 +504,7 @@ export const IssueDetail: React.FC = () => {
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  All ({(selectedIssue.comments?.length || 0) + (selectedIssue.history?.length || 0)})
+                  All
                 </button>
                 <button
                   type="button"
@@ -563,31 +542,23 @@ export const IssueDetail: React.FC = () => {
                         key={item.id}
                         className="p-3 sm:p-3.5 rounded-md border border-gray-200 bg-white text-xs space-y-2 shadow-2xs"
                       >
-                        <div className="flex items-center justify-between text-gray-500 font-mono text-[11px] flex-wrap gap-1.5">
-                          <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center justify-between text-xs text-gray-500 gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <UserHoverCard user={comment.author}>
                               <div className="inline-flex items-center gap-1.5 hover:text-black group/author cursor-pointer">
                                 <UserAvatar user={comment.author} size="xs" />
-                                <span className="font-semibold text-gray-900 font-sans group-hover/author:underline decoration-dotted decoration-gray-400">
+                                <span className="font-semibold text-gray-900 group-hover/author:underline">
                                   {comment.author.name}
                                 </span>
-                                {comment.author.nickname && (
-                                  <span className="text-gray-400 font-mono text-[10px]">
-                                    @{comment.author.nickname}
-                                  </span>
-                                )}
                               </div>
                             </UserHoverCard>
-                            <span className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.2 rounded font-mono">
-                              {comment.author.role ? `${comment.author.role} • ${comment.author.department}` : comment.author.department}
-                            </span>
                             {comment.statusChange && (
-                              <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium text-[10px] font-mono">
+                              <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-medium text-[10px] font-mono shrink-0">
                                 {comment.statusChange}
                               </span>
                             )}
                           </div>
-                          <span title={formatDateTime(comment.createdAt)} className="text-gray-400 text-[10px] ml-auto">
+                          <span title={formatDateTime(comment.createdAt)} className="text-gray-400 text-[11px] font-mono shrink-0 ml-auto">
                             {timeAgo(comment.createdAt)}
                           </span>
                         </div>
@@ -612,31 +583,21 @@ export const IssueDetail: React.FC = () => {
                         </UserHoverCard>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between text-[11px] font-mono text-gray-500 mb-1 flex-wrap gap-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1 gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                             <UserHoverCard user={hist.actor}>
-                              <div className="inline-flex items-center gap-1 hover:text-black group/actor cursor-pointer">
-                                <span className="font-semibold text-gray-900 font-sans group-hover/actor:underline decoration-dotted decoration-gray-400">
-                                  {hist.actor.name}
-                                </span>
-                                {hist.actor.nickname && (
-                                  <span className="text-gray-400 font-mono text-[10px]">
-                                    @{hist.actor.nickname}
-                                  </span>
-                                )}
-                              </div>
+                              <span className="font-semibold text-gray-900 font-sans hover:text-black hover:underline cursor-pointer">
+                                {hist.actor.name}
+                              </span>
                             </UserHoverCard>
-                            <span className="text-gray-400 text-[10px]">
-                              ({hist.actor.role ? `${hist.actor.role}, ${hist.actor.department}` : hist.actor.department})
-                            </span>
-                            <span className="text-gray-600">
+                            <span className="text-gray-500">
                               {hist.field === 'Issue'
                                 ? 'created this issue'
                                 : `changed ${hist.field}`}
                             </span>
                           </div>
                           <span
-                            className="text-gray-400 text-[10px] ml-auto"
+                            className="text-gray-400 text-[11px] font-mono shrink-0 ml-auto"
                             title={formatDateTime(hist.createdAt)}
                           >
                             {timeAgo(hist.createdAt)}
