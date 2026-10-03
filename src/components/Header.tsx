@@ -184,18 +184,6 @@ export const Header: React.FC<HeaderProps> = () => {
           </button>
         )}
 
-        {/* Department Settings (Admin Exclusive) */}
-        {currentUser.isAdmin && (
-          <button
-            onClick={() => openDepartmentModal()}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-gray-400 rounded-md transition-colors"
-            title="Department Settings & Custom Fields"
-          >
-            <Settings2 className="w-3.5 h-3.5 text-gray-500" />
-            <span className="font-mono text-[11px]">Departments</span>
-          </button>
-        )}
-
         {/* New Issue Button */}
         <button
           type="button"

@@ -231,7 +231,7 @@ export const AdminDashboard: React.FC = () => {
               title="Create new department (Admin exclusive)"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ New Department</span>
+              <span>New Department</span>
             </button>
 
             <button
@@ -239,7 +239,7 @@ export const AdminDashboard: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white hover:bg-gray-800 rounded-md font-medium text-xs transition-colors shadow-xs cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Add Team Member</span>
+              <span>Add Team Member</span>
             </button>
           </div>
         </div>
@@ -343,29 +343,30 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Role Filter */}
-            <select
+            <CustomSelect
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
-              className="py-1.5 px-2.5 border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:border-black text-xs cursor-pointer"
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admins Only</option>
-              <option value="member">Standard Members</option>
-            </select>
+              onChange={(v) => setRoleFilter(v as any)}
+              options={[
+                { value: 'all', label: 'All Roles' },
+                { value: 'admin', label: 'Admins Only' },
+                { value: 'member', label: 'Standard Members' },
+              ]}
+              size="xs"
+            />
 
             {/* Department Filter */}
-            <select
+            <CustomSelect
               value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-              className="py-1.5 px-2.5 border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:border-black text-xs cursor-pointer"
-            >
-              <option value="all">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.code})
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setDeptFilter(v)}
+              options={[
+                { value: 'all', label: 'All Departments' },
+                ...departments.map((d) => ({
+                  value: d.id,
+                  label: `${d.name} (${d.code})`,
+                })),
+              ]}
+              size="xs"
+            />
           </div>
         </div>
 
@@ -584,17 +585,12 @@ export const AdminDashboard: React.FC = () => {
                 <label className="block text-gray-700 font-semibold mb-1">
                   Reason for Transition *
                 </label>
-                <select
+                <CustomSelect
                   value={departureReason}
-                  onChange={(e) => setDepartureReason(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:border-black text-xs cursor-pointer"
-                >
-                  {DEPARTURE_REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setDepartureReason(v)}
+                  options={DEPARTURE_REASONS.map((r) => ({ value: r, label: r }))}
+                  size="sm"
+                />
               </div>
 
               {/* Optional Transition Notes */}
@@ -660,6 +656,14 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateMember} className="p-5 space-y-3.5">
+              {/* Profile-only disclaimer */}
+              <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-md text-[11px] text-blue-800 leading-relaxed">
+                <HelpCircle className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                <span>
+                  This creates a <strong>team directory profile only</strong> — no login credentials. The member registers themselves via the workspace invite link.
+                </span>
+              </div>
+
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">
                   Full Name *
@@ -706,17 +710,16 @@ export const AdminDashboard: React.FC = () => {
                   <label className="block text-gray-700 font-semibold mb-1">
                     Department *
                   </label>
-                  <select
+                  <CustomSelect
                     value={newMemberDepartment}
-                    onChange={(e) => setNewMemberDepartment(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:border-black text-xs cursor-pointer"
-                  >
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.name}>
-                        {d.name} ({d.code})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => setNewMemberDepartment(v)}
+                    options={departments.map((d) => ({
+                      value: d.name,
+                      label: `${d.name} (${d.code})`,
+                    }))}
+                    placeholder="Select department..."
+                    size="sm"
+                  />
                 </div>
               </div>
 
