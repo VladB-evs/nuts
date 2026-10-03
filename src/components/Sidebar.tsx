@@ -75,7 +75,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-56 border-r border-gray-200 bg-white py-3 px-2 flex flex-col h-[calc(100vh-3.5rem)] sticky top-14 select-none shrink-0 text-xs">
+    <aside className="w-56 border-r border-gray-200 bg-white py-3 px-2 flex flex-col h-full overflow-y-auto select-none shrink-0 text-xs">
       {/* Views */}
       <div className="space-y-0.5 mb-5">
         <div className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">

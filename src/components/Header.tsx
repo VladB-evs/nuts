@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = () => {
   const coworkers = users.filter((u) => u.id !== currentUser.id);
 
   return (
-    <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between sticky top-0 z-30 select-none">
+    <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between shrink-0 select-none z-30">
       {/* Brand & Organization */}
       <div className="flex items-center gap-3">
         <button

@@ -33,10 +33,10 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans">
+    <div className="h-screen bg-white text-gray-900 flex flex-col font-sans overflow-hidden">
       {/* Demo Sandbox Alert Banner */}
       {isDemoMode && (
-        <div className="bg-amber-500 text-white text-xs px-4 py-1.5 flex items-center justify-between font-medium shadow-xs">
+        <div className="bg-amber-500 text-white text-xs px-4 py-1.5 flex items-center justify-between font-medium shadow-xs shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-bold uppercase tracking-wider text-[10px] bg-black/25 px-1.5 py-0.5 rounded">
               Sandbox Demo Mode
@@ -58,12 +58,12 @@ const AppContent: React.FC = () => {
       <Header />
 
       {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left Navigation */}
         <Sidebar />
 
         {/* Center Main Area: Detail view, Timeline view, or Table list */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-white">
+        <main className="flex-1 flex flex-col overflow-hidden bg-white min-h-0">
           {selectedIssue ? (
             <IssueDetail />
           ) : activeTab === 'timeline' ? (

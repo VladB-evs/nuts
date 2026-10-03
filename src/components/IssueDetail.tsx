@@ -194,9 +194,9 @@ export const IssueDetail: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white flex flex-col">
+    <div className="flex-1 overflow-hidden bg-white flex flex-col h-full min-h-0">
       {/* Top Header */}
-      <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between text-xs sticky top-0 z-10 select-none">
+      <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between text-xs shrink-0 select-none">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSelectedIssue(null)}
@@ -239,9 +239,9 @@ export const IssueDetail: React.FC = () => {
       </div>
 
       {/* Main Split Layout: Description & Comments on Left, Properties on Right */}
-      <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-hidden min-h-0">
         {/* Left Column: Title, Description, Thread */}
-        <div className="flex-1 min-w-0 p-6 space-y-6 overflow-y-auto">
+        <div className="flex-1 min-w-0 p-6 space-y-6 overflow-y-auto min-h-0">
           {/* Duplicate Auto-Close Callout Banner */}
           {selectedIssue.status === 'CLOSED' && duplicateLink && (
             <div className="bg-purple-50/90 border border-purple-200 rounded-lg p-3.5 text-xs flex items-center justify-between gap-3 text-purple-900 shadow-2xs">
@@ -600,7 +600,7 @@ export const IssueDetail: React.FC = () => {
         </div>
 
         {/* Right Column: Properties Sidebar */}
-        <div className="w-full lg:w-72 xl:w-80 p-6 space-y-5 bg-gray-50/50 text-xs select-none shrink-0 overflow-y-auto">
+        <div className="w-full lg:w-72 xl:w-80 p-6 space-y-5 bg-gray-50/50 text-xs select-none shrink-0 overflow-y-auto min-h-0">
           <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold block pb-2 border-b border-gray-100">
             Issue Properties
           </span>

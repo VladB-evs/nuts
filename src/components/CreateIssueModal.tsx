@@ -454,19 +454,22 @@ export const CreateIssueModal: React.FC = () => {
                 {selectedLinks.map((link) => {
                   const targetIss = issues.find((i) => i.id === link.issueId);
                   const config = RELATION_CONFIG[link.relation] || RELATION_CONFIG.relates_to;
+                  const dept = targetIss ? departments.find((d) => d.id === targetIss.departmentId) : null;
                   return (
                     <div
                       key={link.issueId}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-xs"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.8 bg-gray-50 border border-gray-300 rounded text-xs"
                     >
                       <span className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded border ${config.badgeClass}`}>
                         {config.label}
                       </span>
+                      {dept && (
+                        <span className="text-[9px] font-mono font-semibold px-1 py-0.2 bg-gray-100 text-gray-700 border border-gray-200 rounded">
+                          {dept.code}
+                        </span>
+                      )}
                       <span className="font-mono font-bold text-gray-900 text-[11px]">
-                        {targetIss ? targetIss.code : link.issueId}
-                      </span>
-                      <span className="text-gray-600 truncate max-w-[130px] text-[11px]">
-                        {targetIss?.title || ''}
+                        #{targetIss?.number || targetIss?.code || link.issueId}
                       </span>
                       <button
                         type="button"

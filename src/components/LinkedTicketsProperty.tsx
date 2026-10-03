@@ -70,10 +70,10 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
   const searchInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Auto-focus search input when opening
+  // Auto-focus search input when opening without scrolling the page
   useEffect(() => {
     if (isAdding && searchInputRef.current) {
-      searchInputRef.current.focus();
+      searchInputRef.current.focus({ preventScroll: true });
     }
   }, [isAdding]);
 
@@ -408,51 +408,38 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               <div
                 key={target.id}
                 onClick={() => setSelectedIssue(target)}
-                className={`group relative flex items-start justify-between gap-2 p-2 rounded-md bg-white border hover:shadow-2xs transition-all cursor-pointer ${
+                className={`group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border hover:shadow-2xs transition-all cursor-pointer ${
                   isDup
                     ? 'border-purple-200 hover:border-purple-300 hover:bg-purple-50/20'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
                 }`}
                 title={`Open ${target.code}: ${target.title}`}
               >
-                <div className="min-w-0 flex-1 space-y-1">
-                  {/* Top row: Relation badge + Dept code + Issue code + Status */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border shrink-0 ${config.badgeClass}`}
-                    >
-                      {config.label}
-                    </span>
+                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                  {/* Relationship */}
+                  <span
+                    className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border shrink-0 ${config.badgeClass}`}
+                  >
+                    {config.label}
+                  </span>
 
-                    {targetDept && (
-                      <span className="text-[9px] font-mono font-semibold px-1 py-0.2 bg-gray-100 text-gray-700 border border-gray-200 rounded">
-                        {targetDept.code}
-                      </span>
-                    )}
+                  {/* Department Code */}
+                  <span className="text-[9px] font-mono font-semibold px-1.5 py-0.2 bg-gray-100 text-gray-700 border border-gray-200 rounded shrink-0">
+                    {targetDept?.code || target.departmentId}
+                  </span>
 
-                    <span
-                      className={`font-mono font-bold text-xs group-hover:text-blue-600 transition-colors ${
-                        isDone ? 'line-through text-gray-400' : 'text-gray-900'
-                      }`}
-                    >
-                      {target.code}
-                    </span>
-
-                    {getStatusBadge(target.status)}
-                  </div>
-
-                  {/* Title row */}
-                  <p
-                    className={`text-xs truncate font-sans ${
-                      isDone ? 'text-gray-400' : 'text-gray-700 group-hover:text-gray-900'
+                  {/* Ticket Number */}
+                  <span
+                    className={`font-mono font-bold text-xs group-hover:text-blue-600 transition-colors shrink-0 ${
+                      isDone ? 'line-through text-gray-400' : 'text-gray-900'
                     }`}
                   >
-                    {target.title}
-                  </p>
+                    #{target.number}
+                  </span>
                 </div>
 
-                {/* Right actions: Unlink button */}
-                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                {/* Right actions: View icon + Unlink button */}
+                <div className="flex items-center gap-1 shrink-0">
                   <span
                     className="opacity-0 group-hover:opacity-100 text-gray-400 group-hover:text-blue-600 transition-opacity"
                     title="View ticket"
@@ -466,7 +453,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
                       unlinkIssues(currentIssue.id, target.id);
                     }}
                     className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                    title={`Unlink ${target.code}`}
+                    title={`Unlink #${target.number}`}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
