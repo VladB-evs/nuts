@@ -12,6 +12,7 @@ import {
   HistoryEntry,
   CustomFieldDefinition,
   Organization,
+  EmploymentStatus,
 } from '../types';
 
 export const STORAGE_AUTH_TOKEN = 'nuts_session_token';
@@ -71,9 +72,13 @@ export async function ensureMultiTenantSchema(): Promise<void> {
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_organizations_code ON public.organizations(code);`;
 
-    // 2. Profiles org_id & password_hash & optional department
+    // 2. Profiles org_id, password_hash, admin & employment columns
     await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;`;
     await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password_hash TEXT;`;
+    await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;`;
+    await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';`;
+    await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS departure_reason TEXT;`;
+    await sql`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS departed_at TIMESTAMPTZ;`;
     await sql`ALTER TABLE public.profiles ALTER COLUMN department DROP NOT NULL;`;
     await sql`ALTER TABLE public.profiles ALTER COLUMN department SET DEFAULT '';`;
     await sql`CREATE INDEX IF NOT EXISTS idx_profiles_org_id ON public.profiles(org_id);`;
@@ -327,7 +332,7 @@ export async function loginWithEmail(email: string, password?: string): Promise<
   // Find profile with its organization
   const rows = await sql`
     SELECT 
-      p.id, p.org_id, p.name, p.nickname, p.email, p.role, p.department, p.avatar_url, p.is_admin, p.password_hash,
+      p.id, p.org_id, p.name, p.nickname, p.email, p.role, p.department, p.avatar_url, p.is_admin, p.status, p.departure_reason, p.departed_at, p.password_hash,
       o.id as organization_id, o.name as organization_name, o.code as organization_code
     FROM public.profiles p
     LEFT JOIN public.organizations o ON p.org_id = o.id
@@ -383,6 +388,9 @@ export async function loginWithEmail(email: string, password?: string): Promise<
     orgId: userRow.org_id || undefined,
     organization: org,
     isAdmin: Boolean(userRow.is_admin),
+    status: (userRow.status as EmploymentStatus) || 'active',
+    departureReason: userRow.departure_reason || undefined,
+    departedAt: userRow.departed_at ? new Date(userRow.departed_at).toISOString() : undefined,
     name: userRow.name,
     nickname: userRow.nickname || '',
     email: userRow.email,
@@ -408,7 +416,7 @@ export async function validateSessionToken(token: string): Promise<UserProfile |
 
     const rows = await sql`
       SELECT 
-        p.id, p.org_id, p.name, p.nickname, p.email, p.role, p.department, p.avatar_url, p.is_admin,
+        p.id, p.org_id, p.name, p.nickname, p.email, p.role, p.department, p.avatar_url, p.is_admin, p.status, p.departure_reason, p.departed_at,
         o.id as organization_id, o.name as organization_name, o.code as organization_code
       FROM public.sessions s
       JOIN public.profiles p ON s.user_id = p.id
@@ -431,6 +439,9 @@ export async function validateSessionToken(token: string): Promise<UserProfile |
           }
         : undefined,
       isAdmin: Boolean(r.is_admin),
+      status: (r.status as EmploymentStatus) || 'active',
+      departureReason: r.departure_reason || undefined,
+      departedAt: r.departed_at ? new Date(r.departed_at).toISOString() : undefined,
       name: r.name,
       nickname: r.nickname || '',
       email: r.email,
@@ -466,7 +477,7 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
     if (orgId) {
       [deptRows, profileRows] = await Promise.all([
         sql`SELECT id, org_id, name, code, description, custom_fields FROM public.departments WHERE org_id = ${orgId} ORDER BY code ASC;`,
-        sql`SELECT id, org_id, name, nickname, email, role, department, avatar_url, is_admin FROM public.profiles WHERE org_id = ${orgId} ORDER BY name ASC;`,
+        sql`SELECT id, org_id, name, nickname, email, role, department, avatar_url, is_admin, status, departure_reason, departed_at FROM public.profiles WHERE org_id = ${orgId} ORDER BY name ASC;`,
       ]);
 
       if (!deptRows || deptRows.length === 0) {
@@ -490,7 +501,7 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
     } else {
       [deptRows, profileRows] = await Promise.all([
         sql`SELECT id, org_id, name, code, description, custom_fields FROM public.departments WHERE org_id IS NULL ORDER BY code ASC;`,
-        sql`SELECT id, org_id, name, nickname, email, role, department, avatar_url, is_admin FROM public.profiles WHERE org_id IS NULL ORDER BY name ASC;`,
+        sql`SELECT id, org_id, name, nickname, email, role, department, avatar_url, is_admin, status, departure_reason, departed_at FROM public.profiles WHERE org_id IS NULL ORDER BY name ASC;`,
       ]);
     }
 
@@ -498,6 +509,9 @@ export async function fetchAllDataFromNeon(orgId?: string): Promise<{
       id: p.id,
       orgId: p.org_id,
       isAdmin: Boolean(p.is_admin),
+      status: (p.status as EmploymentStatus) || 'active',
+      departureReason: p.departure_reason || undefined,
+      departedAt: p.departed_at ? new Date(p.departed_at).toISOString() : undefined,
       name: p.name,
       nickname: p.nickname || '',
       email: p.email,
@@ -880,6 +894,10 @@ export async function updateProfileInNeon(userId: string, updates: Partial<UserP
         role = COALESCE(${updates.role || null}, role),
         avatar_url = COALESCE(${updates.avatarUrl || null}, avatar_url),
         department = COALESCE(${updates.department || null}, department),
+        is_admin = COALESCE(${updates.isAdmin !== undefined ? updates.isAdmin : null}, is_admin),
+        status = COALESCE(${updates.status || null}, status),
+        departure_reason = COALESCE(${updates.departureReason || null}, departure_reason),
+        departed_at = COALESCE(${updates.departedAt ? new Date(updates.departedAt) : null}, departed_at),
         updated_at = NOW()
       WHERE id = ${userId};
     `;
