@@ -244,7 +244,7 @@ export const IssueTable: React.FC = () => {
       {/* Issues Table */}
       {filteredIssues.length > 0 ? (
         <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[600px] text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-gray-200 bg-white text-gray-500 font-mono text-[11px] select-none">
                 <th className="py-2 px-3 w-8 text-center"></th>

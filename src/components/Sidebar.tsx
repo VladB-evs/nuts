@@ -11,6 +11,7 @@ import {
   Plus,
   Settings2,
   Clock,
+  X,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -27,6 +28,8 @@ export const Sidebar: React.FC = () => {
     issues,
     openDepartmentModal,
     setSelectedIssue,
+    isMobileMenuOpen,
+    setIsMobileMenuOpen,
   } = useIssues();
 
   if (!currentUser) return null;
@@ -74,8 +77,8 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
-  return (
-    <aside className="w-56 border-r border-gray-200 bg-white py-3 px-2 flex flex-col h-full overflow-y-auto select-none shrink-0 text-xs">
+  const renderNavContent = () => (
+    <>
       {/* Views */}
       <div className="space-y-0.5 mb-5">
         <div className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -87,14 +90,16 @@ export const Sidebar: React.FC = () => {
           return (
             <button
               key={v.id}
+              type="button"
               onClick={() => {
                 setNavView(v.id);
                 setSelectedDepartment('all');
                 setSelectedIssue(null);
                 setActiveTab('table');
+                setIsMobileMenuOpen(false);
               }}
               title={v.tooltip}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group cursor-pointer ${
                 isSelected && activeTab === 'table'
                   ? 'bg-gray-100 font-semibold text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -127,9 +132,11 @@ export const Sidebar: React.FC = () => {
           Analytics & Flow
         </div>
         <button
+          type="button"
           onClick={() => {
             setActiveTab('timeline');
             setSelectedIssue(null);
+            setIsMobileMenuOpen(false);
           }}
           title="Visualize ticket lifecycle durations, bottlenecks, and transitions"
           className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group cursor-pointer ${
@@ -156,15 +163,23 @@ export const Sidebar: React.FC = () => {
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => openDepartmentModal(selectedDepartment !== 'all' ? selectedDepartment : undefined)}
-              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors"
+              type="button"
+              onClick={() => {
+                openDepartmentModal(selectedDepartment !== 'all' ? selectedDepartment : undefined);
+                setIsMobileMenuOpen(false);
+              }}
+              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
               title="Department Settings"
             >
               <Settings2 className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={() => openDepartmentModal()}
-              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors"
+              type="button"
+              onClick={() => {
+                openDepartmentModal();
+                setIsMobileMenuOpen(false);
+              }}
+              className="text-gray-400 hover:text-black p-0.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
               title="Add new department"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -183,6 +198,7 @@ export const Sidebar: React.FC = () => {
                 setSelectedDepartment(dept.id);
                 setSelectedIssue(null);
                 setActiveTab('table');
+                setIsMobileMenuOpen(false);
               }}
               className={`group w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
                 isSelected
@@ -203,6 +219,7 @@ export const Sidebar: React.FC = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     openDepartmentModal(dept.id);
+                    setIsMobileMenuOpen(false);
                   }}
                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-black p-0.5 ml-0.5 rounded hover:bg-gray-200 transition-opacity"
                 >
@@ -213,6 +230,48 @@ export const Sidebar: React.FC = () => {
           );
         })}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* 1. Desktop Static Sidebar */}
+      <aside className="hidden md:flex md:w-56 border-r border-gray-200 bg-white py-3 px-2 flex-col h-full overflow-y-auto select-none shrink-0 text-xs">
+        {renderNavContent()}
+      </aside>
+
+      {/* 2. Mobile Responsive Slide-out Drawer */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Drawer container */}
+          <aside className="relative w-72 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col py-4 px-3 overflow-y-auto select-none text-xs z-10 animate-fade-in">
+            <div className="flex items-center justify-between pb-3 mb-2 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-black text-white flex items-center justify-center font-bold text-xs tracking-wider">
+                  N
+                </div>
+                <span className="font-bold text-sm text-gray-900 tracking-tight">NUTS Navigation</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1.5 rounded-md text-gray-500 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {renderNavContent()}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

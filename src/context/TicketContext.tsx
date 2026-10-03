@@ -78,6 +78,8 @@ interface IssueContextType {
   setIsCreateModalOpen: (open: boolean) => void;
   activeTab: 'table' | 'timeline';
   setActiveTab: (tab: 'table' | 'timeline') => void;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Toast notifications
   toasts: ToastNotification[];
@@ -368,6 +370,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [subFilter, setSubFilter] = useState('ALL');
   const [activeTab, setActiveTab] = useState<'table' | 'timeline'>('table');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
@@ -1570,6 +1573,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSubFilter,
         activeTab,
         setActiveTab,
+        isMobileMenuOpen,
+        setIsMobileMenuOpen,
         isCreateModalOpen,
         setIsCreateModalOpen,
         toasts,

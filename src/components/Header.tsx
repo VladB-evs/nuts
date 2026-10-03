@@ -12,6 +12,7 @@ import {
   Building2,
   Copy,
   Users as UsersIcon,
+  Menu,
 } from 'lucide-react';
 
 interface HeaderProps {}
@@ -30,6 +31,8 @@ export const Header: React.FC<HeaderProps> = () => {
     openDepartmentModal,
     isDemoMode,
     exitDemoMode,
+    isMobileMenuOpen,
+    setIsMobileMenuOpen,
   } = useIssues();
 
   const [userDropdown, setUserDropdown] = useState(false);
@@ -58,19 +61,29 @@ export const Header: React.FC<HeaderProps> = () => {
   const coworkers = users.filter((u) => u.id !== currentUser.id);
 
   return (
-    <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between shrink-0 select-none z-30">
+    <header className="h-14 border-b border-gray-200 bg-white px-3 sm:px-4 flex items-center justify-between shrink-0 select-none z-30">
       {/* Brand & Organization */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Mobile Hamburger Menu Toggle */}
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+          className="md:hidden p-1.5 -ml-1 text-gray-700 hover:text-black hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+          aria-label="Toggle navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         <button
           onClick={() => setSelectedIssue(null)}
-          className="flex items-center gap-2.5 focus:outline-none cursor-pointer"
+          className="flex items-center gap-2 sm:gap-2.5 focus:outline-none cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-sm tracking-wider">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-xs sm:text-sm tracking-wider">
             N
           </div>
           <div className="text-left">
             <span className="font-bold text-sm text-gray-900 tracking-tight">NUTS</span>
-            <span className="text-[11px] text-gray-500 ml-1.5 font-mono">Issue Tracker</span>
+            <span className="hidden sm:inline text-[11px] text-gray-500 ml-1.5 font-mono">Issue Tracker</span>
           </div>
         </button>
 
@@ -120,7 +133,7 @@ export const Header: React.FC<HeaderProps> = () => {
       </div>
 
       {/* Center Search Input (Google Buganizer style) */}
-      <div className="flex-1 max-w-xl mx-4">
+      <div className="hidden sm:block flex-1 max-w-xl mx-2 sm:mx-4">
         <div className="relative">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -134,7 +147,7 @@ export const Header: React.FC<HeaderProps> = () => {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* Department Settings */}
         <button
           onClick={() => openDepartmentModal()}
@@ -148,10 +161,11 @@ export const Header: React.FC<HeaderProps> = () => {
         {/* New Issue Button */}
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm cursor-pointer"
+          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm cursor-pointer shrink-0"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>New Issue</span>
+          <span className="hidden sm:inline">New Issue</span>
+          <span className="sm:hidden">Issue</span>
         </button>
 
         {/* Current user & Account Dropdown */}

@@ -249,17 +249,17 @@ export const CreateIssueModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs"
         onClick={() => setIsCreateModalOpen(false)}
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[90vh] flex flex-col font-sans">
+      <div className="relative w-full max-w-lg bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden z-10 animate-fade-in text-xs max-h-[92vh] flex flex-col font-sans">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-900 text-sm">Create New Issue</span>
             {currentDept && (
@@ -277,7 +277,7 @@ export const CreateIssueModal: React.FC = () => {
         </div>
 
         {/* Body Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
           {/* Issue Title */}
           <div>
             <label className="block text-gray-700 font-semibold mb-1">Issue Title *</label>
