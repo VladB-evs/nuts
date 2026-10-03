@@ -219,9 +219,6 @@ export const IssueDetail: React.FC = () => {
         />
       </div>
 
-      {/* Linked Tickets (Cross-Department & Multi-Link) */}
-      <LinkedTicketsProperty currentIssue={selectedIssue} />
-
       {/* Department Specific Properties */}
       {currentDept?.customFields && currentDept.customFields.length > 0 &&
         currentDept.customFields.map((field) => {
@@ -501,6 +498,9 @@ export const IssueDetail: React.FC = () => {
               <span className="text-[11px] text-gray-400 shrink-0">{formatDateTime(selectedIssue.createdAt)}</span>
             </div>
           </div>
+
+          {/* Linked Tickets (Placed above description) */}
+          <LinkedTicketsProperty currentIssue={selectedIssue} />
 
           {/* Description */}
           <div className="space-y-1.5">

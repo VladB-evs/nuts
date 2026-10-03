@@ -17,6 +17,7 @@ import {
 
 interface LinkedTicketsPropertyProps {
   currentIssue: Issue;
+  className?: string;
 }
 
 const RELATION_OPTIONS: SelectOption[] = [
@@ -50,7 +51,10 @@ const RELATION_OPTIONS: SelectOption[] = [
   },
 ];
 
-export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ currentIssue }) => {
+export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
+  currentIssue,
+  className = '',
+}) => {
   const { issues, departments, linkIssues, unlinkIssues, setSelectedIssue } = useIssues();
 
   const [isAdding, setIsAdding] = useState(false);
@@ -169,14 +173,14 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
   };
 
   return (
-    <div className="space-y-2 pt-2 border-t border-gray-200 w-full min-w-0">
+    <div className={`space-y-1.5 w-full min-w-0 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Link2 className="w-3.5 h-3.5 text-gray-500" />
-          <label className="text-[11px] font-mono text-gray-700 font-semibold tracking-wide">
+          <Link2 className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold">
             Linked Tickets
-          </label>
+          </span>
           {linkedItems.length > 0 && (
             <span className="text-[10px] font-mono px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded-full font-bold">
               {linkedItems.length}
@@ -335,13 +339,13 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
       {/* List of currently linked tickets */}
       {linkedItems.length > 0 ? (
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-2">
           {linkedItems.map(({ link, target, targetDept, config }) => {
             if (!target) {
               return (
                 <div
                   key={link.issueId}
-                  className="flex items-center justify-between p-2 rounded bg-white border border-gray-200 text-xs"
+                  className="inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 text-xs shadow-2xs"
                 >
                   <span className="text-gray-400 font-mono text-[10px] italic">
                     Deleted ticket ({link.issueId})
@@ -349,7 +353,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
                   <button
                     type="button"
                     onClick={() => unlinkIssues(currentIssue.id, link.issueId)}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 cursor-pointer"
+                    className="p-0.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 cursor-pointer"
                     title="Remove dangling link"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -363,10 +367,10 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
               <div
                 key={target.id}
                 onClick={() => setSelectedIssue(target)}
-                className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-2xs transition-all cursor-pointer"
+                className="group inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 hover:shadow-2xs transition-all cursor-pointer text-xs min-w-0 max-w-full"
                 title={`Open ${target.code}: ${target.title}`}
               >
-                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                <div className="flex items-center gap-1.5 min-w-0">
                   {/* Relationship */}
                   <span
                     className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border shrink-0 ${config.badgeClass}`}
@@ -387,23 +391,22 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
                   >
                     #{target.number}
                   </span>
+
+                  {/* Target Title snippet on wider view */}
+                  <span className="text-gray-500 text-xs truncate max-w-[120px] sm:max-w-[200px] md:max-w-xs group-hover:text-black">
+                    {target.title}
+                  </span>
                 </div>
 
-                {/* Right actions: View icon + Unlink button */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <span
-                    className="opacity-0 group-hover:opacity-100 text-gray-400 group-hover:text-blue-600 transition-opacity"
-                    title="View ticket"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </span>
+                {/* Right actions: Unlink button */}
+                <div className="flex items-center gap-1 shrink-0 ml-1">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       unlinkIssues(currentIssue.id, target.id);
                     }}
-                    className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                    className="p-0.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
                     title={`Unlink #${target.number}`}
                   >
                     <X className="w-3.5 h-3.5" />
@@ -415,7 +418,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
         </div>
       ) : (
         !isAdding && (
-          <div className="py-2 px-2.5 rounded border border-dashed border-gray-300 bg-gray-50 text-[11px] font-mono text-gray-400 flex items-center justify-between">
+          <div className="py-2.5 px-3 rounded-md border border-dashed border-gray-300 bg-gray-50 text-[11px] font-mono text-gray-400 flex items-center justify-between">
             <span>No linked tickets</span>
             <button
               type="button"
