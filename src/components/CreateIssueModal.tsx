@@ -33,6 +33,13 @@ const RELATION_OPTIONS: SelectOption[] = [
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-mono text-[9px]',
     description: 'Blocked until target ticket is resolved',
   },
+  {
+    value: 'duplicate',
+    label: 'Duplicate',
+    badge: 'Duplicate',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-mono text-[9px]',
+    description: 'Duplicate ticket',
+  },
 ];
 
 const PRIORITY_OPTIONS: SelectOption[] = [

@@ -541,7 +541,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       customAttrs.linkedIssues = initialLinkedIssues;
     }
 
-    const initialStatus: Status = assignee ? 'ASSIGNED' : 'NEW';
+    const isDuplicate = initialLinkedIssues.some((l) => l.relation === 'duplicate');
+    const initialStatus: Status = isDuplicate ? 'CLOSED' : assignee ? 'ASSIGNED' : 'NEW';
     const initialComments: Comment[] = [];
 
     const newIssue: Issue = {
@@ -580,6 +581,19 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           message: `Created issue ${dept.code}-${newNum} in ${dept.name}`,
           createdAt: now,
         },
+        ...(isDuplicate
+          ? [
+              {
+                id: `h-${Date.now()}-dup-stat`,
+                actor: reporterUser,
+                field: 'Status',
+                oldValue: assignee ? 'ASSIGNED' : 'NEW',
+                newValue: 'CLOSED',
+                message: 'Closed as duplicate ticket',
+                createdAt: now,
+              },
+            ]
+          : []),
       ],
     };
 
@@ -935,6 +949,31 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const targetIssueObj = issues.find((i) => i.id === targetIssueId);
     if (!sourceIssueObj || !targetIssueObj) return;
 
+    const isDuplicate = relation === 'duplicate';
+    const sourceShouldClose = isDuplicate && sourceIssueObj.status !== 'CLOSED';
+
+    const sourceAutoCloseComment: Comment | null = sourceShouldClose
+      ? {
+          id: `c-${Date.now()}-dup-${sourceIssueId}`,
+          author: actorUser,
+          text: `Closed as duplicate of #${targetIssueObj.code} (${targetIssueObj.title}).`,
+          createdAt: now,
+          statusChange: `Status changed from ${sourceIssueObj.status} to CLOSED`,
+        }
+      : null;
+
+    const sourceStatusHistory: HistoryEntry | null = sourceShouldClose
+      ? {
+          id: `h-${Date.now()}-dup-stat-${sourceIssueId}`,
+          actor: actorUser,
+          field: 'Status',
+          oldValue: sourceIssueObj.status,
+          newValue: 'CLOSED',
+          message: `Closed as duplicate of ${targetIssueObj.code}`,
+          createdAt: now,
+        }
+      : null;
+
     setIssues((prev) => {
       const sourceIssue = prev.find((i) => i.id === sourceIssueId);
       const targetIssue = prev.find((i) => i.id === targetIssueId);
@@ -984,12 +1023,20 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (iss.id === sourceIssueId) {
           return {
             ...iss,
+            status: sourceShouldClose ? 'CLOSED' : iss.status,
             linkedIssues: sourceLinks,
             customAttributes: {
               ...(iss.customAttributes || {}),
               linkedIssues: sourceLinks,
             },
-            history: [...(iss.history || []), sourceHistory],
+            comments: sourceAutoCloseComment
+              ? [...(iss.comments || []), sourceAutoCloseComment]
+              : iss.comments,
+            history: [
+              ...(iss.history || []),
+              sourceHistory,
+              ...(sourceStatusHistory ? [sourceStatusHistory] : []),
+            ],
             updatedAt: now,
           };
         }
@@ -1023,10 +1070,13 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (s) {
           updateIssueInNeon(
             sourceIssueId,
-            { customAttributes: s.customAttributes },
+            { status: s.status, customAttributes: s.customAttributes },
             actorUser,
             currentUser?.orgId
           );
+          if (sourceAutoCloseComment) {
+            addCommentInNeon(sourceIssueId, sourceAutoCloseComment.text, actorUser, 'CLOSED');
+          }
         }
         if (t) {
           updateIssueInNeon(
@@ -1041,11 +1091,23 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return updatedIssues;
     });
 
-    showToast({
-      type: 'info',
-      title: 'Tickets Linked',
-      message: `Linked ${sourceIssueObj.code} to ${targetIssueObj.code} (${RELATION_CONFIG[relation]?.label || relation}).`,
-    });
+    if (sourceShouldClose) {
+      showToast({
+        type: 'info',
+        title: 'Ticket Closed as Duplicate',
+        message: `${sourceIssueObj.code} was closed as duplicate of ${targetIssueObj.code}.`,
+        action: {
+          label: 'Reopen Ticket',
+          onClick: () => updateIssue(sourceIssueId, { status: 'ASSIGNED' }),
+        },
+      });
+    } else {
+      showToast({
+        type: 'info',
+        title: 'Tickets Linked',
+        message: `Linked ${sourceIssueObj.code} to ${targetIssueObj.code} (${RELATION_CONFIG[relation]?.label || relation}).`,
+      });
+    }
   };
 
   const unlinkIssues = (sourceIssueId: string, targetIssueId: string) => {
@@ -1063,6 +1125,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const sourceIssueObj = issues.find((i) => i.id === sourceIssueId);
     const targetIssueObj = issues.find((i) => i.id === targetIssueId);
+
+    const wasDuplicate = (sourceIssueObj?.linkedIssues || []).some(
+      (l) => l.issueId === targetIssueId && l.relation === 'duplicate'
+    );
 
     setIssues((prev) => {
       const sourceIssue = prev.find((i) => i.id === sourceIssueId);
@@ -1150,6 +1216,13 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       type: 'info',
       title: 'Ticket Unlinked',
       message: `Removed link between ${sourceIssueObj ? sourceIssueObj.code : 'ticket'} and ${targetIssueObj ? targetIssueObj.code : targetIssueId}.`,
+      action:
+        wasDuplicate && sourceIssueObj && sourceIssueObj.status === 'CLOSED'
+          ? {
+              label: 'Reopen Ticket',
+              onClick: () => updateIssue(sourceIssueId, { status: 'ASSIGNED' }),
+            }
+          : undefined,
     });
   };
 

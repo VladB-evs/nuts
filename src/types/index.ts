@@ -127,7 +127,8 @@ export interface HistoryEntry {
 export type LinkRelationType =
   | 'relates_to'
   | 'blocks'
-  | 'blocked_by';
+  | 'blocked_by'
+  | 'duplicate';
 
 export interface IssueLink {
   issueId: string;
@@ -139,6 +140,7 @@ export const INVERSE_RELATIONS: Record<LinkRelationType, LinkRelationType> = {
   relates_to: 'relates_to',
   blocks: 'blocked_by',
   blocked_by: 'blocks',
+  duplicate: 'duplicate',
 };
 
 export interface RelationConfig {
@@ -166,6 +168,12 @@ export const RELATION_CONFIG: Record<LinkRelationType, RelationConfig> = {
     inverseLabel: 'Blocks',
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
     description: 'Blocked until target ticket is resolved',
+  },
+  duplicate: {
+    label: 'Duplicate',
+    inverseLabel: 'Duplicate',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+    description: 'Duplicate ticket',
   },
 };
 
