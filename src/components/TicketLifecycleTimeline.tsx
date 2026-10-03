@@ -11,6 +11,7 @@ import {
 } from '../lib/timelineUtils';
 import { CustomSelect } from './CustomSelect';
 import { UserAvatar } from './UserAvatar';
+import { TicketLifecycleDetailView } from './TicketLifecycleDetailView';
 import {
   Clock,
   Search,
@@ -25,6 +26,7 @@ import {
 export const TicketLifecycleTimeline: React.FC = () => {
   const { issues, departments, setSelectedIssue } = useIssues();
 
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedDeptId, setSelectedDeptId] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [healthFilter, setHealthFilter] = useState<'all' | 'in_progress' | 'resolved' | 'stalled'>('all');
@@ -102,6 +104,23 @@ export const TicketLifecycleTimeline: React.FC = () => {
     { value: 'priority', label: 'Highest Priority' },
     { value: 'id', label: 'Ticket ID' },
   ];
+
+  const selectedTimelineIssue = useMemo(() => {
+    if (!selectedTicketId) return null;
+    return issues.find((i) => i.id === selectedTicketId) || null;
+  }, [selectedTicketId, issues]);
+
+  if (selectedTimelineIssue) {
+    return (
+      <TicketLifecycleDetailView
+        issue={selectedTimelineIssue}
+        onBack={() => setSelectedTicketId(null)}
+        onOpenTicket={() => {
+          setSelectedIssue(selectedTimelineIssue);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex-1 overflow-hidden bg-white flex flex-col select-none">
@@ -295,8 +314,9 @@ export const TicketLifecycleTimeline: React.FC = () => {
                   return (
                     <div
                       key={ticket.issueId}
-                      onClick={() => rawIssue && setSelectedIssue(rawIssue)}
+                      onClick={() => setSelectedTicketId(ticket.issueId)}
                       className="grid grid-cols-[80px_1fr_90px_280px_75px_110px_100px] items-center gap-3 px-6 py-2.5 hover:bg-blue-50/40 transition-colors cursor-pointer group text-xs font-mono"
+                      title={`View timeline analysis for ${ticket.code}`}
                     >
                       {/* Ticket Code */}
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -439,8 +459,9 @@ export const TicketLifecycleTimeline: React.FC = () => {
                 return (
                   <div
                     key={ticket.issueId}
-                    onClick={() => rawIssue && setSelectedIssue(rawIssue)}
+                    onClick={() => setSelectedTicketId(ticket.issueId)}
                     className="p-3.5 hover:bg-gray-50/70 transition-colors cursor-pointer space-y-2 active:bg-gray-100"
+                    title={`View timeline analysis for ${ticket.code}`}
                   >
                     {/* Top row: Code, Priority, Stage, Elapsed */}
                     <div className="flex items-center justify-between gap-2">
