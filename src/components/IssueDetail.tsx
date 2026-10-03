@@ -60,11 +60,6 @@ export const IssueDetail: React.FC = () => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
 
-  if (!selectedIssue) return null;
-
-  const currentDept = departments.find((d) => d.id === selectedIssue.departmentId);
-  const ruleKind = getDepartmentRuleKind(selectedIssue.departmentId);
-
   const STATUS_OPTIONS: SelectOption[] = [
     { value: 'NEW', label: 'NEW', badge: 'NEW', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
     { value: 'ASSIGNED', label: 'ASSIGNED', badge: 'ASSIGNED', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
@@ -75,9 +70,9 @@ export const IssueDetail: React.FC = () => {
   ];
 
   const commentStatusOptions: SelectOption[] = useMemo(() => [
-    { value: '', label: `(Keep current: ${selectedIssue.status})` },
+    { value: '', label: `(Keep current: ${selectedIssue?.status || ''})` },
     ...STATUS_OPTIONS,
-  ], [selectedIssue.status]);
+  ], [selectedIssue?.status]);
 
   const PRIORITY_OPTIONS: SelectOption[] = [
     {
@@ -150,6 +145,7 @@ export const IssueDetail: React.FC = () => {
     | { type: 'history'; id: string; createdAt: string; history: HistoryEntry };
 
   const timelineItems: TimelineItem[] = useMemo(() => {
+    if (!selectedIssue) return [];
     const items: TimelineItem[] = [];
     if (activityFilter === 'all' || activityFilter === 'comments') {
       (selectedIssue.comments || []).forEach((c) => {
@@ -165,6 +161,11 @@ export const IssueDetail: React.FC = () => {
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
   }, [selectedIssue, activityFilter]);
+
+  if (!selectedIssue) return null;
+
+  const currentDept = departments.find((d) => d.id === selectedIssue.departmentId);
+  const ruleKind = getDepartmentRuleKind(selectedIssue.departmentId);
 
   const handlePostComment = (e: React.FormEvent) => {
     e.preventDefault();

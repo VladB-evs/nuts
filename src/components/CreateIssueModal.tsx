@@ -169,8 +169,6 @@ export const CreateIssueModal: React.FC = () => {
     setIsBackend(false);
   }, [departmentId, departments]);
 
-  if (!isCreateModalOpen) return null;
-
   const currentDept =
     departments.find((d) => d.id === departmentId) ||
     departments[0] ||
@@ -183,6 +181,7 @@ export const CreateIssueModal: React.FC = () => {
     } as any);
 
   const candidateIssuesToLink = useMemo(() => {
+    if (!isCreateModalOpen) return [];
     const q = linkSearch.trim().toLowerCase();
     const alreadySelectedIds = new Set(selectedLinks.map((l) => l.issueId));
     return (issues || []).filter((iss) => {
@@ -198,7 +197,9 @@ export const CreateIssueModal: React.FC = () => {
         Boolean(dept?.code && String(dept.code).toLowerCase().includes(q));
       return codeMatch || titleMatch || numMatch || deptMatch;
     });
-  }, [issues, selectedLinks, linkSearch, departments]);
+  }, [isCreateModalOpen, issues, selectedLinks, linkSearch, departments]);
+
+  if (!isCreateModalOpen) return null;
 
   const handleAddLink = (targetId: string) => {
     setSelectedLinks((prev) => [
