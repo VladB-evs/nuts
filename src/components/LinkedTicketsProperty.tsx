@@ -68,6 +68,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
 
   // Auto-focus search input when opening without scrolling the page
   useEffect(() => {
@@ -81,6 +82,10 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
     if (!isAdding) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      // If clicking the toggle button itself, let the button's onClick handle toggling
+      if (toggleButtonRef.current && toggleButtonRef.current.contains(e.target as Node)) {
+        return;
+      }
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setIsAdding(false);
         setSearchQuery('');
@@ -172,7 +177,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
   };
 
   return (
-    <div className="space-y-2 pt-2 border-t border-gray-200">
+    <div className="space-y-2 pt-2 border-t border-gray-200 w-full min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -189,19 +194,20 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
 
         {linkedItems.length > 0 && (
           <button
+            ref={toggleButtonRef}
             type="button"
             onClick={() => {
-              setIsAdding(!isAdding);
+              setIsAdding((prev) => !prev);
               setSearchQuery('');
             }}
-            className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer shrink-0 ${
+            className={`w-14 h-6 inline-flex items-center justify-center gap-1 text-[11px] font-mono rounded border transition-colors cursor-pointer shrink-0 font-medium ${
               isAdding
-                ? 'bg-gray-100 text-gray-900 border-gray-300 font-semibold'
+                ? 'bg-gray-100 text-gray-900 border-gray-400'
                 : 'bg-white hover:bg-gray-100 text-blue-600 hover:text-blue-800 border-gray-200'
             }`}
             title={isAdding ? 'Close link popover' : 'Link another ticket'}
           >
-            <Plus className={`w-3 h-3 transition-transform ${isAdding ? 'rotate-45' : ''}`} />
+            <Plus className={`w-3 h-3 shrink-0 transition-transform duration-150 ${isAdding ? 'rotate-45' : ''}`} />
             <span>Link</span>
           </button>
         )}
@@ -211,7 +217,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({ cu
       {isAdding && (
         <div
           ref={popoverRef}
-          className="p-3 bg-white border border-blue-200 rounded-md shadow-md space-y-2.5 animate-fade-in text-xs"
+          className="w-full box-border p-3 bg-white border border-blue-200 rounded-md shadow-md space-y-2.5 animate-fade-in text-xs min-w-0 overflow-hidden"
         >
           {/* Relation picker */}
           <div className="space-y-1">

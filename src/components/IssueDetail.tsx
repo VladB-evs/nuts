@@ -600,7 +600,7 @@ export const IssueDetail: React.FC = () => {
         </div>
 
         {/* Right Column: Properties Sidebar */}
-        <div className="w-full lg:w-72 xl:w-80 p-6 space-y-5 bg-gray-50/50 text-xs select-none shrink-0 overflow-y-auto min-h-0">
+        <div className="w-full lg:w-72 xl:w-80 p-6 space-y-5 bg-gray-50/50 text-xs select-none shrink-0 overflow-y-auto min-h-0 [scrollbar-gutter:stable]">
           <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold block pb-2 border-b border-gray-100">
             Issue Properties
           </span>
