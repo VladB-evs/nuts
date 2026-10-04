@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile } from '../types';
 import { loginWithEmail, registerUser } from '../lib/neonService';
-import { isNeonConfigured } from '../lib/neon';
 import {
   Lock,
   Mail,
@@ -130,8 +129,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const neonReady = isNeonConfigured();
-
   // Password evaluation for signup / admin setup
   const pwdStrength = useMemo(() => validatePasswordStrength(password), [password]);
   const passwordsMatch = useMemo(
@@ -187,12 +184,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setError(null);
 
     try {
-      if (neonReady) {
-        const user = await loginWithEmail(email, password);
-        onLogin(user);
-      } else {
-        setError('Please connect your Neon Postgres database first using the button at the top right.');
-      }
+      const user = await loginWithEmail(email, password);
+      onLogin(user);
     } catch (err: any) {
       setError(err?.message || 'Failed to sign in. Please verify your credentials.');
     } finally {
@@ -230,21 +223,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setError(null);
 
     try {
-      if (neonReady) {
-        const newUser = await registerUser({
-          name: name.trim(),
-          email: email.trim(),
-          nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
-          password,
-          role: role.trim() || 'Member',
-          avatarUrl: avatarUrl.trim() || undefined,
-          orgMode: 'join',
-          orgCode: orgCode.trim().toUpperCase(),
-        });
-        onLogin(newUser);
-      } else {
-        setError('Please connect your Neon Postgres database first using the button at the top right.');
-      }
+      const newUser = await registerUser({
+        name: name.trim(),
+        email: email.trim(),
+        nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
+        password,
+        role: role.trim() || 'Member',
+        avatarUrl: avatarUrl.trim() || undefined,
+        orgMode: 'join',
+        orgCode: orgCode.trim().toUpperCase(),
+      });
+      onLogin(newUser);
     } catch (err: any) {
       setError(err?.message || 'Failed to join company workspace.');
     } finally {
@@ -282,22 +271,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setError(null);
 
     try {
-      if (neonReady) {
-        const newAdmin = await registerUser({
-          name: name.trim(),
-          email: email.trim(),
-          nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
-          password,
-          role: role.trim() || 'Workspace Admin / Founder',
-          avatarUrl: avatarUrl.trim() || undefined,
-          orgMode: 'create',
-          orgName: orgName.trim(),
-          orgCode: orgCode.trim().toUpperCase(),
-        });
-        onLogin(newAdmin);
-      } else {
-        setError('Please connect your Neon Postgres database first using the button at the top right.');
-      }
+      const newAdmin = await registerUser({
+        name: name.trim(),
+        email: email.trim(),
+        nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
+        password,
+        role: role.trim() || 'Workspace Admin / Founder',
+        avatarUrl: avatarUrl.trim() || undefined,
+        orgMode: 'create',
+        orgName: orgName.trim(),
+        orgCode: orgCode.trim().toUpperCase(),
+      });
+      onLogin(newAdmin);
     } catch (err: any) {
       setError(err?.message || 'Failed to create organization workspace.');
     } finally {
@@ -574,7 +559,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div className="w-11 h-11 rounded-xl bg-black text-white flex items-center justify-center font-bold text-lg mx-auto mb-3 shadow-sm">
                 N
               </div>
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">NUTS Issue Tracker</h1>
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">NUTS</h1>
               <p className="text-xs text-gray-500 mt-1">
                 Internal team workspace powered by Neon Serverless Postgres
               </p>

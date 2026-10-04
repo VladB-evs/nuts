@@ -21,18 +21,19 @@
   - Interactive profile card on hover over any user avatar or name across the app.
 
 - **Neon Serverless Postgres Architecture**:
-  - Powered by `@neondatabase/serverless` using fast HTTP queries.
+  - Powered by `@neondatabase/serverless` using fast HTTP queries, **server-side only** (see Security).
   - JSONB attributes with PostgreSQL GIN indexing for fast custom field queries.
   - Automatic ticket code generation (`DEV-101`, `DEV-102`...) and change tracking triggers.
-  - Offline-first mock data fallback when running without a database connection string.
+  - Sandbox demo mode with mock data, no database required.
 
 ---
 
 ## 🛠 Tech Stack
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons.
+- **API**: a single Netlify Function (`netlify/functions/api.mts`) — the only code that talks to the database.
 - **Database**: Neon Serverless Postgres (`@neondatabase/serverless`).
-- **Deployment**: Netlify (pre-configured with `netlify.toml` SPA redirects).
+- **Deployment**: Netlify (pre-configured with `netlify.toml`).
 
 ---
 
@@ -58,45 +59,59 @@ npm run build
 
 ---
 
+## 🔒 Security Model
+
+The browser never sees database credentials, and the database enforces tenant isolation itself.
+
+- **Server-only credentials.** `DATABASE_URL` is a server environment variable. Never give it a `VITE_` prefix —
+  Vite inlines `VITE_*` variables into the public JavaScript bundle.
+- **API + session cookie.** The browser calls `POST /api` with `{ action, args }`. Identity comes from an
+  **HttpOnly, SameSite=Strict session cookie**; the server looks up the user and organization from it and ignores
+  any identity sent by the client. Admin-only actions are enforced on the server, and the workspace can't be left
+  without an active admin.
+- **Row Level Security.** Every table has RLS. The API connects as a restricted role, `nuts_app` (no superuser,
+  no `BYPASSRLS`, no schema changes, and it can't read `password_hash`). Each request runs in a transaction that
+  first sets `app.org_id`; the policies only allow that organization's rows, and with no org set nothing is visible.
+  So even a bug in the API (say, a query that forgets its `WHERE org_id`) can't leak or modify another org's data.
+  A few lookups that must happen before an org is known (session, login, invite code, logout) go through four narrow
+  `SECURITY DEFINER` functions.
+- **Passwords & sessions.** Passwords use **scrypt** with a per-user salt; session tokens are random and stored only as
+  SHA-256 hashes. Failed logins and invite-code guesses are rate-limited (5 per email / 20 per IP per 15 minutes).
+
+> **Owner vs app role.** Table owners bypass RLS, so the API must never connect as `neondb_owner`. Keep the owner
+> connection string for migrations only and never set it in Netlify. New tables need their own RLS policy and a
+> `GRANT ... TO nuts_app` in the migration that creates them.
+
+---
+
 ## 🗄 Neon Serverless Postgres Setup
 
-NUTS works out of the box with offline mock data. When you are ready to connect your live Neon database:
-
 1. Create a project at [Neon](https://console.neon.tech).
-2. Open the **SQL Editor** tab in the Neon Console.
-3. Paste and run the migration script:
+2. In the **SQL Editor** (which runs as the owner), run the migrations in `neon/migrations/` in order:
+   `001` → `002` → `003` → `004`. Migration `004` creates the `nuts_app` role and enables RLS.
+3. Give the app role a password (it's created without one):
    ```sql
-   neon/migrations/001_init_nuts_schema.sql
+   ALTER ROLE nuts_app PASSWORD 'a-long-random-password';
    ```
-4. Copy your Postgres connection string (Pooled or Direct) from the Neon dashboard.
-5. Create a `.env` file in the root directory:
+   > Create the role via migration/SQL as above — roles created in the Neon console join `neon_superuser`, which bypasses RLS.
+4. Create a `.env` file in the root directory (it is gitignored) with two connection strings for the same host:
    ```env
-   VITE_NEON_DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
+   DATABASE_URL=postgresql://nuts_app:a-long-random-password@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require
+   DATABASE_ADMIN_URL=postgresql://neondb_owner:...@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require
    ```
-6. Rebuild or reload the app. NUTS will automatically detect your Neon database!
+5. Run `npm run dev`. The Vite dev server serves the same API handler at `/api`, so no Netlify CLI is needed locally.
 
 ---
 
 ## 🌐 Deploy to Netlify
 
-The repository includes `netlify.toml` with build commands and SPA routing pre-configured:
-
-```toml
-[build]
-  command = "npm run build"
-  publish = "dist"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-```
+`netlify.toml` builds the app, publishes `dist`, bundles `netlify/functions`, and routes `/api` to the function.
 
 ### Steps to Deploy:
 1. Push your repository to GitHub.
 2. Log into [Netlify](https://app.netlify.com) and click **"Add new site" → "Import an existing project"**.
 3. Select your GitHub repository.
-4. (Optional) Under **Environment variables**, add:
-   - Key: `VITE_NEON_DATABASE_URL`
-   - Value: Your Neon Postgres connection string.
+4. Under **Environment variables**, add:
+   - Key: `DATABASE_URL` (no `VITE_` prefix)
+   - Value: the **`nuts_app`** connection string (not the owner's). Don't add `DATABASE_ADMIN_URL`.
 5. Click **Deploy NUTS**.

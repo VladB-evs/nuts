@@ -450,7 +450,7 @@ export const CreateIssueModal: React.FC = () => {
                 className="text-[11px] font-mono text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
               >
                 {isLinking ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                <span>{isLinking ? 'Close' : '+ Link ticket'}</span>
+                <span>{isLinking ? 'Close' : 'Link ticket'}</span>
               </button>
             </div>
 

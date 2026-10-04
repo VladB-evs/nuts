@@ -89,7 +89,6 @@ export const Header: React.FC<HeaderProps> = () => {
             </div>
             <div className="text-left">
               <span className="font-bold text-sm text-gray-900 tracking-tight">NUTS</span>
-              <span className="hidden sm:inline text-[11px] text-gray-500 ml-1.5 font-mono">Issue Tracker</span>
             </div>
           </button>
 

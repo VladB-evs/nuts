@@ -26,10 +26,33 @@ const AppContent: React.FC = () => {
     exitDemoMode,
   } = useIssues();
 
+  // Automatically exit demo mode if navigated to create-org/admin-onboarding link
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && isDemoMode) {
+      const search = window.location.search.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase();
+      const isCreateOrg =
+        search.includes('create-org') ||
+        search.includes('new-org') ||
+        search.includes('setup-org') ||
+        search.includes('admin=true') ||
+        hash.includes('create-org') ||
+        hash.includes('new-org') ||
+        path.endsWith('/create-org');
+      if (isCreateOrg) {
+        exitDemoMode();
+      }
+    }
+  }, [isDemoMode]);
+
   if (!currentUser) {
     return (
       <LoginScreen
-        onLogin={(user) => setCurrentUser(user)}
+        onLogin={(user) => {
+          exitDemoMode();
+          setCurrentUser(user);
+        }}
         onEnterDemoMode={enterDemoMode}
       />
     );

@@ -26,7 +26,6 @@ import {
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 import { getUserDepartmentId } from '../lib/departmentRules';
-import { isNeonConfigured } from '../lib/neon';
 import {
   fetchAllDataFromNeon,
   createIssueInNeon,
@@ -36,7 +35,8 @@ import {
   saveDepartmentInNeon,
   deleteDepartmentInNeon,
   updateProfileInNeon,
-  validateSessionToken,
+  fetchCurrentUser,
+  logoutFromServer,
 } from '../lib/neonService';
 
 interface IssueContextType {
@@ -84,14 +84,6 @@ interface IssueContextType {
     departureReason?: string
   ) => void;
   setUserAdminRole: (userId: string, isAdmin: boolean) => boolean;
-  addTeamMember: (data: {
-    name: string;
-    email: string;
-    department: string;
-    role?: string;
-    nickname?: string;
-    isAdmin?: boolean;
-  }) => UserProfile;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -148,6 +140,14 @@ const IssueContext = createContext<IssueContextType | undefined>(undefined);
 const STORAGE_KEY = 'nuts_issues_v10';
 const STORAGE_DEPTS = 'nuts_depts_v10';
 const STORAGE_USERS = 'nuts_users_v10';
+
+const clearLocalWorkspaceData = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_DEPTS);
+    localStorage.removeItem(STORAGE_USERS);
+  } catch {}
+};
 const STORAGE_CURRENT_USER = 'nuts_current_user_v10';
 
 const getFieldLabel = (key: string): string => {
@@ -195,6 +195,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
     try {
+      const savedUser = localStorage.getItem(STORAGE_CURRENT_USER);
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u && u.orgId && u.orgId !== 'org_nuts_demo') {
+          localStorage.removeItem(STORAGE_DEMO_KEY);
+          return false;
+        }
+      }
       return localStorage.getItem(STORAGE_DEMO_KEY) === 'true';
     } catch {
       return false;
@@ -220,8 +228,19 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
+  const isSavedUserReal = (() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_CURRENT_USER);
+      if (saved) {
+        const u = JSON.parse(saved);
+        return Boolean(u && u.orgId && u.orgId !== 'org_nuts_demo');
+      }
+    } catch {}
+    return false;
+  })();
+
   const [departments, setDepartments] = useState<Department[]>(() => {
-    if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+    if (!isSavedUserReal && localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
       return INITIAL_DEPARTMENTS;
     }
     return [
@@ -240,7 +259,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [users, setUsers] = useState<UserProfile[]>(() => {
-    if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+    if (!isSavedUserReal && localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
       try {
         const saved = localStorage.getItem(STORAGE_USERS);
         if (saved) {
@@ -264,7 +283,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [issues, setIssues] = useState<Issue[]>(() => {
-    if (localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
+    if (!isSavedUserReal && localStorage.getItem(STORAGE_DEMO_KEY) === 'true') {
       return INITIAL_ISSUES;
     }
     return [];
@@ -285,8 +304,13 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentUserState(user);
     if (user) {
       localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+      const isRealAccount = Boolean(user.orgId && user.orgId !== 'org_nuts_demo');
+      if (isRealAccount) {
+        setIsDemoMode(false);
+        localStorage.removeItem(STORAGE_DEMO_KEY);
+      }
       if (user.orgId) {
-        reloadFromDatabase(user.orgId);
+        reloadFromDatabase(user.orgId, isRealAccount);
       }
     } else {
       localStorage.removeItem(STORAGE_CURRENT_USER);
@@ -325,27 +349,26 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const logout = () => {
+    if (!isDemoMode) logoutFromServer();
     setIsDemoMode(false);
     localStorage.removeItem(STORAGE_DEMO_KEY);
     localStorage.removeItem(STORAGE_CURRENT_USER);
     localStorage.removeItem('nuts_session_token');
+    clearLocalWorkspaceData();
     setCurrentUserState(null);
     setIssues([]);
   };
 
-  const [isNeonConnected, setIsNeonConnected] = useState<boolean>(isNeonConfigured());
+  const [isNeonConnected, setIsNeonConnected] = useState<boolean>(false);
   const [isLoadingDatabase, setIsLoadingDatabase] = useState<boolean>(false);
 
-  const reloadFromDatabase = async (targetOrgId?: string) => {
-    if (isDemoMode) return;
-    if (!isNeonConfigured()) {
-      setIsNeonConnected(false);
-      return;
-    }
+  const reloadFromDatabase = async (targetOrgId?: string, forceNonDemo?: boolean) => {
     const orgId = targetOrgId || currentUser?.orgId;
+    if (!orgId || orgId === 'org_nuts_demo') return;
+    if (isDemoMode && !forceNonDemo && !targetOrgId) return;
     setIsLoadingDatabase(true);
     try {
-      const data = await fetchAllDataFromNeon(orgId);
+      const data = await fetchAllDataFromNeon();
       if (data) {
         if (data.departments && data.departments.length > 0) {
           setDepartments(data.departments);
@@ -374,25 +397,24 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Restore the signed-in user from the server session (HttpOnly cookie). A cached real user
+  // whose session has expired or been revoked is signed out locally.
   useEffect(() => {
-    const token = localStorage.getItem('nuts_session_token');
-    if (token && !currentUser && !isDemoMode && isNeonConfigured()) {
-      validateSessionToken(token)
-        .then((user) => {
-          if (user) {
-            setCurrentUserState(user);
-            localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
-            if (user.orgId) {
-              reloadFromDatabase(user.orgId);
-            }
-          }
-        })
-        .catch(() => {});
-    }
+    if (isDemoMode) return;
+    fetchCurrentUser().then((user) => {
+      if (user) {
+        setCurrentUserState(user);
+        localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+      } else if (currentUser) {
+        localStorage.removeItem(STORAGE_CURRENT_USER);
+        setCurrentUserState(null);
+        setIssues([]);
+      }
+    });
   }, []);
 
   useEffect(() => {
-    if (!isDemoMode && currentUser?.orgId) {
+    if (!isDemoMode && currentUser?.orgId && currentUser.orgId !== 'org_nuts_demo') {
       reloadFromDatabase(currentUser.orgId);
     }
   }, [isDemoMode, currentUser?.orgId]);
@@ -425,17 +447,24 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSubFilter('ALL');
   };
 
+  // Only the sandbox demo persists workspace data locally. Real organizations live on the server;
+  // keeping their issues and team list in localStorage would leave them readable on shared machines.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(issues));
-  }, [issues]);
+    if (isDemoMode) localStorage.setItem(STORAGE_KEY, JSON.stringify(issues));
+  }, [issues, isDemoMode]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_DEPTS, JSON.stringify(departments));
-  }, [departments]);
+    if (isDemoMode) localStorage.setItem(STORAGE_DEPTS, JSON.stringify(departments));
+  }, [departments, isDemoMode]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-  }, [users]);
+    if (isDemoMode) localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+  }, [users, isDemoMode]);
+
+  // Remove any workspace data an earlier version left behind for a real account.
+  useEffect(() => {
+    if (!isDemoMode) clearLocalWorkspaceData();
+  }, [isDemoMode]);
 
   const updateUserProfile = (userId: string, updates: Partial<UserProfile>) => {
     setUsers((prevUsers) => {
@@ -445,7 +474,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         return u;
       });
-      localStorage.setItem(STORAGE_USERS, JSON.stringify(nextUsers));
+      if (isDemoMode) localStorage.setItem(STORAGE_USERS, JSON.stringify(nextUsers));
       return nextUsers;
     });
 
@@ -504,7 +533,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    if (isNeonConfigured()) {
+    if (!isDemoMode) {
       updateProfileInNeon(userId, updates);
     }
   };
@@ -675,7 +704,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             updatedAt: now,
           };
 
-          if (!isDemoMode && isNeonConfigured()) {
+          if (!isDemoMode) {
             updateIssueInNeon(
               item.id,
               { customAttributes: updatedItem.customAttributes },
@@ -699,7 +728,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       message: `Created issue ${newIssue.code} in ${dept.name}.`,
     });
 
-    if (!isDemoMode && isNeonConfigured()) {
+    if (!isDemoMode) {
       createIssueInNeon(
         {
           title: data.title,
@@ -874,7 +903,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setSelectedIssue(updated);
           }
 
-          if (!isDemoMode && isNeonConfigured()) {
+          if (!isDemoMode) {
             const actorUser = currentUser || users[0];
             if (actorUser) {
               updateIssueInNeon(id, updates, actorUser, currentUser?.orgId);
@@ -940,7 +969,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSelectedIssue(updatedIssue);
     }
 
-    if (!isDemoMode && isNeonConfigured()) {
+    if (!isDemoMode) {
       addCommentInNeon(issueId, text, actorUser, newStatus);
     }
   };
@@ -957,7 +986,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    if (!isDemoMode && isNeonConfigured()) {
+    if (!isDemoMode) {
       const target = issues.find((i) => i.id === issueId);
       if (target) {
         const actor = currentUser || users[0];
@@ -1106,7 +1135,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (updatedTarget) setSelectedIssue(updatedTarget);
       }
 
-      if (!isDemoMode && isNeonConfigured()) {
+      if (!isDemoMode) {
         const s = updatedIssues.find((i) => i.id === sourceIssueId);
         const t = updatedIssues.find((i) => i.id === targetIssueId);
         if (s) {
@@ -1240,7 +1269,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (updatedTarget) setSelectedIssue(updatedTarget);
       }
 
-      if (!isDemoMode && isNeonConfigured()) {
+      if (!isDemoMode) {
         const s = updatedIssues.find((i) => i.id === sourceIssueId);
         const t = updatedIssues.find((i) => i.id === targetIssueId);
         if (s) {
@@ -1291,7 +1320,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSelectedIssue(null);
     }
 
-    if (!isDemoMode && isNeonConfigured()) {
+    if (!isDemoMode) {
       deleteIssueInNeon(issueId);
     }
   };
@@ -1326,7 +1355,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setDepartments((prev) => [...prev, newDept]);
 
-    if (!isDemoMode && isNeonConfigured()) {
+    if (!isDemoMode) {
       saveDepartmentInNeon(newDept, currentUser?.orgId);
     }
 
@@ -1345,7 +1374,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    if (!isDemoMode && isNeonConfigured() && updatedTarget) {
+    if (!isDemoMode && updatedTarget) {
       saveDepartmentInNeon(updatedTarget, currentUser?.orgId);
     }
 
@@ -1422,7 +1451,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSelectedIssue(null);
     }
 
-    if (!isDemoMode && isNeonConfigured()) {
+    if (!isDemoMode) {
       deleteDepartmentInNeon(deptId);
     }
   };
@@ -1498,53 +1527,6 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         : `${targetUser.name} is now a standard Team Member.`,
     });
     return true;
-  };
-
-  const addTeamMember = (data: {
-    name: string;
-    email: string;
-    department: string;
-    role?: string;
-    nickname?: string;
-    isAdmin?: boolean;
-  }): UserProfile => {
-    const newId = `u_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-    const avatarList = [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80',
-    ];
-    const randomAvatar = avatarList[Math.floor(Math.random() * avatarList.length)];
-
-    const newMember: UserProfile = {
-      id: newId,
-      name: data.name.trim(),
-      email: data.email.trim().toLowerCase(),
-      nickname: data.nickname?.trim() || data.name.trim().toLowerCase().replace(/\s+/g, '_'),
-      department: data.department || 'Engineering',
-      role: data.role?.trim() || 'Team Member',
-      isAdmin: Boolean(data.isAdmin),
-      status: 'active',
-      avatarUrl: randomAvatar,
-      orgId: currentUser?.orgId,
-      organization: currentUser?.organization,
-    };
-
-    setUsers((prev) => {
-      const next = [...prev, newMember];
-      localStorage.setItem(STORAGE_USERS, JSON.stringify(next));
-      return next;
-    });
-
-    showToast({
-      type: 'success',
-      title: 'Team Member Added',
-      message: `${newMember.name} has been added to ${newMember.department}.`,
-    });
-
-    return newMember;
   };
 
   // Filtered Issues computation
@@ -1769,7 +1751,6 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteDepartment,
         setUserEmploymentStatus,
         setUserAdminRole,
-        addTeamMember,
         filteredIssues,
         counts,
       }}
