@@ -84,11 +84,26 @@ The browser never sees database credentials, and the database enforces tenant is
 
 ---
 
+## 🔐 Sign-in with Neon Auth (optional)
+
+By default the app uses its own cookie login. To switch to Neon Auth (Managed Better Auth):
+
+1. Run `neon/migrations/007_neon_auth_link.sql` (safe to run before switching; it changes nothing for the current login).
+2. Neon console → your branch → **Auth**: enable it, turn on **Sign-up with Email** and **Verify at Sign-up** (verification code), and add your site's domains (production, your Netlify dev URL, `http://localhost:5173`) as **trusted domains**.
+3. Copy the **Auth URL** into two environment variables (Netlify > Environment variables, and `.env` locally):
+   `NEON_AUTH_URL` (server, verifies tokens) and `VITE_NEON_AUTH_URL` (browser, baked in at build time; public, not a secret).
+4. Allow the browser to reach it: add the Auth URL's origin (scheme + host, no path) to `connect-src` in the
+   `Content-Security-Policy` in `netlify.toml`, e.g. `connect-src 'self' https://ep-xxxx.neonauth.us-east-2.aws.neon.tech`.
+5. Redeploy. Existing users: *"Had an account before the sign-in upgrade? Set up your new login"* on the sign-in page. Using the same
+   email and confirming it reconnects them to their workspace and tickets.
+
+To switch back, remove the two variables and redeploy. While Neon Auth is on, the API accepts only Neon Auth tokens.
+
 ## 🗄 Neon Serverless Postgres Setup
 
 1. Create a project at [Neon](https://console.neon.tech).
 2. In the **SQL Editor** (which runs as the owner), run the migrations in `neon/migrations/` in order:
-   `001` → `002` → `003` → `004` → `005`. Migration `004` creates the `nuts_app` role and enables RLS.
+   `001` → `002` → `003` → `004` → `005` → `006` → `007`. Migration `004` creates the `nuts_app` role and enables RLS.
 3. Give the app role a password (it's created without one):
    ```sql
    ALTER ROLE nuts_app PASSWORD 'a-long-random-password';

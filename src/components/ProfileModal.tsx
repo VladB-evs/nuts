@@ -4,6 +4,8 @@ import { UserProfile } from '../types';
 import { UserAvatar } from './UserAvatar';
 import { CustomSelect, SelectOption } from './CustomSelect';
 import { X, Check, Link2, AtSign, Briefcase, Building, Sparkles } from 'lucide-react';
+import { SecuritySection } from './SecuritySection';
+import { neonAuthEnabled } from '../lib/neonAuth';
 
 export const ProfileModal: React.FC = () => {
   const {
@@ -285,6 +287,8 @@ export const ProfileModal: React.FC = () => {
             </div>
           </div>
         </form>
+
+        {neonAuthEnabled && <SecuritySection />}
       </div>
     </div>
   );

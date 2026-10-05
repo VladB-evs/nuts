@@ -46,7 +46,7 @@ export async function makeApi(upTo) {
     }));
     return { status: res.status, body: await res.json(), cookie: res.headers.getSetCookie?.()[0]?.split(';')[0] || '' };
   };
-  return { db, call };
+  return { db, call, handler };
 }
 
 /** Tiny assertion helpers shared by the suites. */

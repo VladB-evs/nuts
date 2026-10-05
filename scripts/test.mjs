@@ -25,6 +25,7 @@ try {
     format: 'esm',
     outExtension: { '.js': '.mjs' },
     logLevel: 'warning',
+    define: { 'import.meta.env': '{}' }, // modules read Vite env vars; tests run without them
   });
   const files = readdirSync(outdir, { recursive: true })
     .filter((f) => String(f).endsWith('.mjs'))

@@ -6,6 +6,7 @@
  * caller's organization on the server. Nothing in `args` is trusted for identity.
  */
 import { neon } from '@neondatabase/serverless';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { randomBytes, randomInt, randomUUID, scrypt, createHash, timingSafeEqual } from 'node:crypto';
 import type {
   Comment,
@@ -190,7 +191,16 @@ const PASSWORD_RULES = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 interface Ctx {
   req: Request;
   user: AuthedUser | null;
+  /** Neon Auth mode only: who the verified token says is calling (they may not have a profile yet). */
+  identity: AuthIdentity | null;
   setCookie: (value: string) => void;
+}
+
+interface AuthIdentity {
+  sub: string;
+  email: string;
+  name: string;
+  emailVerified: boolean;
 }
 
 type AuthedUser = UserProfile & { orgId: string };
@@ -238,8 +248,84 @@ const loadSessionUser = async (req: Request): Promise<AuthedUser | null> => {
   return mapProfile(rows[0]) as AuthedUser;
 };
 
+// ---------------------------------------------------------------------------
+// Neon Auth (Managed Better Auth)
+//
+// When NEON_AUTH_URL is set, Neon Auth owns passwords and sessions: the browser sends the signed
+// token Neon issues as `Authorization: Bearer ...`. Every request verifies it against Neon's public
+// keys (EdDSA, issuer = the auth URL's origin, not expired), requires a verified email, and looks up
+// the matching profile. When it is not set, the cookie login below stays in use.
+// ---------------------------------------------------------------------------
+
+const neonAuthUrl = () => (process.env.NEON_AUTH_URL || '').trim().replace(/\/+$/, '');
+const neonAuthEnabled = () => Boolean(neonAuthUrl());
+
+let jwksCache: { url: string; keys: ReturnType<typeof createRemoteJWKSet> } | null = null;
+const getJwks = () => {
+  const url = neonAuthUrl();
+  if (!jwksCache || jwksCache.url !== url) {
+    jwksCache = {
+      url,
+      // keys are cached; a token signed by an unknown key triggers at most one refetch per 30s
+      keys: createRemoteJWKSet(new URL(`${url}/.well-known/jwks.json`), {
+        cooldownDuration: 30_000,
+        cacheMaxAge: 10 * 60_000,
+        timeoutDuration: 5_000,
+      }),
+    };
+  }
+  return jwksCache.keys;
+};
+
+const VERIFY_EMAIL_MESSAGE = 'Please verify your email address to continue.';
+
+/** The identity in a valid Neon Auth token, or null for anything else (missing, malformed, expired, wrong issuer/key, banned). */
+const verifyNeonToken = async (req: Request): Promise<AuthIdentity | null> => {
+  const match = /^Bearer\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(req.headers.get('authorization') || '');
+  if (!match) return null;
+  try {
+    const { payload } = await jwtVerify(match[1], getJwks(), {
+      issuer: new URL(neonAuthUrl()).origin,
+      algorithms: ['EdDSA'],
+      clockTolerance: 5,
+      requiredClaims: ['sub', 'exp'],
+    });
+    if (typeof payload.sub !== 'string' || !payload.sub) return null;
+    if (payload.banned === true) return null;
+    return {
+      sub: payload.sub,
+      email: typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '',
+      name: typeof payload.name === 'string' ? payload.name.trim().slice(0, 200) : '',
+      emailVerified: payload.emailVerified === true || payload.email_verified === true,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/** Who is calling, in whichever auth mode is active. */
+const loadCaller = async (req: Request): Promise<{ user: AuthedUser | null; identity: AuthIdentity | null }> => {
+  if (!neonAuthEnabled()) return { user: await loadSessionUser(req), identity: null };
+
+  const identity = await verifyNeonToken(req);
+  if (!identity || !identity.emailVerified) return { user: null, identity };
+
+  const sql = getSql();
+  let rows = (await sql`SELECT * FROM public.app_lookup_auth_user(${identity.sub});`) as any[];
+  if (!rows.length && identity.email) {
+    // An account created before Neon Auth: attach it, matched on the VERIFIED email. This is the
+    // only way an existing profile gets linked, and it only links a profile nobody has claimed.
+    rows = (await sql`SELECT * FROM public.app_link_auth_user(${identity.sub}, ${identity.email});`) as any[];
+  }
+  return { user: rows.length && rows[0].org_id ? (mapProfile(rows[0]) as AuthedUser) : null, identity };
+};
+
 const requireUser = (ctx: Ctx): AuthedUser => {
-  if (!ctx.user) throw new HttpError(401, 'Please sign in.');
+  if (!ctx.user) {
+    if (ctx.identity && !ctx.identity.emailVerified) throw new HttpError(403, VERIFY_EMAIL_MESSAGE);
+    if (ctx.identity) throw new HttpError(403, 'Finish setting up your workspace profile to continue.');
+    throw new HttpError(401, 'Please sign in.');
+  }
   if (ctx.user.status === 'departed') throw new HttpError(403, 'This account has been deactivated.');
   return ctx.user;
 };
@@ -377,6 +463,57 @@ const watchIssues = (orgId: string, issueIds: string[], userIds: string[]) => ge
 `;
 
 /**
+ * Creates a new organization (the caller becomes its admin) or finds the one an invite code
+ * points to. Shared by `register` (password login) and `completeSignup` (Neon Auth). Returns the
+ * organization and the statements that create it; the caller adds the profile and runs them.
+ */
+const resolveOrg = async (
+  ctx: Ctx,
+  a: any,
+  orgMode: 'create' | 'join',
+  email: string
+): Promise<{ org: Organization; statements: any[] }> => {
+  const sql = getSql();
+  let org: Organization;
+  const statements: any[] = [];
+
+  if (orgMode === 'create') {
+    const orgName = str(a.orgName, 200).trim();
+    if (!orgName) throw new HttpError(400, 'Please enter a company or organization name.');
+    let code = str(a.orgCode, 64).trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    if (code && code.length < 6) {
+      throw new HttpError(400, 'A custom organization code must be at least 6 characters.');
+    }
+    if (!code) {
+      const slug = orgName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'ORG';
+      code = `${slug}-${randomCode(8)}`; // doubles as the invite secret, so keep it unguessable
+    }
+    org = { id: randomUUID(), name: orgName, code, createdByEmail: email };
+    statements.push(
+      sql`INSERT INTO public.organizations (id, name, code, created_by_email)
+          VALUES (${org.id}, ${org.name}, ${org.code}, ${email});`,
+      sql`INSERT INTO public.departments (id, org_id, name, code, description, custom_fields)
+          VALUES (${`eng-${org.id}`}, ${org.id}, 'Engineering', 'DEV',
+                  'Core product development, bug fixes, and feature engineering.',
+                  ${JSON.stringify(DEFAULT_ENG_FIELDS)});`
+    );
+  } else {
+    const code = str(a.orgCode, 64).trim();
+    if (!code) throw new HttpError(400, 'Please enter your company organization invite code.');
+    const throttle: Throttle = { kind: 'join', ip: clientIp(ctx.req) };
+    await assertNotThrottled(throttle);
+    const found = (await sql`SELECT * FROM public.app_find_org_by_code(${code});`) as any[];
+    if (!found.length) {
+      await recordFailure(throttle);
+      throw new HttpError(404, 'That organization code was not found. Please check with your team admin.');
+    }
+    org = { id: found[0].id, name: found[0].name, code: found[0].code };
+  }
+
+  return { org, statements };
+};
+
+/**
  * True once migration 006 (watchers, notifications, ...) is in the database. Everyday edits keep
  * working before it is run; they just skip watching and notifying. Only a positive answer is cached.
  */
@@ -392,6 +529,7 @@ const inAppAvailable = async (): Promise<boolean> => {
 const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
   // ---------------------------------------------------------------- auth ----
   async register(ctx, a) {
+    if (neonAuthEnabled()) throw new HttpError(410, 'Sign-up has moved. Please reload the page.');
     const sql = getSql();
     const orgMode = a.orgMode === 'create' ? 'create' : 'join';
     const name = str(a.name, 200).trim();
@@ -417,41 +555,7 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
-    let org: Organization;
-    const statements = [];
-
-    if (orgMode === 'create') {
-      const orgName = str(a.orgName, 200).trim();
-      if (!orgName) throw new HttpError(400, 'Please enter a company or organization name.');
-      let code = str(a.orgCode, 64).trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
-      if (code && code.length < 6) {
-        throw new HttpError(400, 'A custom organization code must be at least 6 characters.');
-      }
-      if (!code) {
-        const slug = orgName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'ORG';
-        code = `${slug}-${randomCode(8)}`; // doubles as the invite secret, so keep it unguessable
-      }
-      org = { id: randomUUID(), name: orgName, code, createdByEmail: email };
-      statements.push(
-        sql`INSERT INTO public.organizations (id, name, code, created_by_email)
-            VALUES (${org.id}, ${org.name}, ${org.code}, ${email});`,
-        sql`INSERT INTO public.departments (id, org_id, name, code, description, custom_fields)
-            VALUES (${`eng-${org.id}`}, ${org.id}, 'Engineering', 'DEV',
-                    'Core product development, bug fixes, and feature engineering.',
-                    ${JSON.stringify(DEFAULT_ENG_FIELDS)});`
-      );
-    } else {
-      const code = str(a.orgCode, 64).trim();
-      if (!code) throw new HttpError(400, 'Please enter your company organization invite code.');
-      const throttle: Throttle = { kind: 'join', ip: clientIp(ctx.req) };
-      await assertNotThrottled(throttle);
-      const found = (await sql`SELECT * FROM public.app_find_org_by_code(${code});`) as any[];
-      if (!found.length) {
-        await recordFailure(throttle);
-        throw new HttpError(404, 'That organization code was not found. Please check with your team admin.');
-      }
-      org = { id: found[0].id, name: found[0].name, code: found[0].code };
-    }
+    const { org, statements } = await resolveOrg(ctx, a, orgMode, email);
 
     statements.push(
       sql`INSERT INTO public.profiles
@@ -481,6 +585,7 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
   },
 
   async login(ctx, a) {
+    if (neonAuthEnabled()) throw new HttpError(410, 'Sign-in has moved. Please reload the page.');
     const sql = getSql();
     const email = str(a.email, 320).trim().toLowerCase();
     const password = str(a.password, 1000);
@@ -510,7 +615,59 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
   },
 
   async me(ctx) {
-    return { user: ctx.user };
+    // `needsProfile`: signed in with Neon Auth and verified, but not yet part of a workspace.
+    const needsProfile = neonAuthEnabled() && Boolean(ctx.identity?.emailVerified) && !ctx.user;
+    return {
+      user: ctx.user,
+      authMode: neonAuthEnabled() ? 'neon' : 'password',
+      needsProfile,
+      identity: needsProfile ? { email: ctx.identity!.email, name: ctx.identity!.name } : null,
+    };
+  },
+
+  /**
+   * Neon Auth only. After signing up and verifying their email, a person creates a workspace or
+   * joins one with its invite code. Name and email come from the verified token, never from the
+   * request, so nobody can create a profile for an address they don't control.
+   */
+  async completeSignup(ctx, a) {
+    if (!neonAuthEnabled()) throw new HttpError(404, 'Unknown action.');
+    const identity = ctx.identity;
+    if (!identity) throw new HttpError(401, 'Please sign in.');
+    if (!identity.emailVerified) throw new HttpError(403, VERIFY_EMAIL_MESSAGE);
+    if (ctx.user) throw new HttpError(409, 'You already belong to a workspace.');
+
+    const sql = getSql();
+    const orgMode = a.orgMode === 'create' ? 'create' : 'join';
+    const name = str(a.name, 200).trim() || identity.name;
+    const email = identity.email;
+    const nickname = str(a.nickname, 100).trim().replace(/^@/, '');
+    const role = str(a.role, 200).trim() || 'Member';
+    const department = str(a.department, 200).trim();
+    const avatarUrl = httpUrl(a.avatarUrl);
+    if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      throw new HttpError(400, 'Please enter your full name.');
+    }
+
+    const { org, statements } = await resolveOrg(ctx, a, orgMode, email);
+    const userId = randomUUID();
+    statements.push(
+      sql`INSERT INTO public.profiles
+            (id, org_id, name, email, nickname, role, department, avatar_url, is_admin, auth_user_id)
+          VALUES (${userId}, ${org.id}, ${name}, ${email}, ${nickname || null}, ${role}, ${department},
+                  ${avatarUrl}, ${orgMode === 'create'}, ${identity.sub});`
+    );
+    try {
+      await tx({ orgId: org.id }, ...statements);
+    } catch (err: any) {
+      throw friendlyDbError(err) || err;
+    }
+    return {
+      user: mapProfile(
+        { id: userId, org_id: org.id, name, nickname, email, role, department, avatar_url: avatarUrl, is_admin: orgMode === 'create', status: 'active' },
+        org
+      ),
+    };
   },
 
   async logout(ctx) {
@@ -1279,7 +1436,8 @@ export default async (req: Request): Promise<Response> => {
       : null;
     if (!handler) throw new HttpError(404, 'Unknown action.');
 
-    const ctx: Ctx = { req, user: await loadSessionUser(req), setCookie: (c) => cookies.push(c) };
+    const caller = await loadCaller(req);
+    const ctx: Ctx = { req, user: caller.user, identity: caller.identity, setCookie: (c) => cookies.push(c) };
     const result = await handler(ctx, body.args || {});
     return json(200, result, cookies);
   } catch (err) {

@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { UserProfile } from '../types';
-import { loginWithEmail, registerUser } from '../lib/neonService';
+import { loginWithEmail, registerUser, fetchPendingProfile, SignUpParams } from '../lib/neonService';
+import { neonAuthEnabled, ProfileRequiredError, VerificationRequiredError } from '../lib/neonAuth';
+import { VerifyEmailStep, FinishSetupStep, ForgotPasswordStep, ExistingAccountStep } from './NeonAuthSteps';
+import { validatePasswordStrength } from '../lib/passwordStrength';
 import {
   Lock,
   Mail,
@@ -24,66 +27,6 @@ interface LoginScreenProps {
   onLogin: (user: UserProfile) => void;
   onEnterDemoMode: () => void;
 }
-
-export interface PasswordCriteria {
-  label: string;
-  met: boolean;
-}
-
-export const validatePasswordStrength = (pwd: string) => {
-  const hasMinLength = pwd.length >= 8;
-  const hasUpper = /[A-Z]/.test(pwd);
-  const hasLower = /[a-z]/.test(pwd);
-  const hasNumber = /[0-9]/.test(pwd);
-  const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
-
-  const criteria: PasswordCriteria[] = [
-    { label: '8+ characters', met: hasMinLength },
-    { label: 'Uppercase letter (A-Z)', met: hasUpper },
-    { label: 'Lowercase letter (a-z)', met: hasLower },
-    { label: 'Number (0-9)', met: hasNumber },
-    { label: 'Special symbol (!@#$... )', met: hasSpecial },
-  ];
-
-  const metCount = criteria.filter((c) => c.met).length;
-  const isValid = metCount === 5;
-
-  let strengthLabel = 'Very Weak';
-  let strengthColor = 'bg-red-500';
-  let strengthWidth = 'w-1/5';
-
-  if (metCount === 2) {
-    strengthLabel = 'Weak';
-    strengthColor = 'bg-orange-500';
-    strengthWidth = 'w-2/5';
-  } else if (metCount === 3) {
-    strengthLabel = 'Fair';
-    strengthColor = 'bg-amber-500';
-    strengthWidth = 'w-3/5';
-  } else if (metCount === 4) {
-    strengthLabel = 'Good';
-    strengthColor = 'bg-blue-500';
-    strengthWidth = 'w-4/5';
-  } else if (metCount === 5) {
-    strengthLabel = 'Strong';
-    strengthColor = 'bg-emerald-600';
-    strengthWidth = 'w-full';
-  }
-
-  return {
-    hasMinLength,
-    hasUpper,
-    hasLower,
-    hasNumber,
-    hasSpecial,
-    criteria,
-    metCount,
-    isValid,
-    strengthLabel,
-    strengthColor,
-    strengthWidth,
-  };
-};
 
 const isSpecialAdminOnboardingLink = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -129,6 +72,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Neon Auth only: extra screens (confirm email, finish workspace setup, reset password, upgrade an old account)
+  type NeonStep =
+    | { kind: 'verify'; email: string; password?: string; profile?: SignUpParams }
+    | { kind: 'finish'; identity: { email: string; name: string } }
+    | { kind: 'forgot' }
+    | { kind: 'existing' };
+  const [neonStep, setNeonStep] = useState<NeonStep | null>(null);
+
+  // Signed in with Neon Auth earlier but never finished joining a workspace? Resume there.
+  useEffect(() => {
+    if (!neonAuthEnabled) return;
+    let alive = true;
+    fetchPendingProfile().then((identity) => {
+      if (alive && identity) setNeonStep({ kind: 'finish', identity });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** Sends the person to the right extra screen when Neon Auth says one is needed. True if it did. */
+  const routeNeonStep = (err: unknown, ctx: { email: string; password?: string; profile?: SignUpParams }): boolean => {
+    if (err instanceof VerificationRequiredError) {
+      setNeonStep({ kind: 'verify', email: ctx.email, password: ctx.password, profile: ctx.profile });
+      setError(null);
+      return true;
+    }
+    if (err instanceof ProfileRequiredError) {
+      setNeonStep({ kind: 'finish', identity: err.identity });
+      setError(null);
+      return true;
+    }
+    return false;
+  };
 
   // Password evaluation for signup / admin setup
   const pwdStrength = useMemo(() => validatePasswordStrength(password), [password]);
@@ -188,7 +166,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       const user = await loginWithEmail(email, password);
       onLogin(user);
     } catch (err: any) {
-      setError(err?.message || 'Failed to sign in. Please verify your credentials.');
+      if (!routeNeonStep(err, { email: email.trim().toLowerCase(), password })) {
+        setError(err?.message || 'Failed to sign in. Please verify your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -220,23 +200,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
+    const params: SignUpParams = {
+      name: name.trim(),
+      email: email.trim(),
+      nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
+      password,
+      role: role.trim() || 'Member',
+      avatarUrl: avatarUrl.trim() || undefined,
+      orgMode: 'join',
+      orgCode: orgCode.trim().toUpperCase(),
+    };
+
     setLoading(true);
     setError(null);
 
     try {
-      const newUser = await registerUser({
-        name: name.trim(),
-        email: email.trim(),
-        nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
-        password,
-        role: role.trim() || 'Member',
-        avatarUrl: avatarUrl.trim() || undefined,
-        orgMode: 'join',
-        orgCode: orgCode.trim().toUpperCase(),
-      });
+      const newUser = await registerUser(params);
       onLogin(newUser);
     } catch (err: any) {
-      setError(err?.message || 'Failed to join company workspace.');
+      if (!routeNeonStep(err, { email: params.email.toLowerCase(), password, profile: params })) {
+        setError(err?.message || 'Failed to join company workspace.');
+      }
     } finally {
       setLoading(false);
     }
@@ -268,24 +252,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
+    const params: SignUpParams = {
+      name: name.trim(),
+      email: email.trim(),
+      nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
+      password,
+      role: role.trim() || 'Workspace Admin / Founder',
+      avatarUrl: avatarUrl.trim() || undefined,
+      orgMode: 'create',
+      orgName: orgName.trim(),
+      orgCode: orgCode.trim().toUpperCase(),
+    };
+
     setLoading(true);
     setError(null);
 
     try {
-      const newAdmin = await registerUser({
-        name: name.trim(),
-        email: email.trim(),
-        nickname: nickname.trim() || name.toLowerCase().replace(/\s+/g, '_'),
-        password,
-        role: role.trim() || 'Workspace Admin / Founder',
-        avatarUrl: avatarUrl.trim() || undefined,
-        orgMode: 'create',
-        orgName: orgName.trim(),
-        orgCode: orgCode.trim().toUpperCase(),
-      });
+      const newAdmin = await registerUser(params);
       onLogin(newAdmin);
     } catch (err: any) {
-      setError(err?.message || 'Failed to create organization workspace.');
+      if (!routeNeonStep(err, { email: params.email.toLowerCase(), password, profile: params })) {
+        setError(err?.message || 'Failed to create organization workspace.');
+      }
     } finally {
       setLoading(false);
     }
@@ -308,7 +296,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         {/* ================================================================ */}
         {/* GUARDED ADMIN ONBOARDING VIEW (Only accessible via special sales/onboarding link) */}
         {/* ================================================================ */}
-        {isAdminOnboarding ? (
+        {neonStep ? (
+          neonStep.kind === 'verify' ? (
+            <VerifyEmailStep
+              email={neonStep.email}
+              password={neonStep.password}
+              profile={neonStep.profile}
+              onDone={onLogin}
+              onNeedProfile={(identity) => setNeonStep({ kind: 'finish', identity })}
+              onBack={() => setNeonStep(null)}
+            />
+          ) : neonStep.kind === 'finish' ? (
+            <FinishSetupStep identity={neonStep.identity} onDone={onLogin} onSignOut={() => setNeonStep(null)} />
+          ) : neonStep.kind === 'forgot' ? (
+            <ForgotPasswordStep
+              initialEmail={email}
+              onDone={onLogin}
+              onNeedVerification={(em, pw) => setNeonStep({ kind: 'verify', email: em, password: pw })}
+              onBack={() => setNeonStep(null)}
+            />
+          ) : (
+            <ExistingAccountStep
+              onDone={onLogin}
+              onNeedVerification={(em, pw) => setNeonStep({ kind: 'verify', email: em, password: pw })}
+              onNeedProfile={(identity) => setNeonStep({ kind: 'finish', identity })}
+              onBack={() => setNeonStep(null)}
+            />
+          )
+        ) : isAdminOnboarding ? (
           <div>
             <div className="text-center mb-5">
               <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-black text-white text-[11px] font-semibold rounded-full mb-3 shadow-xs">
@@ -650,6 +665,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <span>{loading ? 'Signing in...' : 'Sign In to Workspace'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
+
+                {neonAuthEnabled && (
+                  <div className="flex flex-col items-center gap-1.5 pt-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setNeonStep({ kind: 'forgot' })}
+                      className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                    >
+                      Forgot your password?
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNeonStep({ kind: 'existing' })}
+                      className="text-gray-500 hover:text-black cursor-pointer"
+                    >
+                      Had an account before the sign-in upgrade? Set up your new login
+                    </button>
+                  </div>
+                )}
               </form>
             )}
 

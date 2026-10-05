@@ -1,4 +1,14 @@
 import { Department, UserProfile, Issue, Status, Comment, SavedView, SavedViewConfig, AppNotification } from '../types';
+import {
+  neonAuthEnabled,
+  getAuthClient,
+  getAccessToken,
+  clearTokenCache,
+  friendlyAuthError,
+  isUnverifiedEmailError,
+  VerificationRequiredError,
+  ProfileRequiredError,
+} from './neonAuth';
 
 /**
  * Client for the NUTS API (netlify/functions/api.mts).
@@ -10,17 +20,31 @@ import { Department, UserProfile, Issue, Status, Comment, SavedView, SavedViewCo
  */
 
 async function call<T>(action: string, args: Record<string, unknown> = {}): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch('/api', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ action, args }),
-    });
-  } catch {
-    throw new Error('Could not reach the server. Please check your connection.');
+  const send = async (token: string | null): Promise<Response> => {
+    try {
+      return await fetch('/api', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action, args }),
+      });
+    } catch {
+      throw new Error('Could not reach the server. Please check your connection.');
+    }
+  };
+
+  // With Neon Auth the person is identified by a short-lived signed token instead of a cookie.
+  let token = neonAuthEnabled ? await getAccessToken() : null;
+  let res = await send(token);
+  if (res.status === 401 && token) {
+    // the token may have expired between being checked and being used: get a fresh one once
+    token = await getAccessToken(true);
+    if (token) res = await send(token);
   }
+
   let data: any = null;
   try {
     data = await res.json();
@@ -51,7 +75,7 @@ const reportMutationError = (what: string, err: unknown) => {
 // AUTHENTICATION
 // ============================================================================
 
-export async function registerUser(params: {
+export interface SignUpParams {
   name: string;
   email: string;
   nickname: string;
@@ -62,18 +86,140 @@ export async function registerUser(params: {
   orgMode: 'create' | 'join';
   orgName?: string;
   orgCode?: string;
-}): Promise<UserProfile> {
-  return (await call<{ user: UserProfile }>('register', params)).user;
+}
+
+interface MeResponse {
+  user: UserProfile | null;
+  authMode?: 'neon' | 'password';
+  needsProfile?: boolean;
+  identity?: { email: string; name: string } | null;
+}
+
+/** After a Neon Auth session exists: resolve to the person's profile, or say which step comes next. */
+async function resolveSignedInUser(emailHint: string, profile?: SignUpParams): Promise<UserProfile> {
+  clearTokenCache();
+  const me = await call<MeResponse>('me');
+  if (me.user) return me.user;
+  if (me.needsProfile && me.identity) {
+    if (profile) return completeSignup(profile);
+    throw new ProfileRequiredError(me.identity);
+  }
+  // no session yet, or the email is not confirmed
+  throw new VerificationRequiredError(emailHint);
+}
+
+export async function registerUser(params: SignUpParams): Promise<UserProfile> {
+  if (!neonAuthEnabled) return (await call<{ user: UserProfile }>('register', params as any)).user;
+  const client: any = await getAuthClient();
+  const email = params.email.trim().toLowerCase();
+  const { error } = await client.signUp.email({ email, password: params.password || '', name: params.name });
+  if (error) throw new Error(friendlyAuthError(error, 'Could not create your account.'));
+  return resolveSignedInUser(email, params);
 }
 
 export async function loginWithEmail(email: string, password?: string): Promise<UserProfile> {
-  return (await call<{ user: UserProfile }>('login', { email, password })).user;
+  if (!neonAuthEnabled) return (await call<{ user: UserProfile }>('login', { email, password })).user;
+  const client: any = await getAuthClient();
+  const clean = email.trim().toLowerCase();
+  const { error } = await client.signIn.email({ email: clean, password: password || '' });
+  if (error) {
+    if (isUnverifiedEmailError(error)) throw new VerificationRequiredError(clean);
+    throw new Error(friendlyAuthError(error, 'Incorrect email or password.'));
+  }
+  return resolveSignedInUser(clean);
 }
 
-/** The signed-in user for the current session cookie, or null. */
+/**
+ * For people who had an account before sign-in moved to Neon Auth: creates their new login. Once the
+ * email is confirmed, the API reconnects it to their existing profile, matched on that verified email.
+ */
+export async function startLoginForExistingAccount(email: string, password: string, name: string): Promise<UserProfile> {
+  const client: any = await getAuthClient();
+  const clean = email.trim().toLowerCase();
+  const { error } = await client.signUp.email({ email: clean, password, name: name.trim() || clean });
+  if (error) throw new Error(friendlyAuthError(error, 'Could not set up your new login.'));
+  return resolveSignedInUser(clean);
+}
+
+/** Confirms the emailed code, then signs in (and finishes the workspace step if sign-up details were given). */
+export async function verifyEmailCode(
+  email: string,
+  code: string,
+  password?: string,
+  profile?: SignUpParams
+): Promise<UserProfile> {
+  const client: any = await getAuthClient();
+  const clean = email.trim().toLowerCase();
+  const { error } = await client.emailOtp.verifyEmail({ email: clean, otp: code.trim() });
+  if (error) throw new Error(friendlyAuthError(error, 'That code is not right.'));
+  if (password) {
+    const signedIn = await client.signIn.email({ email: clean, password });
+    if (signedIn.error) throw new Error(friendlyAuthError(signedIn.error, 'Could not sign you in.'));
+  }
+  return resolveSignedInUser(clean, profile);
+}
+
+export async function resendVerificationCode(email: string): Promise<void> {
+  const client: any = await getAuthClient();
+  const clean = email.trim().toLowerCase();
+  const { error } = await client.emailOtp.sendVerificationOtp({ email: clean, type: 'email-verification' });
+  if (error) throw new Error(friendlyAuthError(error, 'Could not send a new code.'));
+}
+
+/** Creates the workspace (or joins one by invite code) for a verified, signed-in person. */
+export async function completeSignup(p: SignUpParams): Promise<UserProfile> {
+  const { password: _ignored, email: _email, ...rest } = p; // email and name come from the verified token on the server
+  return (await call<{ user: UserProfile }>('completeSignup', rest as any)).user;
+}
+
+/** Signed in with Neon Auth but not yet in a workspace? Returns who they are. */
+export async function fetchPendingProfile(): Promise<{ email: string; name: string } | null> {
+  if (!neonAuthEnabled) return null;
+  try {
+    const me = await call<MeResponse>('me');
+    return me.needsProfile && me.identity ? me.identity : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Asks Neon Auth to email a one-time code for resetting the password. The answer never reveals whether the address has an account. */
+export async function requestPasswordResetCode(email: string): Promise<void> {
+  const client: any = await getAuthClient();
+  const { error } = await client.emailOtp.requestPasswordReset({ email: email.trim().toLowerCase() });
+  if (error && Number(error.status) !== 400 && Number(error.status) !== 404) {
+    throw new Error(friendlyAuthError(error, 'Could not send a reset code.'));
+  }
+}
+
+export async function resetPasswordWithCode(email: string, code: string, newPassword: string): Promise<void> {
+  const client: any = await getAuthClient();
+  const { error } = await client.emailOtp.resetPassword({
+    email: email.trim().toLowerCase(),
+    otp: code.trim(),
+    password: newPassword,
+  });
+  if (error) throw new Error(friendlyAuthError(error, 'Could not reset the password.'));
+}
+
+/** Changes the password for the signed-in person and signs out every other session. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const client: any = await getAuthClient();
+  const { error } = await client.changePassword({ currentPassword, newPassword, revokeOtherSessions: true });
+  if (error) throw new Error(friendlyAuthError(error, 'Could not change the password.'));
+}
+
+export async function signOutOtherSessions(): Promise<void> {
+  const client: any = await getAuthClient();
+  const { error } = await client.revokeOtherSessions();
+  if (error) throw new Error(friendlyAuthError(error, 'Could not sign out other devices.'));
+}
+
+/** The signed-in user for the current session, or null. */
 export async function fetchCurrentUser(): Promise<UserProfile | null> {
   try {
-    return (await call<{ user: UserProfile | null }>('me')).user;
+    if (neonAuthEnabled && !(await getAccessToken())) return null; // signed out: nothing to ask the server
+    return (await call<MeResponse>('me')).user;
   } catch {
     return null;
   }
@@ -81,9 +227,16 @@ export async function fetchCurrentUser(): Promise<UserProfile | null> {
 
 export async function logoutFromServer(): Promise<void> {
   try {
-    await call('logout');
+    if (neonAuthEnabled) {
+      const client: any = await getAuthClient();
+      await client.signOut();
+    } else {
+      await call('logout');
+    }
   } catch {
     // the local sign-out proceeds regardless
+  } finally {
+    clearTokenCache();
   }
 }
 
