@@ -29,16 +29,28 @@ test('buildReport counts open, closed, priorities and departments', () => {
   ];
   const r = buildReport(issues, depts, NOW);
   assert.equal(r.total, 5);
-  assert.equal(r.open, 3);
+  assert.equal(r.open, 4); // everything but the CLOSED one: a COMPLETED ticket stays "open" until closed
   assert.equal(r.openByPriority.P0, 2);
+  assert.equal(r.openByPriority.P3, 1);
   assert.equal(r.byStatus.PENDING, 1);
   assert.equal(r.paused, 1);
-  assert.equal(r.resolvedLast30Days, 1); // #4 finished 35 days ago
+  assert.equal(r.resolvedLast30Days, 1); // #3 resolved 2 days ago; #4 was resolved 35 days ago
   const eng = r.perDepartment.find((d) => d.code === 'DEV')!;
   const hr = r.perDepartment.find((d) => d.code === 'HR')!;
-  assert.deepEqual([eng.open, eng.closed], [2, 1]);
+  assert.deepEqual([eng.open, eng.closed], [3, 0]);
   assert.deepEqual([hr.open, hr.closed], [1, 1]);
   assert.ok(r.avgLeadTimeMs > 0);
+});
+
+test('a COMPLETED ticket is open and never stalled; a CLOSED one is not open', () => {
+  const r = buildReport(
+    [mk({ id: 'c', status: 'COMPLETED', priority: 'P0', createdAt: iso(-200), updatedAt: iso(-100) }), mk({ id: 'x', status: 'CLOSED' })],
+    depts,
+    NOW
+  );
+  assert.equal(r.open, 1);
+  assert.equal(r.stalled, 0); // SLA stopped at COMPLETED however long ago
+  assert.equal(r.perDepartment.find((d) => d.code === 'DEV')!.closed, 1);
 });
 
 test('buildReport tolerates an empty workspace and unknown departments', () => {

@@ -145,7 +145,7 @@ export const IssueTable: React.FC = () => {
     if (selectedDepartment !== 'all') {
       const name = selectedDeptObj?.name || selectedDepartment;
       const which =
-        navView === 'closed' ? 'completed and closed issues' : navView === 'all' ? 'all issues' : 'open issues';
+        navView === 'closed' ? 'closed issues' : navView === 'all' ? 'all issues' : 'open issues (completed ones stay until closed)';
       return {
         title: name,
         badge: selectedDeptObj?.code,
@@ -156,7 +156,7 @@ export const IssueTable: React.FC = () => {
       return {
         title: `Open Issues in ${userDept?.name || currentUser.department}`,
         badge: userDept?.code || 'DEV',
-        subtitle: `All open tickets in your department (${userDept?.name || currentUser.department})`,
+        subtitle: `Everything not yet closed in your department, completed tickets included (${userDept?.name || currentUser.department})`,
       };
     }
     if (navView === 'assigned_to_me') {
@@ -180,9 +180,9 @@ export const IssueTable: React.FC = () => {
     }
     if (navView === 'closed') {
       return {
-        title: `Closed / Completed Issues (${userDept?.name || currentUser.department})`,
+        title: `Closed Issues (${userDept?.name || currentUser.department})`,
         badge: userDept?.code,
-        subtitle: `Completed and closed tickets in your department (${userDept?.name || currentUser.department})`,
+        subtitle: `Closed tickets in your department (${userDept?.name || currentUser.department})`,
       };
     }
     return {
@@ -193,10 +193,10 @@ export const IssueTable: React.FC = () => {
 
   // Open / Closed / All tabs on a department page
   const deptIssues = selectedDeptObj ? issues.filter((i) => i.departmentId === selectedDeptObj.id) : [];
-  const isDone = (st: Status) => st === 'COMPLETED' || st === 'CLOSED';
+  const isClosed = (st: Status) => st === 'CLOSED';
   const deptTabs: { id: NavView; label: string; count: number }[] = [
-    { id: 'open', label: 'Open', count: deptIssues.filter((i) => !isDone(i.status)).length },
-    { id: 'closed', label: 'Closed', count: deptIssues.filter((i) => isDone(i.status)).length },
+    { id: 'open', label: 'Open', count: deptIssues.filter((i) => !isClosed(i.status)).length },
+    { id: 'closed', label: 'Closed', count: deptIssues.filter((i) => isClosed(i.status)).length },
     { id: 'all', label: 'All', count: deptIssues.length },
   ];
 

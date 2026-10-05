@@ -460,7 +460,7 @@ export const DepartmentModal: React.FC = () => {
               <div className="space-y-1">
                 {ALL_STATUSES.map((st) => {
                   const on = workflowStatuses.includes(st);
-                  const locked = st === 'NEW'; // every ticket starts as NEW
+                  const locked = st === 'NEW' || st === 'CLOSED'; // tickets start as NEW and leave Open as CLOSED
                   return (
                     <div key={st} className="flex items-center gap-2">
                       <label className="flex items-center gap-2 w-36 shrink-0 font-mono text-[11px] text-gray-800 cursor-pointer select-none">

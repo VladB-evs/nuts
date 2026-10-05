@@ -64,9 +64,10 @@ test('sanitizeWorkflow accepts null as "default"', () => {
   assert.deepEqual(sanitizeWorkflow(undefined), { ok: true, value: null });
 });
 
-test('a workflow must include NEW and a finishing status', () => {
-  assert.equal(sanitizeWorkflow({ statuses: ['ASSIGNED', 'COMPLETED'] }).ok, false);
+test('a workflow must include NEW and CLOSED (the status that leaves Open)', () => {
+  assert.equal(sanitizeWorkflow({ statuses: ['ASSIGNED', 'CLOSED'] }).ok, false);
   assert.equal(sanitizeWorkflow({ statuses: ['NEW', 'ASSIGNED'] }).ok, false);
+  assert.equal(sanitizeWorkflow({ statuses: ['NEW', 'COMPLETED'] }).ok, false); // COMPLETED alone would never leave Open
   assert.equal(sanitizeWorkflow({ statuses: ['NEW', 'CLOSED'] }).ok, true);
 });
 
@@ -82,10 +83,10 @@ test('unknown statuses, wrong shapes and duplicates are handled', () => {
 
 test('labels are plain, short, and only for included statuses', () => {
   const r = sanitizeWorkflow({
-    statuses: ['NEW', 'COMPLETED'],
+    statuses: ['NEW', 'CLOSED'],
     labels: {
       NEW: '  <b>Requested</b>\n\u0000 ',
-      COMPLETED: 'x'.repeat(100),
+      CLOSED: 'x'.repeat(100),
       PENDING: 'ignored',
       __proto__: 'evil',
     },
@@ -93,7 +94,7 @@ test('labels are plain, short, and only for included statuses', () => {
   assert.ok(r.ok && r.value);
   if (r.ok && r.value) {
     assert.equal(r.value.labels?.NEW, 'bRequested/b');
-    assert.equal(r.value.labels?.COMPLETED?.length, 30);
+    assert.equal(r.value.labels?.CLOSED?.length, 30);
     assert.equal((r.value.labels as any).PENDING, undefined);
     assert.equal(({} as any).evil, undefined);
   }

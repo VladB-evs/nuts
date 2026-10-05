@@ -1,6 +1,6 @@
 import type { Department, Issue, Priority, Status } from '../types';
 import { computeTicketLifecycle } from './timelineUtils';
-import { DONE_STATUSES } from './workflow';
+import { isClosedStatus } from './workflow';
 
 export interface DepartmentReportRow {
   departmentId: string;
@@ -27,7 +27,6 @@ export interface Report {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-const isDone = (s: Status) => (DONE_STATUSES as string[]).includes(s);
 const dayKey = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** Aggregates the issues already loaded in the app. Pure: pass `now` to make it testable. */
@@ -49,19 +48,24 @@ export function buildReport(issues: Issue[], departments: Department[], now = Da
     if (issue.status in byStatus) byStatus[issue.status]++;
     const row = rows.get(issue.departmentId);
     const lc = computeTicketLifecycle(issue, now);
-    const done = isDone(issue.status);
+    // "Open" matches the issue list: everything not CLOSED, completed tickets included.
+    // "Resolved" is separate: the lifecycle's own idea of finished (COMPLETED, VERIFIED, CLOSED), where SLA clocks stop.
+    const closed = isClosedStatus(issue.status);
+    const resolved = lc.isResolved;
 
     const created = dailyIndex.get(dayKey(new Date(issue.createdAt).getTime()));
     if (created !== undefined) daily[created].created++;
 
-    if (done) {
-      if (row) row.closed++;
+    if (resolved) {
       const finishedAt = new Date(issue.updatedAt).getTime();
       if (now - finishedAt <= 30 * DAY) resolvedLast30++;
       const resolvedDay = dailyIndex.get(dayKey(finishedAt));
       if (resolvedDay !== undefined) daily[resolvedDay].resolved++;
       leadSum += lc.leadTimeMs; leadN++;
       if (row) { row.leadSum += lc.leadTimeMs; row.leadN++; }
+    }
+    if (closed) {
+      if (row) row.closed++;
     } else {
       open++;
       if (issue.priority in openByPriority) openByPriority[issue.priority]++;

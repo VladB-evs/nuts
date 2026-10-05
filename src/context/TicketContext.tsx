@@ -1647,7 +1647,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           issue.assignee?.id === currentUser.id ||
           (!!currentUser.email && issue.assignee?.email?.toLowerCase() === currentUser.email.toLowerCase());
         if (!isAssigned) return false;
-        if (issue.status === 'COMPLETED' || issue.status === 'CLOSED') return false;
+        if (issue.status === 'CLOSED') return false; // completed tickets stay visible until they are closed
 
         if (selectedDepartment === 'all') {
           if (userDeptId && issue.departmentId !== userDeptId) return false;
@@ -1656,7 +1656,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } else if (navView === 'open') {
         // "Opened issues will show all the opened issues in the department I am assigned to."
-        if (issue.status === 'COMPLETED' || issue.status === 'CLOSED') return false;
+        if (issue.status === 'CLOSED') return false; // completed tickets stay visible until they are closed
 
         if (selectedDepartment === 'all') {
           if (userDeptId && issue.departmentId !== userDeptId) return false;
@@ -1673,7 +1673,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!issue.starred) return false;
         if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
       } else if (navView === 'closed') {
-        if (issue.status !== 'COMPLETED' && issue.status !== 'CLOSED') return false;
+        if (issue.status !== 'CLOSED') return false;
         if (selectedDepartment === 'all') {
           if (userDeptId && issue.departmentId !== userDeptId) return false;
         } else {
@@ -1916,7 +1916,6 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const openInUserDept = issues.filter(
       (i) =>
         (userDeptId ? i.departmentId === userDeptId : true) &&
-        i.status !== 'COMPLETED' &&
         i.status !== 'CLOSED'
     ).length;
 
@@ -1926,7 +1925,6 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         (userDeptId ? i.departmentId === userDeptId : true) &&
         (i.assignee?.id === currentUser.id ||
           (!!currentUser.email && i.assignee?.email?.toLowerCase() === currentUser.email.toLowerCase())) &&
-        i.status !== 'COMPLETED' &&
         i.status !== 'CLOSED'
     ).length;
 
@@ -1936,7 +1934,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const closedInUserDept = issues.filter(
       (i) =>
         (userDeptId ? i.departmentId === userDeptId : true) &&
-        (i.status === 'COMPLETED' || i.status === 'CLOSED')
+        i.status === 'CLOSED'
     ).length;
 
     return {

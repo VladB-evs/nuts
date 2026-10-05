@@ -57,14 +57,14 @@ export const Sidebar: React.FC = () => {
     {
       id: 'open',
       label: 'Open issues',
-      tooltip: `All open issues in ${deptName}`,
+      tooltip: `Everything in ${deptName} that isn't closed yet, including completed tickets`,
       icon: Inbox,
       count: counts.open,
     },
     {
       id: 'closed',
-      label: 'Closed / Completed',
-      tooltip: `Completed and closed issues in ${deptName}`,
+      label: 'Closed',
+      tooltip: `Closed issues in ${deptName}`,
       icon: CheckCircle2,
       count: counts.closed,
     },
@@ -278,7 +278,7 @@ export const Sidebar: React.FC = () => {
         {departments.map((dept) => {
           const isSelected = selectedDepartment === dept.id && activeTab === 'table';
           const count = issues.filter(
-            (i) => i.departmentId === dept.id && i.status !== 'COMPLETED' && i.status !== 'CLOSED'
+            (i) => i.departmentId === dept.id && i.status !== 'CLOSED'
           ).length;
           const isMine = dept.id === userDeptId;
 

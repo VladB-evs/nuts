@@ -35,7 +35,7 @@ export const UserHoverCard: React.FC<UserHoverCardProps> = ({
   }
 
   const assignedCount = issues.filter(
-    (i) => i.assignee?.id === user.id && i.status !== 'COMPLETED' && i.status !== 'CLOSED'
+    (i) => i.assignee?.id === user.id && i.status !== 'CLOSED'
   ).length;
 
   const reportedCount = issues.filter((i) => i.reporter?.id === user.id).length;

@@ -67,7 +67,7 @@ export const AdminReports: React.FC = () => {
 
       <div className="p-4 space-y-5">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
-          <Tile label="Open tickets" value={report.open} hint={`${report.total} in total`} />
+          <Tile label="Open tickets" value={report.open} hint={`${report.total} in total, not yet closed`} />
           <Tile label="Stalled" value={report.stalled} tone={report.stalled ? 'text-amber-600' : ''} hint="over their stage SLA" />
           <Tile label="SLA paused" value={report.paused} hint="waiting (pending)" />
           <Tile label="Resolved, 30 days" value={report.resolvedLast30Days} />

@@ -10,8 +10,8 @@ export const ALL_STATUSES: Status[] = [
   'CLOSED',
 ];
 
-/** Statuses that mean the work is finished (they leave "Open" and enter "Closed"). */
-export const DONE_STATUSES: Status[] = ['COMPLETED', 'CLOSED'];
+/** A ticket leaves the main (Open) area only when it is CLOSED. COMPLETED tickets stay visible with their SLA stopped. */
+export const isClosedStatus = (status: string): boolean => status === 'CLOSED';
 
 const MAX_LABEL = 30;
 
@@ -21,7 +21,7 @@ export type WorkflowResult =
 
 /**
  * Validates a workflow from the client. A workflow must start somewhere (NEW) and be able to
- * finish (COMPLETED or CLOSED); labels are short plain text. `null`/`undefined` means "use
+ * leave the Open area (CLOSED); labels are short plain text. `null`/`undefined` means "use
  * every status with the default names".
  */
 export function sanitizeWorkflow(raw: unknown): WorkflowResult {
@@ -39,8 +39,8 @@ export function sanitizeWorkflow(raw: unknown): WorkflowResult {
     chosen.add(s);
   }
   if (!chosen.has('NEW')) return { ok: false, error: 'A workflow must include NEW.' };
-  if (!DONE_STATUSES.some((s) => chosen.has(s))) {
-    return { ok: false, error: 'A workflow must include COMPLETED or CLOSED.' };
+  if (!chosen.has('CLOSED')) {
+    return { ok: false, error: 'A workflow must include CLOSED, the status that takes a ticket out of Open.' };
   }
   const statuses = ALL_STATUSES.filter((s) => chosen.has(s)); // canonical order
 

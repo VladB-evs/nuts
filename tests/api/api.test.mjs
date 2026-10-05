@@ -171,6 +171,7 @@ const save = (cookie, workflow) => call('saveDepartment', { department: { ...wfD
 await t('non-admin cannot change a workflow (403)', async () => eq((await save(B, { statuses: ['NEW', 'CLOSED'] })).status, 403));
 await t('workflow without NEW is rejected', async () => eq((await save(A, { statuses: ['ASSIGNED', 'CLOSED'] })).status, 400));
 await t('workflow without a finishing status is rejected', async () => eq((await save(A, { statuses: ['NEW', 'ASSIGNED'] })).status, 400));
+await t('workflow ending at COMPLETED (no CLOSED) is rejected', async () => eq((await save(A, { statuses: ['NEW', 'COMPLETED'] })).status, 400));
 await t('workflow with unknown status is rejected', async () => eq((await save(A, { statuses: ['NEW', 'WAT', 'CLOSED'] })).status, 400));
 await t('admin saves a valid workflow with labels', async () => eq((await save(A, { statuses: ['NEW', 'ASSIGNED', 'CLOSED'], labels: { NEW: 'Requested' } })).status, 200));
 await t('fetchAll returns the workflow', async () => eq((await call('fetchAll', {}, A)).body.departments[0].workflow, { statuses: ['NEW', 'ASSIGNED', 'CLOSED'], labels: { NEW: 'Requested' } }));
