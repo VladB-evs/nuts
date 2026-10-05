@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import {
   Issue,
   Department,
+  DepartmentWorkflow,
   UserProfile,
   Priority,
   Status,
@@ -23,10 +24,16 @@ import {
   INVERSE_RELATIONS,
   RELATION_CONFIG,
   ToastNotification,
+  SortKey,
+  SortDir,
+  SavedView,
+  AppNotification,
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
 import { getUserDepartmentId, findDuplicateDepartment } from '../lib/departmentRules';
 import { withStandardIssueTypes } from '../lib/issueOptions';
+import { sortIssues } from '../lib/issueSort';
+import { DEFAULT_SORT, sanitizeViewConfig, cleanViewName } from '../lib/savedViews';
 import {
   fetchAllDataFromNeon,
   createIssueInNeon,
@@ -38,6 +45,15 @@ import {
   updateProfileInNeon,
   fetchCurrentUser,
   logoutFromServer,
+  setMutationErrorHandler,
+  setStarInNeon,
+  setWatchInNeon,
+  bulkUpdateInNeon,
+  saveViewInNeon,
+  deleteViewInNeon,
+  fetchNotificationsFromNeon,
+  fetchNotificationCount,
+  markNotificationsReadInNeon,
 } from '../lib/neonService';
 
 interface IssueContextType {
@@ -122,10 +138,26 @@ interface IssueContextType {
     name: string,
     code: string,
     description?: string,
-    customFields?: CustomFieldDefinition[]
+    customFields?: CustomFieldDefinition[],
+    workflow?: DepartmentWorkflow
   ) => Department;
   updateDepartment: (deptId: string, updates: Partial<Department>) => void;
   deleteDepartment: (deptId: string) => void;
+  sort: { key: SortKey; dir: SortDir };
+  setSort: (sort: { key: SortKey; dir: SortDir }) => void;
+  toggleWatch: (issueId: string) => void;
+  bulkUpdateIssues: (
+    ids: string[],
+    updates: { status?: Status; priority?: Priority; assigneeId?: string }
+  ) => Promise<boolean>;
+  savedViews: SavedView[];
+  saveCurrentView: (name: string) => Promise<boolean>;
+  applyView: (view: SavedView) => void;
+  deleteSavedView: (id: string) => Promise<void>;
+  notifications: AppNotification[];
+  unreadCount: number;
+  refreshNotifications: () => Promise<void>;
+  markNotificationsRead: (ids: string[] | 'all') => void;
   filteredIssues: Issue[];
   counts: {
     open: number;
@@ -358,6 +390,9 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearLocalWorkspaceData();
     setCurrentUserState(null);
     setIssues([]);
+    setSavedViews([]);
+    setNotifications([]);
+    setUnreadCount(0);
   };
 
   const [isNeonConnected, setIsNeonConnected] = useState<boolean>(false);
@@ -387,7 +422,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (data.issues) {
           setIssues(data.issues);
+          // keep an open ticket in step with what the server just said
+          setSelectedIssue((curr) => (curr ? data.issues.find((i) => i.id === curr.id) ?? curr : curr));
         }
+        setSavedViews(data.savedViews || []);
         setIsNeonConnected(true);
       }
     } catch (err) {
@@ -426,6 +464,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [fieldFilters, setFieldFilters] = useState<Record<string, string>>({});
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>(DEFAULT_SORT);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState<'table' | 'timeline' | 'admin'>('table');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCreatingIssue, setIsCreatingIssue] = useState(false);
@@ -900,6 +942,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               key === 'createdAt' ||
               key === 'reporter' ||
               key === 'starred' ||
+              key === 'watching' ||
               key === 'customAttributes' ||
               key === 'linkedIssues'
             ) {
@@ -1033,13 +1076,24 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (!isDemoMode) {
       const target = issues.find((i) => i.id === issueId);
-      if (target) {
-        const actor = currentUser || users[0];
-        if (actor) {
-          updateIssueInNeon(issueId, { starred: !target.starred }, actor, currentUser?.orgId);
-        }
-      }
+      if (target) setStarInNeon(issueId, !target.starred);
     }
+  };
+
+  const toggleWatch = (issueId: string) => {
+    const target = issues.find((i) => i.id === issueId);
+    if (!target) return;
+    const watching = !target.watching;
+    setIssues((prev) => prev.map((i) => (i.id === issueId ? { ...i, watching } : i)));
+    setSelectedIssue((curr) => (curr && curr.id === issueId ? { ...curr, watching } : curr));
+    if (!isDemoMode) setWatchInNeon(issueId, watching);
+    showToast({
+      type: 'info',
+      title: watching ? 'Watching' : 'Stopped watching',
+      message: watching
+        ? `You will be notified about ${target.code}.`
+        : `You will no longer follow ${target.code}${target.assignee?.id === currentUser?.id || target.reporter.id === currentUser?.id ? ' as a watcher (you still hear about it as its assignee or reporter)' : ''}.`,
+    });
   };
 
   const linkIssues = (
@@ -1374,7 +1428,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     name: string,
     code: string,
     description?: string,
-    customFields?: CustomFieldDefinition[]
+    customFields?: CustomFieldDefinition[],
+    workflow?: DepartmentWorkflow
   ): Department => {
     if (!currentUser?.isAdmin) {
       showToast({
@@ -1401,6 +1456,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       code: code.toUpperCase(),
       description: description || '',
       customFields: customFields || [],
+      ...(workflow ? { workflow } : {}),
     };
     setDepartments((prev) => [...prev, newDept]);
 
@@ -1583,7 +1639,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!currentUser) return [];
     const userDeptId = getUserDepartmentId(currentUser, departments);
 
-    return issues.filter((issue) => {
+    const matching = issues.filter((issue) => {
       // Nav View Filter
       if (navView === 'assigned_to_me') {
         // "and the assigned to me shows all the opened issues in the department that the current uses is on and the tickets assigned to that specific user"
@@ -1607,6 +1663,9 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
           if (issue.departmentId !== selectedDepartment) return false;
         }
+      } else if (navView === 'all') {
+        // Department page, "All" tab: every status
+        if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
       } else if (navView === 'reported_by_me') {
         if (issue.reporter.id !== currentUser.id) return false;
         if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
@@ -1677,7 +1736,169 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return true;
     });
-  }, [issues, selectedDepartment, navView, priorityFilter, fieldFilters, searchQuery, currentUser, departments]);
+
+    return sortIssues(matching, sort.key, sort.dir);
+  }, [issues, selectedDepartment, navView, priorityFilter, fieldFilters, searchQuery, currentUser, departments, sort]);
+
+  // ---------------------------------------------------------------- bulk edits --
+  const bulkUpdateIssues = async (
+    ids: string[],
+    updates: { status?: Status; priority?: Priority; assigneeId?: string }
+  ): Promise<boolean> => {
+    if (ids.length === 0) return false;
+    try {
+      if (isDemoMode) {
+        // Demo data lives in the browser, so apply each change locally.
+        const assignee =
+          updates.assigneeId && updates.assigneeId !== 'unassigned'
+            ? users.find((u) => u.id === updates.assigneeId) || null
+            : null;
+        ids.forEach((id) => {
+          const issue = issues.find((i) => i.id === id);
+          if (!issue) return;
+          const patch: Partial<Issue> = {};
+          if (updates.priority) patch.priority = updates.priority;
+          if (updates.assigneeId !== undefined) {
+            patch.assignee = assignee;
+            if (assignee && issue.status === 'NEW') patch.status = 'ASSIGNED';
+          }
+          if (updates.status) patch.status = updates.status;
+          updateIssue(id, patch);
+        });
+      } else {
+        await bulkUpdateInNeon(ids, updates);
+        await reloadFromDatabase();
+      }
+      showToast({
+        type: 'success',
+        title: 'Tickets updated',
+        message: `Updated ${ids.length} ${ids.length === 1 ? 'ticket' : 'tickets'}.`,
+      });
+      return true;
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Could not update tickets', message: err?.message });
+      return false;
+    }
+  };
+
+  // --------------------------------------------------------------- saved views --
+  const saveCurrentView = async (rawName: string): Promise<boolean> => {
+    const name = cleanViewName(rawName);
+    if (!name) {
+      showToast({ type: 'error', title: 'Give the view a name' });
+      return false;
+    }
+    const config = sanitizeViewConfig({
+      departmentId: selectedDepartment,
+      navView,
+      priority: priorityFilter,
+      fieldFilters,
+      sort,
+      search: searchQuery,
+    });
+    try {
+      const view: SavedView = isDemoMode
+        ? { id: `view-${Date.now()}`, name, config }
+        : await saveViewInNeon(name, config);
+      setSavedViews((prev) =>
+        [...prev.filter((v) => v.id !== view.id), view].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      showToast({ type: 'success', title: 'View saved', message: `"${name}" is in your sidebar.` });
+      return true;
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Could not save the view', message: err?.message });
+      return false;
+    }
+  };
+
+  const applyView = (view: SavedView) => {
+    const c = sanitizeViewConfig(view.config);
+    const dept = departments.some((d) => d.id === c.departmentId) ? c.departmentId : 'all';
+    setIsCreatingIssue(false);
+    setSelectedIssue(null);
+    setActiveTab('table');
+    setSelectedDepartment(dept); // resets navView and field filters, so set the rest after it
+    setNavView(c.navView);
+    setPriorityFilter(c.priority);
+    setFieldFilters(c.fieldFilters);
+    setSort(c.sort);
+    setSearchQuery(c.search);
+    setIsMobileMenuOpen(false);
+  };
+
+  const deleteSavedView = async (id: string) => {
+    const previous = savedViews;
+    setSavedViews((prev) => prev.filter((v) => v.id !== id));
+    if (isDemoMode) return;
+    try {
+      await deleteViewInNeon(id);
+    } catch (err: any) {
+      setSavedViews(previous);
+      showToast({ type: 'error', title: 'Could not delete the view', message: err?.message });
+    }
+  };
+
+  // ------------------------------------------------------------- notifications --
+  const refreshNotifications = async () => {
+    if (isDemoMode) return;
+    const data = await fetchNotificationsFromNeon();
+    if (data) {
+      setNotifications(data.items);
+      setUnreadCount(data.unread);
+    }
+  };
+
+  const markNotificationsRead = (ids: string[] | 'all') => {
+    setNotifications((prev) =>
+      prev.map((n) => (ids === 'all' || ids.includes(n.id) ? { ...n, read: true } : n))
+    );
+    setUnreadCount((c) =>
+      ids === 'all' ? 0 : Math.max(0, c - notifications.filter((n) => !n.read && ids.includes(n.id)).length)
+    );
+    if (!isDemoMode) markNotificationsReadInNeon(ids === 'all' ? { all: true } : { ids });
+  };
+
+  // Tell the person when the server refuses one of their edits, and re-sync what's on screen.
+  useEffect(() => {
+    if (isDemoMode || !currentUser) return;
+    setMutationErrorHandler((message) => {
+      showToast({ type: 'error', title: 'Not saved', message });
+      reloadFromDatabase();
+    });
+    return () => setMutationErrorHandler(null);
+  }, [currentUser?.id, isDemoMode]);
+
+  // Poll for new notifications. There are no push connections on Netlify Functions, so this asks a
+  // cheap question every 45s while the tab is visible. When something new arrives, the data is
+  // refreshed too, since somebody else just changed a ticket this person follows.
+  useEffect(() => {
+    if (isDemoMode || !currentUser?.orgId || currentUser.orgId === 'org_nuts_demo') return;
+    if (currentUser.status === 'departed') return;
+    let alive = true;
+    let seen: { unread: number; latest: string | null } | null = null;
+
+    const check = async () => {
+      if (!alive || document.visibilityState === 'hidden') return;
+      const c = await fetchNotificationCount();
+      if (!alive || !c) return;
+      const changed = !seen || c.unread !== seen.unread || c.latest !== seen.latest;
+      const firstCheck = seen === null;
+      seen = c;
+      if (changed) {
+        await refreshNotifications();
+        if (!firstCheck) reloadFromDatabase();
+      }
+    };
+
+    check();
+    const timer = window.setInterval(check, 45000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [currentUser?.id, isDemoMode]);
 
   const counts = useMemo(() => {
     if (!currentUser) {
@@ -1783,6 +2004,18 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteDepartment,
         setUserEmploymentStatus,
         setUserAdminRole,
+        sort,
+        setSort,
+        toggleWatch,
+        bulkUpdateIssues,
+        savedViews,
+        saveCurrentView,
+        applyView,
+        deleteSavedView,
+        notifications,
+        unreadCount,
+        refreshNotifications,
+        markNotificationsRead,
         filteredIssues,
         counts,
       }}

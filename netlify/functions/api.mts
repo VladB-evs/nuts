@@ -15,6 +15,9 @@ import type {
   Organization,
   UserProfile,
 } from '../../src/types';
+import { findMentionedIds } from '../../src/lib/mentions';
+import { isStatusAllowed, sanitizeWorkflow } from '../../src/lib/workflow';
+import { cleanViewName, sanitizeViewConfig } from '../../src/lib/savedViews';
 
 // ============================================================================
 // Setup
@@ -289,6 +292,103 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const randomCode = (len: number) =>
   Array.from({ length: len }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
 
+// ============================================================================
+// Validation and notification helpers
+// ============================================================================
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID_RE.test(v);
+const MAX_BULK = 100;
+const MAX_SAVED_VIEWS = 25;
+
+const uuidList = (v: unknown, max: number): string[] => {
+  if (!Array.isArray(v) || v.length === 0) throw new HttpError(400, 'Nothing selected.');
+  if (v.length > max) throw new HttpError(400, `Select at most ${max} tickets at a time.`);
+  const out = new Set<string>();
+  for (const id of v) {
+    if (!isUuid(id)) throw new HttpError(400, 'Invalid id.');
+    out.add(id.toLowerCase());
+  }
+  return [...out];
+};
+
+const snippet = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 140);
+
+type NotifyKind = 'assigned' | 'mentioned' | 'commented' | 'status_changed' | 'priority_changed';
+
+/**
+ * Notification statements. They are built here and run inside the same transaction as the change
+ * that caused them, so a ticket never changes without its notifications (or the other way round).
+ * Ids go in as one JSON array parameter and are cast to uuid, so nothing is concatenated into SQL.
+ * Recipients must belong to the org and be active; the person who acted is never notified.
+ */
+const notifyFollowers = (
+  orgId: string,
+  actorId: string,
+  issueIds: string[],
+  kind: NotifyKind,
+  detail: string | null,
+  excludeUserIds: string[] = []
+) => getSql()`
+  INSERT INTO public.notifications (org_id, user_id, actor_id, issue_id, kind, detail)
+  SELECT DISTINCT i.org_id, r.user_id, ${actorId}::uuid, i.id, ${kind}::text, ${detail}::text
+  FROM public.issues i
+  CROSS JOIN LATERAL (
+    SELECT w.user_id FROM public.issue_watchers w WHERE w.issue_id = i.id
+    UNION SELECT i.reporter_id WHERE i.reporter_id IS NOT NULL
+    UNION SELECT i.assignee_id WHERE i.assignee_id IS NOT NULL
+  ) r
+  JOIN public.profiles p ON p.id = r.user_id AND p.org_id = i.org_id AND COALESCE(p.status, 'active') <> 'departed'
+  WHERE i.org_id = ${orgId}::uuid
+    AND i.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(issueIds)}::jsonb)::uuid)
+    AND r.user_id <> ${actorId}::uuid
+    AND r.user_id NOT IN (SELECT jsonb_array_elements_text(${JSON.stringify(excludeUserIds)}::jsonb)::uuid);
+`;
+
+const notifyUsers = (
+  orgId: string,
+  actorId: string,
+  issueIds: string[],
+  userIds: string[],
+  kind: NotifyKind,
+  detail: string | null
+) => getSql()`
+  INSERT INTO public.notifications (org_id, user_id, actor_id, issue_id, kind, detail)
+  SELECT i.org_id, p.id, ${actorId}::uuid, i.id, ${kind}::text, ${detail}::text
+  FROM public.issues i
+  CROSS JOIN public.profiles p
+  WHERE i.org_id = ${orgId}::uuid AND p.org_id = ${orgId}::uuid
+    AND COALESCE(p.status, 'active') <> 'departed'
+    AND p.id <> ${actorId}::uuid
+    AND i.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(issueIds)}::jsonb)::uuid)
+    AND p.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(userIds)}::jsonb)::uuid);
+`;
+
+const watchIssues = (orgId: string, issueIds: string[], userIds: string[]) => getSql()`
+  INSERT INTO public.issue_watchers (issue_id, user_id)
+  SELECT i.id, p.id
+  FROM public.issues i
+  CROSS JOIN public.profiles p
+  WHERE i.org_id = ${orgId}::uuid AND p.org_id = ${orgId}::uuid
+    AND COALESCE(p.status, 'active') <> 'departed'
+    AND i.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(issueIds)}::jsonb)::uuid)
+    AND p.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(userIds)}::jsonb)::uuid)
+  ON CONFLICT DO NOTHING;
+`;
+
+/**
+ * True once migration 006 (watchers, notifications, ...) is in the database. Everyday edits keep
+ * working before it is run; they just skip watching and notifying. Only a positive answer is cached.
+ */
+let inAppReady = false;
+const inAppAvailable = async (): Promise<boolean> => {
+  if (inAppReady) return true;
+  const rows = (await getSql()`SELECT to_regclass('public.notifications') IS NOT NULL AS ok;`) as any[];
+  inAppReady = Boolean(rows[0]?.ok);
+  if (!inAppReady) console.warn('Migration 006 has not been run: watching and notifications are disabled.');
+  return inAppReady;
+};
+
 const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
   // ---------------------------------------------------------------- auth ----
   async register(ctx, a) {
@@ -425,16 +525,36 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
   // ---------------------------------------------------------------- data ----
   async fetchAll(ctx) {
     const sql = getSql();
-    const { orgId } = requireUser(ctx);
+    const { orgId, id: userId } = requireUser(ctx);
 
     const [deptRows, profileRows, issueRows, commentRows, historyRows] = await tx(
-      { orgId },
-      sql`SELECT id, org_id, name, code, description, custom_fields FROM public.departments WHERE org_id = ${orgId} ORDER BY code ASC;`,
+      { orgId, actorId: userId },
+      sql`SELECT * FROM public.departments WHERE org_id = ${orgId} ORDER BY code ASC;`,
       sql`SELECT id, org_id, name, nickname, email, role, department, avatar_url, is_admin, status, departure_reason, departed_at FROM public.profiles WHERE org_id = ${orgId} ORDER BY name ASC;`,
       sql`SELECT * FROM public.issues WHERE org_id = ${orgId} ORDER BY number DESC;`,
       sql`SELECT c.* FROM public.comments c JOIN public.issues i ON c.issue_id = i.id WHERE i.org_id = ${orgId} ORDER BY c.created_at ASC;`,
       sql`SELECT h.* FROM public.issue_history h JOIN public.issues i ON h.issue_id = i.id WHERE i.org_id = ${orgId} ORDER BY h.created_at DESC;`
     );
+
+    // Per-user extras (stars, watching, saved views). If migration 006 has not been run yet these
+    // tables don't exist: carry on without them rather than taking the whole app down.
+    let starred = new Set<string>();
+    let watching = new Set<string>();
+    let savedViews: { id: string; name: string; config: unknown }[] = [];
+    try {
+      const [starRows, watchRows, viewRows] = await tx(
+        { orgId, actorId: userId },
+        sql`SELECT issue_id FROM public.issue_stars WHERE user_id = ${userId}::uuid;`,
+        sql`SELECT issue_id FROM public.issue_watchers WHERE user_id = ${userId}::uuid;`,
+        sql`SELECT id, name, config FROM public.saved_views WHERE user_id = ${userId}::uuid ORDER BY lower(name) ASC;`
+      );
+      starred = new Set(starRows.map((r: any) => r.issue_id));
+      watching = new Set(watchRows.map((r: any) => r.issue_id));
+      savedViews = viewRows.map((r: any) => ({ id: r.id, name: r.name, config: sanitizeViewConfig(r.config) }));
+    } catch (err: any) {
+      if (err?.code !== '42P01') throw err;
+      console.warn('fetchAll: migration 006 has not been run; stars/watching/saved views are unavailable.');
+    }
 
     const users = profileRows.map((p) => mapProfile(p));
     const userMap = new Map(users.map((u) => [u.id, u]));
@@ -450,12 +570,22 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
       code: d.code,
       description: d.description || '',
       customFields: Array.isArray(d.custom_fields) ? d.custom_fields : [],
+      workflow: (() => {
+        const w = sanitizeWorkflow(d.workflow);
+        return w.ok && w.value ? w.value : undefined;
+      })(),
     }));
 
     const commentsByIssue = new Map<string, Comment[]>();
     for (const c of commentRows) {
       const list = commentsByIssue.get(c.issue_id) || [];
-      list.push({ id: c.id, author: userMap.get(c.author_id) || defaultUser, text: c.text, createdAt: c.created_at });
+      list.push({
+        id: c.id,
+        author: userMap.get(c.author_id) || defaultUser,
+        text: c.text,
+        createdAt: c.created_at,
+        statusChange: c.status_change || undefined,
+      });
       commentsByIssue.set(c.issue_id, list);
     }
 
@@ -494,7 +624,8 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
         devScope: row.dev_scope || undefined,
         assignee: row.assignee_id ? userMap.get(row.assignee_id) || null : null,
         reporter: userMap.get(row.reporter_id) || defaultUser,
-        starred: Boolean(row.starred),
+        starred: starred.has(row.id),
+        watching: watching.has(row.id),
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         comments: commentsByIssue.get(row.id) || [],
@@ -502,7 +633,7 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
       };
     });
 
-    return { departments, users, issues };
+    return { departments, users, issues, savedViews };
   },
 
   async createIssue(ctx, a) {
@@ -513,7 +644,7 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     // Foreign-key checks bypass RLS, so department and assignee must be verified explicitly.
     const [dept, assignee] = await tx(
       { orgId: user.orgId },
-      sql`SELECT custom_fields FROM public.departments WHERE id = ${str(d.departmentId, 200)} AND org_id = ${user.orgId};`,
+      sql`SELECT custom_fields, to_jsonb(departments)->'workflow' AS workflow FROM public.departments WHERE id = ${str(d.departmentId, 200)} AND org_id = ${user.orgId};`,
       sql`SELECT id FROM public.profiles WHERE id = ${d.assigneeId ? str(d.assigneeId, 100) : null} AND org_id = ${user.orgId};`
     );
     if (!dept.length) throw new HttpError(400, 'Unknown department.');
@@ -533,20 +664,37 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     }
     const assigneeId: string | null = d.assigneeId ? assignee[0].id : null;
 
+    const status = ISSUE_STATUSES.includes(d.status) ? d.status : 'NEW';
+    if (!isStatusAllowed(dept[0].workflow, status)) {
+      throw new HttpError(400, 'That status is not used by this department.');
+    }
+
+    // The id is chosen here so the follow-up rows (watchers, notifications) can join the same
+    // transaction as the insert.
+    const issueId = randomUUID();
+    const followUps: any[] = [];
+    if (await inAppAvailable()) {
+      followUps.push(watchIssues(user.orgId, [issueId], [user.id, ...(assigneeId ? [assigneeId] : [])]));
+      if (assigneeId) {
+        followUps.push(notifyUsers(user.orgId, user.id, [issueId], [assigneeId], 'assigned', null));
+      }
+    }
+
     const [rows] = await tx(
       { orgId: user.orgId, actorId: user.id },
       sql`
       INSERT INTO public.issues (
-        org_id, title, description, department_id, priority, status,
+        id, org_id, title, description, department_id, priority, status,
         custom_attributes, issue_type, environment, dev_scope, assignee_id, reporter_id
       ) VALUES (
-        ${user.orgId}, ${str(d.title, 500)}, ${str(d.description, 50000)}, ${str(d.departmentId, 200)},
-        ${str(d.priority, 2)}, ${ISSUE_STATUSES.includes(d.status) ? d.status : 'NEW'}, ${JSON.stringify(d.customAttributes || {})},
-        ${d.issueType || null}, ${d.environment || null}, ${d.devScope || null},
+        ${issueId}::uuid, ${user.orgId}, ${str(d.title, 500)}, ${str(d.description, 50000)}, ${str(d.departmentId, 200)},
+        ${str(d.priority, 2)}, ${status}, ${JSON.stringify(d.customAttributes || {})},
+        ${str(d.issueType, 40) || null}, ${str(d.environment, 40) || null}, ${str(d.devScope, 40) || null},
         ${assigneeId}, ${user.id}
       )
       RETURNING *;
-    `
+    `,
+      ...followUps
     );
     const r = rows[0];
     const issue: Issue = {
@@ -589,22 +737,38 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     const user = requireUser(ctx);
     const id = str(a.issueId, 100);
     const u = a.updates || {};
+    if (!isUuid(id)) throw new HttpError(404, 'Issue not found.');
 
     const [own] = await tx(
       { orgId: user.orgId },
-      sql`SELECT 1 FROM public.issues WHERE id = ${id} AND org_id = ${user.orgId};`
+      sql`SELECT i.status, i.priority, i.assignee_id, to_jsonb(d)->'workflow' AS workflow
+          FROM public.issues i JOIN public.departments d ON d.id = i.department_id
+          WHERE i.id = ${id}::uuid AND i.org_id = ${user.orgId}::uuid;`
     );
     if (!own.length) throw new HttpError(404, 'Issue not found.');
+    const before = own[0];
+
+    const status = u.status !== undefined ? str(u.status, 20) : undefined;
+    if (status !== undefined) {
+      if (!ISSUE_STATUSES.includes(status)) throw new HttpError(400, 'Unknown status.');
+      if (!isStatusAllowed(before.workflow, status)) {
+        throw new HttpError(400, 'That status is not used by this department.');
+      }
+    }
+    const priority = u.priority !== undefined ? str(u.priority, 2) : undefined;
+    if (priority !== undefined && !ISSUE_PRIORITIES.includes(priority)) {
+      throw new HttpError(400, 'Unknown priority.');
+    }
 
     // History rows are written by `trigger_track_issue_changes`, which reads the actor from the
     // transaction. Everything runs in one transaction so edits are atomic.
     const statements: any[] = [];
 
-    if (u.status !== undefined) {
-      statements.push(sql`UPDATE public.issues SET status = ${str(u.status, 20)}, updated_at = NOW() WHERE id = ${id};`);
+    if (status !== undefined) {
+      statements.push(sql`UPDATE public.issues SET status = ${status}, updated_at = NOW() WHERE id = ${id};`);
     }
-    if (u.priority !== undefined) {
-      statements.push(sql`UPDATE public.issues SET priority = ${str(u.priority, 2)}, updated_at = NOW() WHERE id = ${id};`);
+    if (priority !== undefined) {
+      statements.push(sql`UPDATE public.issues SET priority = ${priority}, updated_at = NOW() WHERE id = ${id};`);
     }
     if (u.title !== undefined) {
       statements.push(sql`UPDATE public.issues SET title = ${str(u.title, 500)}, updated_at = NOW() WHERE id = ${id};`);
@@ -612,24 +776,44 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     if (u.description !== undefined) {
       statements.push(sql`UPDATE public.issues SET description = ${str(u.description, 50000)}, updated_at = NOW() WHERE id = ${id};`);
     }
+
+    let newAssigneeId: string | null | undefined; // undefined = not changing
     if (u.assignee !== undefined) {
-      let assigneeId: string | null = null;
+      newAssigneeId = null;
       if (u.assignee) {
         const [found] = await tx(
           { orgId: user.orgId },
-          sql`SELECT id FROM public.profiles WHERE id = ${str(u.assignee.id, 100)} AND org_id = ${user.orgId};`
+          sql`SELECT id FROM public.profiles
+              WHERE id = ${str(u.assignee.id, 100)} AND org_id = ${user.orgId}
+                AND COALESCE(status, 'active') <> 'departed';`
         );
         if (!found.length) throw new HttpError(400, 'Unknown assignee.');
-        assigneeId = found[0].id;
+        newAssigneeId = found[0].id;
       }
-      statements.push(sql`UPDATE public.issues SET assignee_id = ${assigneeId}, updated_at = NOW() WHERE id = ${id};`);
+      statements.push(sql`UPDATE public.issues SET assignee_id = ${newAssigneeId}, updated_at = NOW() WHERE id = ${id};`);
     }
-    if (u.starred !== undefined) {
-      statements.push(sql`UPDATE public.issues SET starred = ${Boolean(u.starred)} WHERE id = ${id};`);
-    }
+    // (Starring is per user now and goes through `toggleStar`, not through ticket edits.)
     if (u.customAttributes !== undefined) {
       statements.push(sql`UPDATE public.issues SET custom_attributes = ${JSON.stringify(u.customAttributes)}, updated_at = NOW() WHERE id = ${id};`);
     }
+
+    // Who hears about it
+    if (await inAppAvailable()) {
+      const assigneeChanged =
+        newAssigneeId !== undefined && (newAssigneeId ?? null) !== (before.assignee_id ?? null);
+      if (assigneeChanged && newAssigneeId) {
+        statements.push(watchIssues(user.orgId, [id], [newAssigneeId]));
+        statements.push(notifyUsers(user.orgId, user.id, [id], [newAssigneeId], 'assigned', null));
+      }
+      const alreadyTold = assigneeChanged && newAssigneeId ? [newAssigneeId] : [];
+      if (status !== undefined && status !== before.status) {
+        statements.push(notifyFollowers(user.orgId, user.id, [id], 'status_changed', `to ${status}`, alreadyTold));
+      }
+      if (priority !== undefined && priority !== before.priority) {
+        statements.push(notifyFollowers(user.orgId, user.id, [id], 'priority_changed', `to ${priority}`, alreadyTold));
+      }
+    }
+
     if (statements.length) await tx({ orgId: user.orgId, actorId: user.id }, ...statements);
     return { ok: true };
   },
@@ -639,22 +823,56 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     const user = requireUser(ctx);
     const issueId = str(a.issueId, 100);
     const text = str(a.text, 50000);
+    if (!isUuid(issueId)) throw new HttpError(404, 'Issue not found.');
+    const newStatus = a.newStatus ? str(a.newStatus, 20) : undefined;
+    if (!text.trim() && !newStatus) throw new HttpError(400, 'Write a comment or choose a status.');
 
-    const [own] = await tx(
+    const [own, members] = await tx(
       { orgId: user.orgId },
-      sql`SELECT 1 FROM public.issues WHERE id = ${issueId} AND org_id = ${user.orgId};`
+      sql`SELECT i.status, to_jsonb(d)->'workflow' AS workflow
+          FROM public.issues i JOIN public.departments d ON d.id = i.department_id
+          WHERE i.id = ${issueId}::uuid AND i.org_id = ${user.orgId}::uuid;`,
+      sql`SELECT id, nickname FROM public.profiles
+          WHERE org_id = ${user.orgId}::uuid AND COALESCE(status, 'active') <> 'departed';`
     );
     if (!own.length) throw new HttpError(404, 'Issue not found.');
+    if (newStatus !== undefined) {
+      if (!ISSUE_STATUSES.includes(newStatus)) throw new HttpError(400, 'Unknown status.');
+      if (!isStatusAllowed(own[0].workflow, newStatus)) {
+        throw new HttpError(400, 'That status is not used by this department.');
+      }
+    }
+    const statusChanged = newStatus !== undefined && newStatus !== own[0].status;
+    const statusNote = statusChanged ? `Status changed from ${own[0].status} to ${newStatus}` : null;
 
-    const newStatus = a.newStatus ? str(a.newStatus, 20) : undefined;
+    const mentioned = findMentionedIds(
+      text,
+      members.map((m: any) => ({ id: m.id, nickname: m.nickname || undefined }))
+    ).filter((m) => m !== user.id);
+
     const statements: any[] = [
-      sql`INSERT INTO public.comments (issue_id, author_id, text)
-          VALUES (${issueId}, ${user.id}, ${text})
+      sql`INSERT INTO public.comments (issue_id, author_id, text, status_change)
+          VALUES (${issueId}::uuid, ${user.id}::uuid, ${text}, ${statusNote})
           RETURNING *;`,
     ];
-    if (newStatus) {
-      statements.push(sql`UPDATE public.issues SET status = ${newStatus}, updated_at = NOW() WHERE id = ${issueId};`);
+    if (statusChanged) {
+      statements.push(sql`UPDATE public.issues SET status = ${newStatus}, updated_at = NOW() WHERE id = ${issueId}::uuid;`);
     }
+    if (await inAppAvailable()) {
+      // The commenter, and anyone they mention, now follows the ticket.
+      statements.push(watchIssues(user.orgId, [issueId], [user.id, ...mentioned]));
+      if (mentioned.length) {
+        statements.push(notifyUsers(user.orgId, user.id, [issueId], mentioned, 'mentioned', snippet(text)));
+      }
+      if (statusChanged) {
+        // one notification, not a "commented" plus a "status changed"
+        const detail = `to ${newStatus}${text.trim() ? `: ${snippet(text)}` : ''}`;
+        statements.push(notifyFollowers(user.orgId, user.id, [issueId], 'status_changed', detail, mentioned));
+      } else if (text.trim()) {
+        statements.push(notifyFollowers(user.orgId, user.id, [issueId], 'commented', snippet(text), mentioned));
+      }
+    }
+
     const results = await tx({ orgId: user.orgId, actorId: user.id }, ...statements);
     const row = results[0][0];
     const comment: Comment = {
@@ -662,17 +880,244 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
       author: user,
       text,
       createdAt: row.created_at,
-      statusChange: newStatus,
+      statusChange: statusNote || undefined,
     };
     return { comment };
   },
 
   async deleteIssue(ctx, a) {
+    const sql = getSql();
     const user = requireUser(ctx);
+    const id = str(a.issueId, 100);
+    if (!isUuid(id)) throw new HttpError(404, 'Issue not found.');
+    const [row] = await tx(
+      { orgId: user.orgId },
+      sql`SELECT reporter_id FROM public.issues WHERE id = ${id}::uuid AND org_id = ${user.orgId}::uuid;`
+    );
+    if (!row.length) throw new HttpError(404, 'Issue not found.');
+    // A ticket belongs to the person who reported it; admins can remove anything.
+    if (!user.isAdmin && row[0].reporter_id !== user.id) {
+      throw new HttpError(403, 'Only the reporter or an administrator can delete a ticket.');
+    }
     await tx(
       { orgId: user.orgId },
-      getSql()`DELETE FROM public.issues WHERE id = ${str(a.issueId, 100)} AND org_id = ${user.orgId};`
+      sql`DELETE FROM public.issues WHERE id = ${id}::uuid AND org_id = ${user.orgId}::uuid;`
     );
+    return { ok: true };
+  },
+
+  // ----------------------------------------------------- stars & watching ----
+  async toggleStar(ctx, a) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const issueId = str(a.issueId, 100);
+    if (!isUuid(issueId)) throw new HttpError(404, 'Issue not found.');
+    const stmt = a.starred
+      ? sql`INSERT INTO public.issue_stars (issue_id, user_id)
+            SELECT i.id, ${user.id}::uuid FROM public.issues i
+            WHERE i.id = ${issueId}::uuid AND i.org_id = ${user.orgId}::uuid
+            ON CONFLICT DO NOTHING;`
+      : sql`DELETE FROM public.issue_stars WHERE issue_id = ${issueId}::uuid AND user_id = ${user.id}::uuid;`;
+    await tx({ orgId: user.orgId, actorId: user.id }, stmt);
+    return { ok: true };
+  },
+
+  async toggleWatch(ctx, a) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const issueId = str(a.issueId, 100);
+    if (!isUuid(issueId)) throw new HttpError(404, 'Issue not found.');
+    const stmt = a.watching
+      ? watchIssues(user.orgId, [issueId], [user.id])
+      : sql`DELETE FROM public.issue_watchers WHERE issue_id = ${issueId}::uuid AND user_id = ${user.id}::uuid;`;
+    await tx({ orgId: user.orgId, actorId: user.id }, stmt);
+    return { ok: true };
+  },
+
+  // ------------------------------------------------------------- bulk edit ----
+  async bulkUpdateIssues(ctx, a) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const ids = uuidList(a.ids, MAX_BULK);
+    const u = a.updates && typeof a.updates === 'object' ? a.updates : {};
+
+    const status = u.status !== undefined ? str(u.status, 20) : undefined;
+    const priority = u.priority !== undefined ? str(u.priority, 2) : undefined;
+    const hasAssignee = u.assigneeId !== undefined;
+    if (status === undefined && priority === undefined && !hasAssignee) {
+      throw new HttpError(400, 'Nothing to change.');
+    }
+    if (status !== undefined && !ISSUE_STATUSES.includes(status)) throw new HttpError(400, 'Unknown status.');
+    if (priority !== undefined && !ISSUE_PRIORITIES.includes(priority)) throw new HttpError(400, 'Unknown priority.');
+
+    let assigneeId: string | null = null;
+    if (hasAssignee && u.assigneeId !== null && u.assigneeId !== 'unassigned') {
+      if (!isUuid(u.assigneeId)) throw new HttpError(400, 'Unknown assignee.');
+      const [found] = await tx(
+        { orgId: user.orgId },
+        sql`SELECT id FROM public.profiles
+            WHERE id = ${u.assigneeId}::uuid AND org_id = ${user.orgId}::uuid
+              AND COALESCE(status, 'active') <> 'departed';`
+      );
+      if (!found.length) throw new HttpError(400, 'Unknown assignee.');
+      assigneeId = found[0].id;
+    }
+
+    const [before] = await tx(
+      { orgId: user.orgId },
+      sql`SELECT i.id, i.status, i.priority, i.assignee_id, to_jsonb(d)->'workflow' AS workflow
+          FROM public.issues i JOIN public.departments d ON d.id = i.department_id
+          WHERE i.org_id = ${user.orgId}::uuid
+            AND i.id IN (SELECT jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)::uuid);`
+    );
+    if (before.length !== ids.length) throw new HttpError(404, 'Some tickets were not found.');
+    if (status !== undefined) {
+      const blocked = before.filter((r: any) => !isStatusAllowed(r.workflow, status)).length;
+      if (blocked) {
+        throw new HttpError(400, `${blocked} selected ${blocked === 1 ? 'ticket belongs' : 'tickets belong'} to a department that does not use ${status}.`);
+      }
+    }
+
+    const idsJson = JSON.stringify(ids);
+    const statements: any[] = [];
+    if (hasAssignee) {
+      // Assigning a brand-new ticket moves it to ASSIGNED, same as on the ticket page.
+      statements.push(sql`
+        UPDATE public.issues
+        SET assignee_id = ${assigneeId}::uuid,
+            status = CASE WHEN status = 'NEW' AND ${assigneeId}::uuid IS NOT NULL THEN 'ASSIGNED' ELSE status END,
+            updated_at = NOW()
+        WHERE org_id = ${user.orgId}::uuid AND id IN (SELECT jsonb_array_elements_text(${idsJson}::jsonb)::uuid);`);
+    }
+    if (status !== undefined) {
+      statements.push(sql`UPDATE public.issues SET status = ${status}, updated_at = NOW()
+        WHERE org_id = ${user.orgId}::uuid AND id IN (SELECT jsonb_array_elements_text(${idsJson}::jsonb)::uuid);`);
+    }
+    if (priority !== undefined) {
+      statements.push(sql`UPDATE public.issues SET priority = ${priority}, updated_at = NOW()
+        WHERE org_id = ${user.orgId}::uuid AND id IN (SELECT jsonb_array_elements_text(${idsJson}::jsonb)::uuid);`);
+    }
+
+    const notifying = await inAppAvailable();
+    const newlyAssigned = notifying && hasAssignee && assigneeId
+      ? before.filter((r: any) => (r.assignee_id ?? null) !== assigneeId).map((r: any) => r.id as string)
+      : [];
+    if (assigneeId && newlyAssigned.length) {
+      statements.push(watchIssues(user.orgId, newlyAssigned, [assigneeId]));
+      statements.push(notifyUsers(user.orgId, user.id, newlyAssigned, [assigneeId], 'assigned', null));
+    }
+    const alreadyTold = assigneeId && newlyAssigned.length ? [assigneeId] : [];
+    if (notifying && status !== undefined) {
+      const changed = before.filter((r: any) => r.status !== status).map((r: any) => r.id as string);
+      if (changed.length) statements.push(notifyFollowers(user.orgId, user.id, changed, 'status_changed', `to ${status}`, alreadyTold));
+    }
+    if (notifying && priority !== undefined) {
+      const changed = before.filter((r: any) => r.priority !== priority).map((r: any) => r.id as string);
+      if (changed.length) statements.push(notifyFollowers(user.orgId, user.id, changed, 'priority_changed', `to ${priority}`, alreadyTold));
+    }
+
+    await tx({ orgId: user.orgId, actorId: user.id }, ...statements);
+    return { updated: ids.length };
+  },
+
+  // ----------------------------------------------------------- saved views ----
+  async saveView(ctx, a) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const name = cleanViewName(a.name);
+    if (!name) throw new HttpError(400, 'Give the view a name.');
+    const config = sanitizeViewConfig(a.config);
+
+    const [count] = await tx(
+      { orgId: user.orgId, actorId: user.id },
+      sql`SELECT count(*)::int AS n FROM public.saved_views WHERE user_id = ${user.id}::uuid;`
+    );
+    if (count[0].n >= MAX_SAVED_VIEWS) {
+      throw new HttpError(400, `You can keep up to ${MAX_SAVED_VIEWS} saved views. Delete one first.`);
+    }
+    try {
+      const [rows] = await tx(
+        { orgId: user.orgId, actorId: user.id },
+        sql`INSERT INTO public.saved_views (org_id, user_id, name, config)
+            VALUES (${user.orgId}::uuid, ${user.id}::uuid, ${name}, ${JSON.stringify(config)}::jsonb)
+            RETURNING id, name, config;`
+      );
+      return { view: { id: rows[0].id, name: rows[0].name, config: sanitizeViewConfig(rows[0].config) } };
+    } catch (err: any) {
+      if (err?.code === '23505') throw new HttpError(409, 'You already have a view with that name.');
+      throw err;
+    }
+  },
+
+  async deleteView(ctx, a) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const id = str(a.id, 100);
+    if (!isUuid(id)) throw new HttpError(404, 'View not found.');
+    await tx(
+      { orgId: user.orgId, actorId: user.id },
+      sql`DELETE FROM public.saved_views WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid;`
+    );
+    return { ok: true };
+  },
+
+  // --------------------------------------------------------- notifications ----
+  async listNotifications(ctx) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const [items, unread] = await tx(
+      { orgId: user.orgId, actorId: user.id },
+      sql`SELECT n.id, n.kind, n.detail, n.read_at, n.created_at,
+                 a.id AS actor_id, a.name AS actor_name, a.nickname AS actor_nickname, a.avatar_url AS actor_avatar,
+                 i.id AS issue_id, i.code AS issue_code, i.title AS issue_title
+          FROM public.notifications n
+          JOIN public.issues i ON i.id = n.issue_id
+          LEFT JOIN public.profiles a ON a.id = n.actor_id
+          WHERE n.user_id = ${user.id}::uuid
+          ORDER BY n.created_at DESC
+          LIMIT 50;`,
+      sql`SELECT count(*)::int AS n FROM public.notifications WHERE user_id = ${user.id}::uuid AND read_at IS NULL;`,
+      // housekeeping: your own notifications older than 90 days
+      sql`DELETE FROM public.notifications WHERE user_id = ${user.id}::uuid AND created_at < NOW() - INTERVAL '90 days';`
+    );
+    return {
+      unread: unread[0].n as number,
+      items: items.map((r: any) => ({
+        id: r.id,
+        kind: r.kind,
+        detail: r.detail || undefined,
+        read: Boolean(r.read_at),
+        createdAt: r.created_at,
+        actor: r.actor_id
+          ? { id: r.actor_id, name: r.actor_name, nickname: r.actor_nickname || undefined, avatarUrl: r.actor_avatar || undefined }
+          : null,
+        issue: { id: r.issue_id, code: r.issue_code, title: r.issue_title },
+      })),
+    };
+  },
+
+  /** Cheap check the app polls: how many unread, and when the newest one arrived. */
+  async notificationCount(ctx) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const [rows] = await tx(
+      { orgId: user.orgId, actorId: user.id },
+      sql`SELECT count(*) FILTER (WHERE read_at IS NULL)::int AS unread, max(created_at) AS latest
+          FROM public.notifications WHERE user_id = ${user.id}::uuid;`
+    );
+    return { unread: rows[0].unread as number, latest: rows[0].latest || null };
+  },
+
+  async markNotificationsRead(ctx, a) {
+    const sql = getSql();
+    const user = requireUser(ctx);
+    const stmt = a.all
+      ? sql`UPDATE public.notifications SET read_at = NOW()
+            WHERE user_id = ${user.id}::uuid AND read_at IS NULL;`
+      : sql`UPDATE public.notifications SET read_at = NOW()
+            WHERE user_id = ${user.id}::uuid AND read_at IS NULL
+              AND id IN (SELECT jsonb_array_elements_text(${JSON.stringify(uuidList(a.ids, 100))}::jsonb)::uuid);`;
+    await tx({ orgId: user.orgId, actorId: user.id }, stmt);
     return { ok: true };
   },
 
@@ -682,12 +1127,35 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     const dept = a.department || {};
     const id = dept.id === 'engineering' ? `eng-${user.orgId}` : str(dept.id, 200);
     if (!id) throw new HttpError(400, 'Department id is required.');
+    const workflow = sanitizeWorkflow(dept.workflow);
+    if (!workflow.ok) throw new HttpError(400, workflow.error);
+
+    // Without migration 006 there is no workflow column: save as before, but don't silently drop a workflow.
+    const hasWorkflowColumn = await inAppAvailable();
+    if (!hasWorkflowColumn && workflow.value) {
+      throw new HttpError(503, 'Custom workflows need the latest database update. Ask an administrator to run the newest migration.');
+    }
 
     let rows: any[] = [];
     try {
       [rows] = await tx(
         { orgId: user.orgId },
-        sql`
+        hasWorkflowColumn
+          ? sql`
+      INSERT INTO public.departments (id, org_id, name, code, description, custom_fields, workflow)
+      VALUES (${id}, ${user.orgId}, ${str(dept.name, 200)}, ${str(dept.code, 20)},
+              ${str(dept.description, 2000)}, ${JSON.stringify(dept.customFields || [])},
+              ${workflow.value ? JSON.stringify(workflow.value) : null}::jsonb)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        code = EXCLUDED.code,
+        description = EXCLUDED.description,
+        custom_fields = EXCLUDED.custom_fields,
+        workflow = EXCLUDED.workflow
+      WHERE public.departments.org_id = EXCLUDED.org_id
+      RETURNING id;
+    `
+          : sql`
       INSERT INTO public.departments (id, org_id, name, code, description, custom_fields)
       VALUES (${id}, ${user.orgId}, ${str(dept.name, 200)}, ${str(dept.code, 20)},
               ${str(dept.description, 2000)}, ${JSON.stringify(dept.customFields || [])})
@@ -816,6 +1284,16 @@ export default async (req: Request): Promise<Response> => {
     return json(200, result, cookies);
   } catch (err) {
     if (err instanceof HttpError) return json(err.status, { error: err.message }, cookies);
+    // The database is behind the code (a migration has not been run yet): say so, don't just fail.
+    const code = (err as any)?.code;
+    if (code === '42P01' || code === '42703') {
+      console.error('API error (migration missing?):', err);
+      return json(503, { error: 'The database needs its latest update. Ask an administrator to run the newest migration.' }, cookies);
+    }
+    if (code === '23514') {
+      console.error('API error (constraint):', err);
+      return json(409, { error: 'The database rejected that value. Make sure every migration has been run.' }, cookies);
+    }
     console.error('API error:', err);
     return json(500, { error: 'Something went wrong. Please try again.' });
   }

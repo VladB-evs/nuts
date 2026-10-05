@@ -30,6 +30,8 @@ import { formatDateTime, timeAgo } from '../lib/utils';
 import {
   ArrowLeft,
   Star,
+  Eye,
+  EyeOff,
   Trash2,
   Send,
   MessageSquare,
@@ -47,7 +49,10 @@ import {
 } from 'lucide-react';
 import { TicketLifecycleBar } from './TicketLifecycleBar';
 import { PRIORITY_SLAS } from '../lib/timelineUtils';
-import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/issueOptions';
+import { PRIORITY_OPTIONS, getStatusOptions } from '../lib/issueOptions';
+import { statusLabel } from '../lib/workflow';
+import { MentionText } from './MentionText';
+import { MentionTextarea } from './MentionTextarea';
 import { LinkedTicketsProperty } from './LinkedTicketsProperty';
 
 const HISTORY_FIELD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -66,6 +71,7 @@ export const IssueDetail: React.FC = () => {
     updateIssue,
     addComment,
     toggleStar,
+    toggleWatch,
     deleteIssue,
     departments,
     currentUser,
@@ -78,10 +84,26 @@ export const IssueDetail: React.FC = () => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
 
+  // Only the statuses this ticket's department uses, under that department's names.
+  const issueDept = departments.find((d) => d.id === selectedIssue?.departmentId);
+  const statusOptions: SelectOption[] = useMemo(
+    () => getStatusOptions(issueDept, selectedIssue?.status),
+    [issueDept, selectedIssue?.status]
+  );
+
   const commentStatusOptions: SelectOption[] = useMemo(() => [
-    { value: '', label: `(Keep current: ${selectedIssue?.status || ''})` },
-    ...STATUS_OPTIONS,
-  ], [selectedIssue?.status]);
+    {
+      value: '',
+      label: `(Keep current: ${selectedIssue ? statusLabel(issueDept, selectedIssue.status) : ''})`,
+    },
+    ...statusOptions,
+  ], [selectedIssue?.status, statusOptions, issueDept]);
+
+  // Who can be @mentioned in a comment
+  const mentionable = useMemo(
+    () => users.filter((u) => u.status !== 'departed' && u.nickname && u.id !== currentUser?.id),
+    [users, currentUser?.id]
+  );
 
   const departmentOptions: SelectOption[] = useMemo(() => {
     return departments.map((dept) => ({
@@ -187,7 +209,7 @@ export const IssueDetail: React.FC = () => {
           onChange={(val) =>
             updateIssue(selectedIssue.id, { status: val as Status })
           }
-          options={STATUS_OPTIONS}
+          options={statusOptions}
         />
       </div>
 
@@ -367,6 +389,19 @@ export const IssueDetail: React.FC = () => {
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
+            onClick={() => toggleWatch(selectedIssue.id)}
+            className={`inline-flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer transition-colors text-[11px] font-medium ${
+              selectedIssue.watching
+                ? 'text-blue-700 bg-blue-50 hover:bg-blue-100'
+                : 'text-gray-500 hover:text-black hover:bg-gray-100'
+            }`}
+            title={selectedIssue.watching ? 'Stop watching this issue' : 'Get notified about this issue'}
+            aria-pressed={Boolean(selectedIssue.watching)}
+          >
+            {selectedIssue.watching ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            <span className="hidden sm:inline">{selectedIssue.watching ? 'Watching' : 'Watch'}</span>
+          </button>
+          <button
             onClick={() => toggleStar(selectedIssue.id)}
             className="p-1.5 text-gray-400 hover:text-amber-500 rounded hover:bg-gray-100 cursor-pointer transition-colors"
             title="Star issue"
@@ -377,17 +412,19 @@ export const IssueDetail: React.FC = () => {
               }`}
             />
           </button>
-          <button
-            onClick={() => {
-              if (confirm(`Delete issue #${selectedIssue.number}?`)) {
-                deleteIssue(selectedIssue.id);
-              }
-            }}
-            className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 cursor-pointer transition-colors"
-            title="Delete issue"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {(currentUser?.isAdmin || selectedIssue.reporter.id === currentUser?.id) && (
+            <button
+              onClick={() => {
+                if (confirm(`Delete issue #${selectedIssue.number}?`)) {
+                  deleteIssue(selectedIssue.id);
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+              title="Delete issue (reporter or admin)"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -554,9 +591,11 @@ export const IssueDetail: React.FC = () => {
                             </span>
                           </div>
                           {comment.text && (
-                            <p className="px-3.5 py-3 text-[13px] text-gray-900 leading-relaxed font-sans whitespace-pre-wrap break-words">
-                              {comment.text}
-                            </p>
+                            <MentionText
+                              text={comment.text}
+                              users={users}
+                              className="px-3.5 py-3 text-[13px] text-gray-900 leading-relaxed font-sans whitespace-pre-wrap break-words"
+                            />
                           )}
                         </div>
                       </div>
@@ -609,11 +648,12 @@ export const IssueDetail: React.FC = () => {
 
             {/* Comment Form (100% Mobile Responsive) */}
             <form onSubmit={handlePostComment} className="p-3 sm:p-3.5 border border-gray-200 rounded-md bg-gray-50 space-y-3">
-              <textarea
+              <MentionTextarea
                 rows={3}
-                placeholder="Add a comment..."
+                placeholder="Add a comment... use @ to mention a teammate"
                 value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
+                onChange={setCommentText}
+                users={mentionable}
                 className="w-full p-2.5 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-500 leading-relaxed font-sans"
               />
 

@@ -19,6 +19,7 @@ const AppContent: React.FC = () => {
   const {
     selectedIssue,
     isCreatingIssue,
+    setIsCreatingIssue,
     activeTab,
     currentUser,
     setCurrentUser,
@@ -46,6 +47,20 @@ const AppContent: React.FC = () => {
       }
     }
   }, [isDemoMode]);
+
+  // "c" starts a new issue, like most trackers. Ignored while typing or with a modifier key held.
+  React.useEffect(() => {
+    if (!currentUser) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'c' || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName))) return;
+      e.preventDefault();
+      setIsCreatingIssue(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [currentUser?.id]);
 
   if (!currentUser) {
     return (

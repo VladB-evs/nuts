@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { Priority, Status } from '../types';
+import { NavView, Priority, Status } from '../types';
 import { getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
-import { Star, Plus, Link2 } from 'lucide-react';
+import { Star, Plus, Link2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { BulkActionBar } from './BulkActionBar';
+import { SavedViewsMenu } from './SavedViewsMenu';
+import { CustomSelect, SelectOption } from './CustomSelect';
+import { statusLabel } from '../lib/workflow';
+import type { SortKey } from '../types';
 import { formatDate, timeAgo } from '../lib/utils';
 
 export const IssueTable: React.FC = () => {
@@ -17,13 +22,68 @@ export const IssueTable: React.FC = () => {
     selectedDepartment,
     fieldFilters,
     setFieldFilter,
+    setNavView,
+    issues,
     departments,
     currentUser,
     navView,
     setIsCreatingIssue,
+    sort,
+    setSort,
   } = useIssues();
 
+  // Tickets ticked for a bulk action. Only ids still in the list count (filters can hide ticked rows).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
   if (!currentUser) return null;
+
+  const selectedIssues = filteredIssues.filter((i) => selected.has(i.id));
+  const allSelected = filteredIssues.length > 0 && selectedIssues.length === filteredIssues.length;
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(filteredIssues.map((i) => i.id)));
+
+  const FIRST_DIRECTION: Record<SortKey, 'asc' | 'desc'> = {
+    number: 'desc', priority: 'asc', title: 'asc', status: 'asc', assignee: 'asc', updatedAt: 'desc', createdAt: 'desc',
+  };
+  const SORT_LABELS: Record<SortKey, string> = {
+    updatedAt: 'Recently updated', createdAt: 'Newest created', number: 'Ticket number', priority: 'Priority',
+    status: 'Status', title: 'Title', assignee: 'Assignee',
+  };
+  const sortOptions: SelectOption[] = (Object.keys(SORT_LABELS) as SortKey[]).map((k) => ({
+    value: k,
+    label: SORT_LABELS[k],
+  }));
+  const sortHeader = (label: string, key: SortKey, className = '') => {
+    const active = sort.key === key;
+    return (
+      <th
+        className={`py-2 px-3 ${className}`}
+        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <button
+          type="button"
+          onClick={() =>
+            setSort({ key, dir: active ? (sort.dir === 'asc' ? 'desc' : 'asc') : FIRST_DIRECTION[key] })
+          }
+          className={`inline-flex items-center gap-1 uppercase cursor-pointer hover:text-black ${active ? 'text-gray-900' : ''}`}
+          title={`Sort by ${label.toLowerCase()}`}
+        >
+          {label}
+          {active ? (
+            sort.dir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+          ) : (
+            <ChevronsUpDown className="w-3 h-3 opacity-30" />
+          )}
+        </button>
+      </th>
+    );
+  };
 
   const getPriorityBadge = (p: Priority) => {
     switch (p) {
@@ -54,7 +114,8 @@ export const IssueTable: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (s: Status) => {
+  const getStatusBadge = (s: Status, deptId?: string) => {
+    const label = statusLabel(departments.find((d) => d.id === deptId), s);
     const isDone = s === 'COMPLETED' || s === 'VERIFIED' || s === 'CLOSED';
     return (
       <span
@@ -66,7 +127,7 @@ export const IssueTable: React.FC = () => {
             : 'bg-white text-gray-800 border-gray-300'
         }`}
       >
-        {s}
+        {label}
       </span>
     );
   };
@@ -82,43 +143,46 @@ export const IssueTable: React.FC = () => {
 
   const getViewHeader = () => {
     if (selectedDepartment !== 'all') {
+      const name = selectedDeptObj?.name || selectedDepartment;
+      const which =
+        navView === 'closed' ? 'completed and closed issues' : navView === 'all' ? 'all issues' : 'open issues';
       return {
-        title: `${selectedDeptObj?.name || selectedDepartment}`,
+        title: name,
         badge: selectedDeptObj?.code,
-        subtitle: `Showing open issues in ${selectedDeptObj?.name || selectedDepartment}`,
+        subtitle: `Showing ${which} in ${name}`,
       };
     }
     if (navView === 'open') {
       return {
         title: `Open Issues in ${userDept?.name || currentUser.department}`,
         badge: userDept?.code || 'DEV',
-        subtitle: `Showing all open tickets in your assigned department (${userDept?.name || currentUser.department})`,
+        subtitle: `All open tickets in your department (${userDept?.name || currentUser.department})`,
       };
     }
     if (navView === 'assigned_to_me') {
       return {
         title: 'Assigned to Me',
         badge: userDept?.code || 'DEV',
-        subtitle: `Showing open tickets assigned to you in your department (${userDept?.name || currentUser.department})`,
+        subtitle: `Open tickets assigned to you in your department (${userDept?.name || currentUser.department})`,
       };
     }
     if (navView === 'reported_by_me') {
       return {
         title: 'Reported by Me',
-        subtitle: 'Showing tickets reported by you',
+        subtitle: 'Tickets you reported, across all departments',
       };
     }
     if (navView === 'starred') {
       return {
         title: 'Starred Issues',
-        subtitle: 'Showing your bookmarked tickets',
+        subtitle: 'Your bookmarked tickets, across all departments',
       };
     }
     if (navView === 'closed') {
       return {
         title: `Closed / Completed Issues (${userDept?.name || currentUser.department})`,
         badge: userDept?.code,
-        subtitle: 'Showing resolved and closed tickets',
+        subtitle: `Completed and closed tickets in your department (${userDept?.name || currentUser.department})`,
       };
     }
     return {
@@ -126,6 +190,15 @@ export const IssueTable: React.FC = () => {
       subtitle: '',
     };
   };
+
+  // Open / Closed / All tabs on a department page
+  const deptIssues = selectedDeptObj ? issues.filter((i) => i.departmentId === selectedDeptObj.id) : [];
+  const isDone = (st: Status) => st === 'COMPLETED' || st === 'CLOSED';
+  const deptTabs: { id: NavView; label: string; count: number }[] = [
+    { id: 'open', label: 'Open', count: deptIssues.filter((i) => !isDone(i.status)).length },
+    { id: 'closed', label: 'Closed', count: deptIssues.filter((i) => isDone(i.status)).length },
+    { id: 'all', label: 'All', count: deptIssues.length },
+  ];
 
   const viewHeader = getViewHeader();
 
@@ -147,6 +220,25 @@ export const IssueTable: React.FC = () => {
             {viewHeader.subtitle}
           </span>
         </div>
+
+        {selectedDeptObj && (
+          <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded border border-gray-200 text-[11px] font-mono shrink-0">
+            {deptTabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setNavView(t.id)}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                  navView === t.id
+                    ? 'bg-white text-gray-900 font-semibold shadow-2xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                {t.label} <span className="text-gray-400">{t.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Table Toolbar */}
@@ -194,9 +286,20 @@ export const IssueTable: React.FC = () => {
           ))}
         </div>
 
-        <span className="font-mono text-[11px] text-gray-500 shrink-0">
-          {filteredIssues.length} {filteredIssues.length === 1 ? 'issue' : 'issues'}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="md:hidden w-40">
+            <CustomSelect
+              value={sort.key}
+              size="xs"
+              options={sortOptions}
+              onChange={(v) => setSort({ key: v as SortKey, dir: FIRST_DIRECTION[v as SortKey] })}
+            />
+          </div>
+          <SavedViewsMenu />
+          <span className="font-mono text-[11px] text-gray-500">
+            {filteredIssues.length} {filteredIssues.length === 1 ? 'issue' : 'issues'}
+          </span>
+        </div>
       </div>
 
       {/* Issues Content: Mobile Card List (< 768px) and Desktop Table (>= 768px) */}
@@ -217,6 +320,14 @@ export const IssueTable: React.FC = () => {
                   {/* Top Row: Star + ID + Dept Code | Priority + Status */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(issue.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleSelected(issue.id)}
+                        aria-label={`Select ${issue.code}`}
+                        className="w-4 h-4 accent-black cursor-pointer shrink-0"
+                      />
                       <button
                         type="button"
                         onClick={(e) => {
@@ -255,7 +366,7 @@ export const IssueTable: React.FC = () => {
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {getPriorityBadge(issue.priority)}
-                      {getStatusBadge(issue.status)}
+                      {getStatusBadge(issue.status, issue.departmentId)}
                     </div>
                   </div>
 
@@ -306,17 +417,26 @@ export const IssueTable: React.FC = () => {
             <table className="w-full min-w-[600px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-white text-gray-500 font-mono text-[11px] select-none">
+                  <th className="py-2 px-3 w-8 text-center">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="Select all tickets in this list"
+                      className="w-3.5 h-3.5 accent-black cursor-pointer"
+                    />
+                  </th>
                   <th className="py-2 px-3 w-8 text-center"></th>
-                  <th className="py-2 px-3 w-16">ID</th>
-                  <th className="py-2 px-3 w-14">PRI</th>
-                  <th className="py-2 px-3">TITLE</th>
+                  {sortHeader('ID', 'number', 'w-16')}
+                  {sortHeader('PRI', 'priority', 'w-14')}
+                  {sortHeader('Title', 'title')}
                   {(selectedDepartment === 'all' || navView === 'assigned_to_me') && (
                     <th className="py-2 px-3 w-28 hidden md:table-cell">DEPARTMENT</th>
                   )}
                   <th className="py-2 px-3 w-48 hidden sm:table-cell">ATTRIBUTES</th>
-                  <th className="py-2 px-3 w-24">STATUS</th>
-                  <th className="py-2 px-3 w-32 hidden sm:table-cell">ASSIGNEE</th>
-                  <th className="py-2 px-3 w-24 text-right hidden md:table-cell">MODIFIED</th>
+                  {sortHeader('Status', 'status', 'w-24')}
+                  {sortHeader('Assignee', 'assignee', 'w-32 hidden sm:table-cell')}
+                  {sortHeader('Modified', 'updatedAt', 'w-24 text-right hidden md:table-cell')}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -330,6 +450,17 @@ export const IssueTable: React.FC = () => {
                       onClick={() => setSelectedIssue(issue)}
                       className="hover:bg-gray-50/80 cursor-pointer transition-colors group"
                     >
+                      {/* Select for bulk actions */}
+                      <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(issue.id)}
+                          onChange={() => toggleSelected(issue.id)}
+                          aria-label={`Select ${issue.code}`}
+                          className="w-3.5 h-3.5 accent-black cursor-pointer"
+                        />
+                      </td>
+
                       {/* Star */}
                       <td
                         className="py-2.5 px-3 text-center"
@@ -410,7 +541,7 @@ export const IssueTable: React.FC = () => {
                       </td>
 
                       {/* Status */}
-                      <td className="py-2.5 px-3">{getStatusBadge(issue.status)}</td>
+                      <td className="py-2.5 px-3">{getStatusBadge(issue.status, issue.departmentId)}</td>
 
                       {/* Assignee */}
                       <td
@@ -446,6 +577,11 @@ export const IssueTable: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Bulk actions: a sticky footer, so it never pushes the rows around while you tick them */}
+          {selectedIssues.length > 0 && (
+            <BulkActionBar selected={selectedIssues} onClear={() => setSelected(new Set())} />
+          )}
         </>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center space-y-3">

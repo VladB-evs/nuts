@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { UserAvatar } from './UserAvatar';
 import { ThemeToggle } from './ThemeToggle';
+import { NotificationBell } from './NotificationBell';
 import {
   Search,
   Check,
@@ -166,6 +167,7 @@ export const Header: React.FC<HeaderProps> = () => {
           >
             <Search className="w-4 h-4" />
           </button>
+        <NotificationBell />
         <ThemeToggle />
 
         {/* Admin Dashboard Quick Button in Header */}

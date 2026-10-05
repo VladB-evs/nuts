@@ -10,8 +10,8 @@ import {
 } from '../types';
 import { CustomSelect, SelectOption } from './CustomSelect';
 import { UserAvatar } from './UserAvatar';
-import { getUserDepartmentId } from '../lib/departmentRules';
-import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/issueOptions';
+import { PRIORITY_OPTIONS, getStatusOptions } from '../lib/issueOptions';
+import { isStatusAllowed } from '../lib/workflow';
 import { ArrowLeft, Link2, Plus, Search, X } from 'lucide-react';
 
 const RELATION_OPTIONS: SelectOption[] = [
@@ -100,9 +100,8 @@ export const CreateIssuePage: React.FC = () => {
 
   const [title, setTitle] = useState(restored?.title ?? '');
   const [description, setDescription] = useState(restored?.description ?? '');
-  const [departmentId, setDepartmentId] = useState<string>(
-    () => restored?.departmentId ?? getUserDepartmentId(currentUser, departments)
-  );
+  // Starts blank on purpose: defaulting to any one department gets in the way of everyone else.
+  const [departmentId, setDepartmentId] = useState<string>(restored?.departmentId ?? '');
   const [priority, setPriority] = useState<Priority | ''>(restored?.priority ?? '');
   const [status, setStatus] = useState<Status>(restored?.status ?? 'NEW');
   const [assigneeId, setAssigneeId] = useState<string>(restored?.assigneeId ?? 'unassigned');
@@ -129,6 +128,8 @@ export const CreateIssuePage: React.FC = () => {
     setCustomValues(initialCustomValues(currentDept));
     setIsFrontend(false);
     setIsBackend(false);
+    // the new department may not use the status picked so far
+    setStatus((prev) => (isStatusAllowed(currentDept?.workflow, prev) ? prev : 'NEW'));
   }, [departmentId]);
 
   // Remember the draft when this page goes away, unless Cancel/Create discarded it.
@@ -306,7 +307,7 @@ export const CreateIssuePage: React.FC = () => {
               <CustomSelect
                 value={status}
                 onChange={(val) => setStatus(val as Status)}
-                options={STATUS_OPTIONS}
+                options={getStatusOptions(currentDept)}
               />
             </Field>
 
@@ -318,6 +319,21 @@ export const CreateIssuePage: React.FC = () => {
                 placeholder="Select priority..."
               />
             </Field>
+
+            <Field label="Department">
+              <CustomSelect
+                value={departmentId}
+                onChange={setDepartmentId}
+                options={departmentOptions}
+                placeholder="Select department..."
+              />
+            </Field>
+
+            {!currentDept && (
+              <p className="text-[11px] text-gray-500 -mt-1">
+                Choose a department to see its properties.
+              </p>
+            )}
 
             {customFields.map((field) => {
               if (field.id === 'devScope') {
@@ -374,15 +390,6 @@ export const CreateIssuePage: React.FC = () => {
                 </Field>
               );
             })}
-
-            <Field label="Department">
-              <CustomSelect
-                value={departmentId}
-                onChange={setDepartmentId}
-                options={departmentOptions}
-                placeholder="Select department..."
-              />
-            </Field>
 
             <Field label="Assignee">
               <CustomSelect
@@ -549,7 +556,7 @@ export const CreateIssuePage: React.FC = () => {
           <span className="text-gray-300 shrink-0">/</span>
           <span className="font-mono font-bold text-gray-900 shrink-0">New</span>
           <span className="font-mono text-gray-400 truncate">
-            ({currentDept?.code || 'ISSUE'}-new)
+            ({currentDept ? `${currentDept.code}-new` : 'new'})
           </span>
         </div>
 

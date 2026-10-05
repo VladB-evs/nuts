@@ -99,6 +99,12 @@ export interface UserProfile {
   organization?: Organization;
 }
 
+/** Which statuses a department uses and what it calls them. Missing = every status, default names. */
+export interface DepartmentWorkflow {
+  statuses: Status[];
+  labels?: Partial<Record<Status, string>>;
+}
+
 export interface Department {
   id: string;
   name: string;
@@ -106,6 +112,7 @@ export interface Department {
   color?: string;
   description?: string;
   customFields?: CustomFieldDefinition[];
+  workflow?: DepartmentWorkflow;
   orgId?: string;
 }
 
@@ -224,10 +231,11 @@ export interface Issue {
   updatedAt: string;
   comments: Comment[];
   history: HistoryEntry[];
-  starred?: boolean;
+  starred?: boolean; // starred by the signed-in user
+  watching?: boolean; // the signed-in user follows this ticket
 }
 
-export type NavView = 'open' | 'assigned_to_me' | 'reported_by_me' | 'starred' | 'closed';
+export type NavView = 'open' | 'assigned_to_me' | 'reported_by_me' | 'starred' | 'closed' | 'all';
 
 // ====================================================================
 // Toast Notification Models
@@ -246,3 +254,43 @@ export interface ToastNotification {
   action?: ToastAction;
 }
 
+
+// ====================================================================
+// Sorting, saved views and notifications
+// ====================================================================
+
+export type SortKey = 'number' | 'priority' | 'status' | 'title' | 'assignee' | 'updatedAt' | 'createdAt';
+export type SortDir = 'asc' | 'desc';
+
+/** Everything a saved view remembers about the issue list. */
+export interface SavedViewConfig {
+  departmentId: string; // 'all' or a department id
+  navView: NavView;
+  priority: string; // 'ALL' | Priority
+  fieldFilters: Record<string, string>;
+  sort: { key: SortKey; dir: SortDir };
+  search: string;
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  config: SavedViewConfig;
+}
+
+export type NotificationKind =
+  | 'assigned'
+  | 'mentioned'
+  | 'commented'
+  | 'status_changed'
+  | 'priority_changed';
+
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  detail?: string;
+  read: boolean;
+  createdAt: string;
+  actor: { id: string; name: string; nickname?: string; avatarUrl?: string } | null;
+  issue: { id: string; code: string; title: string };
+}

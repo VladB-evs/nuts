@@ -1,5 +1,6 @@
 import type { SelectOption } from '../components/CustomSelect';
-import type { Department } from '../types';
+import type { Department, Status } from '../types';
+import { departmentStatuses, statusLabel } from './workflow';
 
 export const ISSUE_TYPES = ['Bug', 'Feature', 'Update', 'Adjustment'];
 
@@ -56,3 +57,15 @@ export const PRIORITY_OPTIONS: SelectOption[] = [
     description: '14d stage · 30d resolve',
   },
 ];
+
+/**
+ * Status choices for a department: only the statuses its workflow uses, under the names it gives
+ * them. A ticket sitting in a status the workflow later dropped keeps showing it (`current`).
+ */
+export const getStatusOptions = (dept?: Pick<Department, 'workflow'> | null, current?: Status): SelectOption[] => {
+  const allowed = departmentStatuses(dept);
+  return STATUS_OPTIONS.filter((o) => (allowed as string[]).includes(o.value) || o.value === current).map((o) => {
+    const label = statusLabel(dept, o.value as Status);
+    return { ...o, label, badge: label };
+  });
+};

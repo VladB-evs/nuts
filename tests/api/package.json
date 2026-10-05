@@ -1,0 +1,12 @@
+{
+  "name": "nuts-api-tests",
+  "private": true,
+  "type": "module",
+  "description": "Runs the real API (netlify/functions/api.mts) and migrations against an in-memory Postgres (PGlite) as the restricted nuts_app role. Separate from the app's dependencies on purpose.",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8"
+  }
+}

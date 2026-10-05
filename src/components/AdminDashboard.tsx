@@ -3,6 +3,7 @@ import { useIssues } from '../context/TicketContext';
 import { UserProfile, EmploymentStatus } from '../types';
 import { UserAvatar } from './UserAvatar';
 import { CustomSelect, SelectOption } from './CustomSelect';
+import { AdminReports } from './AdminReports';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -293,6 +294,8 @@ export const AdminDashboard: React.FC = () => {
             <div className="text-[10px] text-gray-400 mt-1 font-mono">Workspace managers</div>
           </div>
         </div>
+
+        <AdminReports />
 
         {/* Filter Controls Bar */}
         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">

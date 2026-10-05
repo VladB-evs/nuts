@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { CustomFieldDefinition } from '../types';
+import { CustomFieldDefinition, Status } from '../types';
 import { X, Plus, Trash2, Sliders, AlertTriangle, ShieldAlert } from 'lucide-react';
 import {
   DEPARTMENT_TEMPLATES,
@@ -9,6 +9,7 @@ import {
   suggestDepartmentCode,
 } from '../lib/departmentTemplates';
 import { findDuplicateDepartment } from '../lib/departmentRules';
+import { ALL_STATUSES, sanitizeWorkflow } from '../lib/workflow';
 
 export const DepartmentModal: React.FC = () => {
   const {
@@ -35,6 +36,10 @@ export const DepartmentModal: React.FC = () => {
   const [codeTouched, setCodeTouched] = useState(false);
   const [templateName, setTemplateName] = useState<string | null>(null);
 
+  // Workflow: which statuses the department uses, and what it calls them
+  const [workflowStatuses, setWorkflowStatuses] = useState<Status[]>([...ALL_STATUSES]);
+  const [workflowLabels, setWorkflowLabels] = useState<Partial<Record<Status, string>>>({});
+
   // One-line "Name: option, option" property entry
   const [quickProperty, setQuickProperty] = useState('');
 
@@ -51,11 +56,15 @@ export const DepartmentModal: React.FC = () => {
         setCode(targetDept.code);
         setDescription(targetDept.description || '');
         setCustomFields(targetDept.customFields ? JSON.parse(JSON.stringify(targetDept.customFields)) : []);
+        setWorkflowStatuses(targetDept.workflow?.statuses ? [...targetDept.workflow.statuses] : [...ALL_STATUSES]);
+        setWorkflowLabels({ ...(targetDept.workflow?.labels || {}) });
       } else {
         setName('');
         setCode('');
         setDescription('');
         setCustomFields([]);
+        setWorkflowStatuses([...ALL_STATUSES]);
+        setWorkflowLabels({});
       }
       setCodeTouched(false);
       setTemplateName(null);
@@ -123,10 +132,18 @@ export const DepartmentModal: React.FC = () => {
   };
 
   const duplicate = findDuplicateDepartment(departments, name, code, editingDepartmentId);
+  const workflowResult = sanitizeWorkflow({ statuses: workflowStatuses, labels: workflowLabels });
+  const workflowError = workflowResult.ok ? null : workflowResult.error;
+  const workflow = workflowResult.ok ? workflowResult.value : null;
+  const droppedStatusTickets = isEditing
+    ? issues.filter((i) => i.departmentId === editingDepartmentId && !workflowStatuses.includes(i.status)).length
+    : 0;
+  const toggleWorkflowStatus = (st: Status) =>
+    setWorkflowStatuses((prev) => (prev.includes(st) ? prev.filter((x) => x !== st) : [...prev, st]));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !code.trim() || duplicate) return;
+    if (!name.trim() || !code.trim() || duplicate || workflowError) return;
 
     if (isEditing && editingDepartmentId) {
       updateDepartment(editingDepartmentId, {
@@ -134,10 +151,11 @@ export const DepartmentModal: React.FC = () => {
         code: code.trim().toUpperCase(),
         description: description.trim(),
         customFields,
+        workflow: workflow || undefined,
       });
     } else {
       if (!currentUser?.isAdmin) return;
-      addDepartment(name.trim(), code.trim().toUpperCase(), description.trim(), customFields);
+      addDepartment(name.trim(), code.trim().toUpperCase(), description.trim(), customFields, workflow || undefined);
     }
 
     closeDepartmentModal();
@@ -430,6 +448,53 @@ export const DepartmentModal: React.FC = () => {
             </div>
           </div>
 
+          {/* Workflow */}
+          <details className="pt-3 border-t border-gray-200 group" open={Boolean(targetDept?.workflow)}>
+            <summary className="cursor-pointer select-none text-xs font-semibold text-gray-900 uppercase font-mono tracking-wider">
+              Workflow {workflow ? `(${workflowStatuses.length} of ${ALL_STATUSES.length} statuses)` : '(all statuses)'}
+            </summary>
+            <div className="mt-2 space-y-2">
+              <p className="text-[11px] text-gray-500">
+                Choose the statuses this department uses and, if you like, what it calls them. Existing tickets keep the status they have.
+              </p>
+              <div className="space-y-1">
+                {ALL_STATUSES.map((st) => {
+                  const on = workflowStatuses.includes(st);
+                  const locked = st === 'NEW'; // every ticket starts as NEW
+                  return (
+                    <div key={st} className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 w-36 shrink-0 font-mono text-[11px] text-gray-800 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={locked}
+                          onChange={() => toggleWorkflowStatus(st)}
+                          className="w-3.5 h-3.5 accent-black cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        {st}
+                      </label>
+                      <input
+                        type="text"
+                        value={workflowLabels[st] || ''}
+                        disabled={!on}
+                        maxLength={30}
+                        onChange={(e) => setWorkflowLabels((prev) => ({ ...prev, [st]: e.target.value }))}
+                        placeholder={`Shown as ${st}`}
+                        className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black text-[11px] disabled:opacity-40"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              {workflowError && <p className="text-[11px] text-red-600">{workflowError}</p>}
+              {droppedStatusTickets > 0 && (
+                <p className="text-[11px] text-amber-700">
+                  {droppedStatusTickets} {droppedStatusTickets === 1 ? 'ticket uses' : 'tickets use'} a status you removed. They keep it until someone changes it.
+                </p>
+              )}
+            </div>
+          </details>
+
           {/* Delete Department Section (Only for existing department) */}
           {isEditing && (
             <div className="pt-3 border-t border-gray-200">
@@ -487,7 +552,7 @@ export const DepartmentModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              disabled={Boolean(duplicate)}
+              disabled={Boolean(duplicate) || Boolean(workflowError)}
               className="px-4 py-1.5 text-xs font-medium bg-black text-white rounded hover:bg-gray-800 transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isEditing ? 'Save Changes' : 'Create Department'}

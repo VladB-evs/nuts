@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Plus,
   Settings2,
+  Bookmark,
   Clock,
   X,
   ShieldCheck,
@@ -32,6 +33,8 @@ export const Sidebar: React.FC = () => {
     isMobileMenuOpen,
     setIsMobileMenuOpen,
     setIsCreatingIssue,
+    savedViews,
+    applyView,
   } = useIssues();
 
   if (!currentUser) return null;
@@ -39,45 +42,81 @@ export const Sidebar: React.FC = () => {
   const userDeptId = getUserDepartmentId(currentUser, departments);
   const userDept = departments.find((d) => d.id === userDeptId);
 
-  const views: { id: NavView; label: string; badge?: string; tooltip: string; icon: any; count: number }[] = [
+  type ViewItem = { id: NavView; label: string; tooltip: string; icon: any; count: number };
+  const deptName = userDept?.name || currentUser.department || 'your department';
+
+  // Scoped to the signed-in user's own department
+  const departmentViews: ViewItem[] = [
     {
       id: 'assigned_to_me',
       label: 'Assigned to me',
-      badge: userDept?.code || 'DEV',
-      tooltip: `Open issues assigned to you in your department (${userDept?.name || currentUser.department})`,
+      tooltip: `Open issues assigned to you in ${deptName}`,
       icon: UserCheck,
       count: counts.assignedToMe,
     },
     {
       id: 'open',
-      label: 'Open Issues',
-      badge: userDept?.code || 'DEV',
-      tooltip: `Open issues in your assigned department (${userDept?.name || currentUser.department})`,
+      label: 'Open issues',
+      tooltip: `All open issues in ${deptName}`,
       icon: Inbox,
       count: counts.open,
     },
     {
+      id: 'closed',
+      label: 'Closed / Completed',
+      tooltip: `Completed and closed issues in ${deptName}`,
+      icon: CheckCircle2,
+      count: counts.closed,
+    },
+  ];
+
+  // Not scoped: these look at every department
+  const allDepartmentViews: ViewItem[] = [
+    {
       id: 'reported_by_me',
       label: 'Reported by me',
-      tooltip: 'Tickets reported by you',
+      tooltip: 'Tickets you reported, in any department',
       icon: FileText,
       count: counts.reportedByMe,
     },
     {
       id: 'starred',
       label: 'Starred',
-      tooltip: 'Starred tickets',
+      tooltip: 'Your starred tickets, in any department',
       icon: Star,
       count: counts.starred,
     },
-    {
-      id: 'closed',
-      label: 'Closed / Completed',
-      tooltip: `Closed/Completed issues in your department (${userDept?.name || currentUser.department})`,
-      icon: CheckCircle2,
-      count: counts.closed,
-    },
   ];
+
+  const renderView = (v: ViewItem) => {
+    const Icon = v.icon;
+    const isSelected = navView === v.id && selectedDepartment === 'all' && activeTab === 'table';
+    return (
+      <button
+        key={v.id}
+        type="button"
+        onClick={() => {
+          setNavView(v.id);
+          setSelectedDepartment('all');
+          setSelectedIssue(null);
+          setActiveTab('table');
+          setIsMobileMenuOpen(false);
+        }}
+        title={v.tooltip}
+        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group cursor-pointer ${
+          isSelected
+            ? 'bg-gray-100 font-semibold text-gray-900'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+        }`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-black' : 'text-gray-400'}`} />
+          <span className="truncate">{v.label}</span>
+        </div>
+        <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-1.5">{v.count}</span>
+      </button>
+    );
+  };
 
   const renderNavContent = () => (
     <>
@@ -90,58 +129,52 @@ export const Sidebar: React.FC = () => {
             setIsMobileMenuOpen(false);
           }}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-black text-white hover:bg-gray-800 rounded-md text-xs font-medium transition-colors shadow-2xs cursor-pointer"
+          title="New issue (press C)"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>New Issue</span>
         </button>
       </div>
 
-      {/* Views */}
+      {/* My department's views */}
+      <div className="space-y-0.5 mb-4">
+        <div className="px-2 pb-1 flex items-baseline justify-between gap-2" title={`These three views only include ${deptName}`}>
+          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            My department
+          </span>
+          <span className="text-[10px] font-mono text-gray-500 truncate">{userDept?.code || ''}</span>
+        </div>
+        {departmentViews.map(renderView)}
+      </div>
+
+      {/* Views across every department */}
       <div className="space-y-0.5 mb-5">
         <div className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-          Views
+          All departments
         </div>
-        {views.map((v) => {
-          const Icon = v.icon;
-          const isSelected = navView === v.id && selectedDepartment === 'all';
-          return (
+        {allDepartmentViews.map(renderView)}
+      </div>
+
+      {/* Saved views (personal) */}
+      {savedViews.length > 0 && (
+        <div className="space-y-0.5 mb-5">
+          <div className="px-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            Saved views
+          </div>
+          {savedViews.map((v) => (
             <button
               key={v.id}
               type="button"
-              onClick={() => {
-                setNavView(v.id);
-                setSelectedDepartment('all');
-                setSelectedIssue(null);
-                setActiveTab('table');
-                setIsMobileMenuOpen(false);
-              }}
-              title={v.tooltip}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors group cursor-pointer ${
-                isSelected && activeTab === 'table'
-                  ? 'bg-gray-100 font-semibold text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              onClick={() => applyView(v)}
+              title={`Apply "${v.name}"`}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-2 truncate">
-                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected && activeTab === 'table' ? 'text-black' : 'text-gray-400'}`} />
-                <span className="truncate">{v.label}</span>
-                {v.badge && (
-                  <span
-                    className={`font-mono text-[9px] px-1 py-0.2 rounded border ${
-                      isSelected && activeTab === 'table'
-                        ? 'bg-white text-gray-800 border-gray-300 font-bold'
-                        : 'bg-gray-50 text-gray-400 border-gray-200'
-                    }`}
-                  >
-                    {v.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[11px] text-gray-400 font-mono shrink-0 ml-1.5">{v.count}</span>
+              <Bookmark className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+              <span className="truncate">{v.name}</span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Lifecycle Timeline Tab */}
       <div className="space-y-0.5 mb-5">
@@ -206,7 +239,10 @@ export const Sidebar: React.FC = () => {
       {/* Departments */}
       <div className="flex-1 overflow-y-auto space-y-0.5">
         <div className="flex items-center justify-between px-2 pb-1">
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+          <span
+            className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
+            title="Open issues in each department. Click one to browse it."
+          >
             Departments
           </span>
           <div className="flex items-center gap-1">
@@ -241,7 +277,10 @@ export const Sidebar: React.FC = () => {
 
         {departments.map((dept) => {
           const isSelected = selectedDepartment === dept.id && activeTab === 'table';
-          const count = issues.filter((i) => i.departmentId === dept.id).length;
+          const count = issues.filter(
+            (i) => i.departmentId === dept.id && i.status !== 'COMPLETED' && i.status !== 'CLOSED'
+          ).length;
+          const isMine = dept.id === userDeptId;
 
           return (
             <div
@@ -261,6 +300,11 @@ export const Sidebar: React.FC = () => {
               <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
                 <span className="truncate">{dept.name}</span>
+                {isMine && (
+                  <span className="font-mono text-[9px] px-1 rounded border bg-gray-50 text-gray-500 border-gray-200 shrink-0" title="Your department">
+                    you
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1 font-mono text-[10px] text-gray-400 shrink-0">
                 <span>[{dept.code}]</span>
