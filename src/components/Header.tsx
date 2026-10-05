@@ -4,7 +4,6 @@ import { UserAvatar } from './UserAvatar';
 import { ThemeToggle } from './ThemeToggle';
 import {
   Search,
-  Plus,
   Check,
   UserCog,
   ChevronDown,
@@ -28,7 +27,6 @@ export const Header: React.FC<HeaderProps> = () => {
     setCurrentUser,
     logout,
     users,
-    setIsCreatingIssue,
     setSelectedIssue,
     setIsProfileModalOpen,
     openDepartmentModal,
@@ -185,18 +183,6 @@ export const Header: React.FC<HeaderProps> = () => {
             <span className="font-mono text-[11px]">Admin</span>
           </button>
         )}
-
-        {/* New Issue Button */}
-        <button
-          type="button"
-          onClick={() => setIsCreatingIssue(true)}
-          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm cursor-pointer shrink-0"
-          title="Create New Issue"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span className="hidden sm:inline">New Issue</span>
-          <span className="sm:hidden">Issue</span>
-        </button>
 
         {/* Current user & Account Dropdown */}
         <div className="relative">

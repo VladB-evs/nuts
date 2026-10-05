@@ -113,6 +113,7 @@ export interface TicketLifecycle {
   // Edge-case flags
   isResolved: boolean;           // Currently in COMPLETED, VERIFIED, or CLOSED
   isStalled: boolean;            // Stuck in current active status beyond priority stage SLA
+  isSlaPaused: boolean;          // PENDING: waiting on someone else, so SLA clocks are not running
   stalledDurationMs: number;     // How long it has been in current status
   hasRegressions: boolean;       // Moved backwards at least once (e.g. COMPLETED -> ASSIGNED)
   regressionCount: number;
@@ -404,14 +405,18 @@ export function computeTicketLifecycle(
   const triageDurationMs = statusDurations.NEW;
 
   // Cycle Time: Time from ACCEPTED to COMPLETED/CLOSED (active engineering/work duration)
-  const cycleTimeMs = statusDurations.ACCEPTED + statusDurations.PENDING + statusDurations.COMPLETED;
+  const cycleTimeMs = statusDurations.ACCEPTED + statusDurations.COMPLETED;
 
   // Priority-based SLA resolution & Stalled Detection:
   // "Stall" is strictly defined by whether an active, unresolved ticket exceeds its Priority Stage SLA
   const sla = PRIORITY_SLAS[issue.priority] || PRIORITY_SLAS.P2;
-  const isStalled = !isResolved && finalDurationMs > sla.stageMaxMs;
+  // PENDING means waiting on someone else: the stage clock is not running, and time spent
+  // pending does not count towards the resolution SLA either.
+  const isSlaPaused = !isResolved && currentStage === 'PENDING';
+  const isStalled = !isResolved && !isSlaPaused && finalDurationMs > sla.stageMaxMs;
   const slaStageBreached = isStalled;
-  const slaResolutionBreached = !isResolved && totalDurationMs > sla.resolutionMaxMs;
+  const slaResolutionBreached =
+    !isResolved && !isSlaPaused && totalDurationMs - statusDurations.PENDING > sla.resolutionMaxMs;
   const slaOverdueMs = isStalled ? Math.max(0, finalDurationMs - sla.stageMaxMs) : 0;
   const slaRemainingMs = sla.stageMaxMs - finalDurationMs;
   const slaUsagePercent = Math.min(999, Math.round((finalDurationMs / sla.stageMaxMs) * 100));
@@ -419,6 +424,8 @@ export function computeTicketLifecycle(
   let stalledReason = '';
   if (isStalled) {
     stalledReason = `Exceeded ${issue.priority} stage SLA (${sla.stageMaxFormatted}) in ${currentStage}: ${formatDuration(finalDurationMs)} elapsed (${formatDuration(slaOverdueMs)} overdue)`;
+  } else if (isSlaPaused) {
+    stalledReason = `SLA paused while Pending (${formatDuration(finalDurationMs)} so far)`;
   } else if (!isResolved) {
     stalledReason = `Within ${issue.priority} stage SLA (${formatDuration(finalDurationMs)} of ${sla.stageMaxFormatted} in ${currentStage})`;
   } else {
@@ -444,6 +451,7 @@ export function computeTicketLifecycle(
     leadTimeMs,
     isResolved,
     isStalled,
+    isSlaPaused,
     stalledDurationMs: finalDurationMs,
     hasRegressions: regressionCount > 0,
     regressionCount,

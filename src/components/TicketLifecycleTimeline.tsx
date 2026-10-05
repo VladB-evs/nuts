@@ -415,6 +415,10 @@ export const TicketLifecycleTimeline: React.FC = () => {
                       <div className="min-w-0">
                         {ticket.isResolved ? (
                           <span className="text-gray-400 text-[10px]">Resolved</span>
+                        ) : ticket.isSlaPaused ? (
+                          <span className="text-[10px] text-sky-700 font-medium whitespace-nowrap" title={ticket.stalledReason}>
+                            Paused
+                          </span>
                         ) : ticket.isStalled ? (
                           <span
                             className="inline-flex items-center gap-1 font-bold text-[10px] text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded whitespace-nowrap"
@@ -525,6 +529,8 @@ export const TicketLifecycleTimeline: React.FC = () => {
                       <div className="flex items-center gap-1 shrink-0">
                         {ticket.isResolved ? (
                           <span className="text-gray-400 text-[10px]">Resolved</span>
+                        ) : ticket.isSlaPaused ? (
+                          <span className="text-[10px] text-sky-700 font-medium whitespace-nowrap">Paused</span>
                         ) : ticket.isStalled ? (
                           <span className="inline-flex items-center gap-1 font-bold text-[10px] text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded whitespace-nowrap">
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />

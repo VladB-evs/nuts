@@ -121,6 +121,10 @@ export const TicketLifecycleDetailView: React.FC<TicketLifecycleDetailViewProps>
                   <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <CheckCircle2 className="w-3 h-3" /> Resolved
                   </span>
+                ) : lifecycle.isSlaPaused ? (
+                  <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                    <Clock className="w-3 h-3" /> SLA Paused (Pending)
+                  </span>
                 ) : lifecycle.isStalled ? (
                   <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
                     <AlertTriangle className="w-3 h-3" /> SLA Stalled ({lifecycle.slaUsagePercent}%)
@@ -236,7 +240,7 @@ export const TicketLifecycleDetailView: React.FC<TicketLifecycleDetailViewProps>
             <div className="pt-2 space-y-1">
               <div className="flex items-center justify-between text-[10px] font-mono text-gray-400">
                 <span>Stage SLA</span>
-                <span>{lifecycle.slaUsagePercent}%</span>
+                <span>{lifecycle.isSlaPaused ? 'paused' : `${lifecycle.slaUsagePercent}%`}</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                 <div
@@ -279,7 +283,7 @@ export const TicketLifecycleDetailView: React.FC<TicketLifecycleDetailViewProps>
               </span>
             </div>
             <p className="text-[10px] font-mono text-gray-500 pt-2">
-              Work time (Accepted, Pending & Completed)
+              Work time (Accepted & Completed)
             </p>
           </div>
 
@@ -307,7 +311,7 @@ export const TicketLifecycleDetailView: React.FC<TicketLifecycleDetailViewProps>
               <span>Lifecycle Pipeline Progression</span>
             </span>
             <span className="text-[11px] font-mono text-gray-400">
-              6 Standard Stages
+              {LIFECYCLE_STAGES.length} Standard Stages
             </span>
           </div>
 

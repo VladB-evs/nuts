@@ -1,4 +1,20 @@
 import type { SelectOption } from '../components/CustomSelect';
+import type { Department } from '../types';
+
+export const ISSUE_TYPES = ['Bug', 'Feature', 'Update', 'Adjustment'];
+
+/**
+ * Departments saved before Update/Adjustment existed still carry the old two-option Issue Type
+ * list. Add the standard types to any such field so every workspace gets them without edits.
+ */
+export const withStandardIssueTypes = (dept: Department): Department => ({
+  ...dept,
+  customFields: dept.customFields?.map((f) =>
+    f.id === 'issueType' && f.type === 'select'
+      ? { ...f, options: [...(f.options || []), ...ISSUE_TYPES.filter((t) => !f.options?.includes(t))] }
+      : f
+  ),
+});
 
 export const STATUS_OPTIONS: SelectOption[] = [
   { value: 'NEW', label: 'NEW', badge: 'NEW', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },

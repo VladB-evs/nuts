@@ -68,6 +68,8 @@ export interface CustomFieldDefinition {
   options?: string[]; // for 'select' type
   defaultValue?: string;
   required?: boolean;
+  /** Admin opted this select field into the issue list's filter bar. */
+  showAsFilter?: boolean;
 }
 
 export interface Organization {

@@ -455,11 +455,6 @@ export const IssueDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Ticket Lifecycle Progression (Compact & Out of the way) */}
-          <div className="pt-0.5 pb-0.5">
-            <TicketLifecycleBar issue={selectedIssue} compact={true} />
-          </div>
-
           {/* Mobile Properties Card (< lg) - SOLID, beautifully styled, non-seethrough */}
           <div className="lg:hidden bg-gray-50 border border-gray-200 rounded-lg p-3.5 sm:p-4 space-y-3 shadow-2xs">
             <div className="flex items-center justify-between pb-2 border-b border-gray-200">
@@ -645,6 +640,11 @@ export const IssueDetail: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+
+          {/* Ticket Lifecycle / SLA progression, below the comment box */}
+          <div className="pt-0.5 pb-0.5">
+            <TicketLifecycleBar issue={selectedIssue} compact={true} />
           </div>
         </div>
 

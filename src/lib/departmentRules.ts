@@ -36,6 +36,22 @@ export const getUserDepartmentId = (
   return matched ? matched.id : departments[0]?.id || 'engineering';
 };
 
+/** The department that already uses this name or code (case-insensitive), ignoring `ignoreId`. */
+export const findDuplicateDepartment = (
+  departments: Department[],
+  name: string,
+  code: string,
+  ignoreId?: string | null
+): Department | undefined => {
+  const n = name.trim().toLowerCase();
+  const c = code.trim().toLowerCase();
+  return departments.find(
+    (d) =>
+      d.id !== ignoreId &&
+      ((n && d.name.trim().toLowerCase() === n) || (c && d.code.trim().toLowerCase() === c))
+  );
+};
+
 export type DepartmentRuleKind = 'engineering' | 'marketing' | 'sales' | 'operations' | 'general';
 
 export const getDepartmentRuleKind = (

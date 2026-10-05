@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import {
   Department,
@@ -73,22 +73,46 @@ const Field: React.FC<{
   </div>
 );
 
+interface Draft {
+  userId: string;
+  title: string;
+  description: string;
+  departmentId: string;
+  priority: Priority | '';
+  status: Status;
+  assigneeId: string;
+  customValues: Record<string, string>;
+  isFrontend: boolean;
+  isBackend: boolean;
+  selectedLinks: IssueLink[];
+}
+
+// An unsaved ticket survives navigating away (sidebar, opening another ticket) and is picked up
+// again by the next "New Issue". Cancel and Create clear it. Memory only, and per user.
+let savedDraft: Draft | null = null;
+
 export const CreateIssuePage: React.FC = () => {
   const { setIsCreatingIssue, departments, currentUser, createIssue, users, issues } = useIssues();
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [departmentId, setDepartmentId] = useState<string>(() =>
-    getUserDepartmentId(currentUser, departments)
+  const [restored] = useState<Draft | null>(() =>
+    savedDraft && savedDraft.userId === currentUser?.id ? savedDraft : null
   );
-  const [priority, setPriority] = useState<Priority | ''>('');
-  const [status, setStatus] = useState<Status>('NEW');
-  const [assigneeId, setAssigneeId] = useState<string>('unassigned');
-  const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [isFrontend, setIsFrontend] = useState(false);
-  const [isBackend, setIsBackend] = useState(false);
 
-  const [selectedLinks, setSelectedLinks] = useState<IssueLink[]>([]);
+  const [title, setTitle] = useState(restored?.title ?? '');
+  const [description, setDescription] = useState(restored?.description ?? '');
+  const [departmentId, setDepartmentId] = useState<string>(
+    () => restored?.departmentId ?? getUserDepartmentId(currentUser, departments)
+  );
+  const [priority, setPriority] = useState<Priority | ''>(restored?.priority ?? '');
+  const [status, setStatus] = useState<Status>(restored?.status ?? 'NEW');
+  const [assigneeId, setAssigneeId] = useState<string>(restored?.assigneeId ?? 'unassigned');
+  const [customValues, setCustomValues] = useState<Record<string, string>>(
+    restored?.customValues ?? {}
+  );
+  const [isFrontend, setIsFrontend] = useState(restored?.isFrontend ?? false);
+  const [isBackend, setIsBackend] = useState(restored?.isBackend ?? false);
+
+  const [selectedLinks, setSelectedLinks] = useState<IssueLink[]>(restored?.selectedLinks ?? []);
   const [isLinking, setIsLinking] = useState(false);
   const [linkRelation, setLinkRelation] = useState<LinkRelationType>('relates_to');
   const [linkSearch, setLinkSearch] = useState('');
@@ -96,12 +120,49 @@ export const CreateIssuePage: React.FC = () => {
   const currentDept = departments.find((d) => d.id === departmentId);
   const customFields = currentDept?.customFields || [];
 
-  // A different department has different properties, so they start over.
+  // A different department has different properties, so they start over (a restored draft
+  // already holds values for its own department).
+  const initializedDept = useRef<string | null>(restored ? restored.departmentId : null);
   useEffect(() => {
+    if (initializedDept.current === departmentId) return;
+    initializedDept.current = departmentId;
     setCustomValues(initialCustomValues(currentDept));
     setIsFrontend(false);
     setIsBackend(false);
   }, [departmentId]);
+
+  // Remember the draft when this page goes away, unless Cancel/Create discarded it.
+  const latestDraft = useRef<Draft | null>(null);
+  latestDraft.current = {
+    userId: currentUser?.id ?? '',
+    title,
+    description,
+    departmentId,
+    priority,
+    status,
+    assigneeId,
+    customValues,
+    isFrontend,
+    isBackend,
+    selectedLinks,
+  };
+  const discardDraft = useRef(false);
+  useEffect(
+    () => () => {
+      const d = latestDraft.current;
+      const dirty =
+        d &&
+        (d.title.trim() ||
+          d.description.trim() ||
+          d.priority ||
+          d.selectedLinks.length ||
+          d.assigneeId !== 'unassigned' ||
+          d.isFrontend ||
+          d.isBackend);
+      savedDraft = dirty && !discardDraft.current ? d : null;
+    },
+    []
+  );
 
   const departmentOptions: SelectOption[] = useMemo(
     () =>
@@ -232,55 +293,103 @@ export const CreateIssuePage: React.FC = () => {
     });
 
     // createIssue opens the new ticket; leave this page.
+    discardDraft.current = true;
     setIsCreatingIssue(false);
   };
 
   const inputClass =
     'w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black';
 
-  return (
-    <div className="flex-1 overflow-hidden bg-white flex flex-col h-full min-h-0">
-      {/* Top Header */}
-      <div className="px-3 sm:px-4 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between text-xs shrink-0 select-none">
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-          <button
-            type="button"
-            onClick={() => setIsCreatingIssue(false)}
-            className="flex items-center gap-1 text-gray-600 hover:text-black font-medium py-1 px-2 rounded hover:bg-gray-100 transition-colors shrink-0 cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 shrink-0" />
-            <span>Back</span>
-          </button>
-          <span className="text-gray-300 shrink-0">/</span>
-          <span className="font-semibold text-gray-900">New Issue</span>
-        </div>
-        <span className="text-[11px] font-mono text-gray-500 hidden sm:inline">
-          <span className="text-red-500">*</span> All fields are required
-        </span>
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-y-auto lg:overflow-hidden min-h-0">
-          {/* Left: Title, Description, Linked tickets */}
-          <div className="shrink-0 lg:shrink lg:flex-1 min-w-0 p-3.5 sm:p-6 space-y-5 lg:overflow-y-auto lg:min-h-0 text-xs">
-            <Field label="Title">
-              <input
-                type="text"
-                autoFocus
-                placeholder="Concise summary of the problem or request"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className={`${inputClass} text-base font-semibold`}
+  const renderProperties = () => (
+    <div className="space-y-4">
+            <Field label="Status">
+              <CustomSelect
+                value={status}
+                onChange={(val) => setStatus(val as Status)}
+                options={STATUS_OPTIONS}
               />
             </Field>
 
-            <Field label="Description">
-              <textarea
-                rows={10}
-                placeholder="Context, details, acceptance criteria..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className={`${inputClass} p-2.5 font-sans leading-relaxed`}
+            <Field label="Priority">
+              <CustomSelect
+                value={priority}
+                onChange={(val) => setPriority(val as Priority)}
+                options={PRIORITY_OPTIONS}
+                placeholder="Select priority..."
+              />
+            </Field>
+
+            {customFields.map((field) => {
+              if (field.id === 'devScope') {
+                return (
+                  <Field key={field.id} label={field.name}>
+                    <div className="flex items-center gap-6 pt-0.5">
+                      <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={isFrontend}
+                          onChange={(e) => setIsFrontend(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 accent-black cursor-pointer"
+                        />
+                        <span>Frontend</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={isBackend}
+                          onChange={(e) => setIsBackend(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 accent-black cursor-pointer"
+                        />
+                        <span>Backend</span>
+                      </label>
+                    </div>
+                  </Field>
+                );
+              }
+
+              if (field.type === 'select') {
+                return (
+                  <Field key={field.id} label={field.name}>
+                    <CustomSelect
+                      value={customValues[field.id] || ''}
+                      onChange={(val) => setCustomValues((prev) => ({ ...prev, [field.id]: val }))}
+                      options={field.options || []}
+                      placeholder={`Select ${field.name.toLowerCase()}...`}
+                    />
+                  </Field>
+                );
+              }
+
+              return (
+                <Field key={field.id} label={field.name}>
+                  <input
+                    type="text"
+                    value={customValues[field.id] || ''}
+                    onChange={(e) =>
+                      setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                    }
+                    placeholder={`Enter ${field.name.toLowerCase()}...`}
+                    className={`${inputClass} font-mono`}
+                  />
+                </Field>
+              );
+            })}
+
+            <Field label="Department">
+              <CustomSelect
+                value={departmentId}
+                onChange={setDepartmentId}
+                options={departmentOptions}
+                placeholder="Select department..."
+              />
+            </Field>
+
+            <Field label="Assignee">
+              <CustomSelect
+                value={assigneeId}
+                onChange={handleAssigneeChange}
+                options={assigneeOptions}
+                searchable={users.length > 5}
               />
             </Field>
 
@@ -289,7 +398,7 @@ export const CreateIssuePage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-gray-500 flex items-center gap-1.5">
                   <Link2 className="w-3.5 h-3.5 text-gray-500" />
-                  <span>Linked Tickets (optional)</span>
+                  <span>Linked Tickets</span>
                   {selectedLinks.length > 0 && (
                     <span className="text-[10px] font-mono px-1.5 py-0.2 bg-gray-200 text-gray-700 rounded-full font-bold">
                       {selectedLinks.length}
@@ -305,7 +414,7 @@ export const CreateIssuePage: React.FC = () => {
                   className="text-[11px] font-mono text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                 >
                   {isLinking ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                  <span>{isLinking ? 'Close' : 'Link ticket'}</span>
+                  <span>{isLinking ? 'Close' : 'Link'}</span>
                 </button>
               </div>
 
@@ -408,139 +517,137 @@ export const CreateIssuePage: React.FC = () => {
                 </div>
               )}
             </div>
+
+      {/* Meta Info */}
+      <div className="pt-3 border-t border-gray-200 text-[11px] font-mono text-gray-500 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Reporter:</span>
+          <div className="inline-flex items-center gap-1.5">
+            <UserAvatar user={currentUser} size="xs" />
+            <span className="font-semibold text-gray-800 font-sans">{currentUser?.name}</span>
           </div>
+        </div>
+        <p>Created: on save</p>
+      </div>
+    </div>
+  );
 
-          {/* Right: Properties */}
-          <aside className="w-full lg:w-72 xl:w-80 p-3.5 sm:p-5 xl:p-6 space-y-4 bg-gray-50 text-xs shrink-0 lg:overflow-y-auto min-h-0 [scrollbar-gutter:stable]">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-bold block pb-2 border-b border-gray-200">
-              Issue Properties
-            </span>
-
-            <Field label="Status">
-              <CustomSelect
-                value={status}
-                onChange={(val) => setStatus(val as Status)}
-                options={STATUS_OPTIONS}
-              />
-            </Field>
-
-            <Field label="Priority">
-              <CustomSelect
-                value={priority}
-                onChange={(val) => setPriority(val as Priority)}
-                options={PRIORITY_OPTIONS}
-                placeholder="Select priority..."
-              />
-            </Field>
-
-            {customFields.map((field) => {
-              if (field.id === 'devScope') {
-                return (
-                  <Field key={field.id} label={field.name}>
-                    <div className="flex items-center gap-6 pt-0.5">
-                      <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-gray-800">
-                        <input
-                          type="checkbox"
-                          checked={isFrontend}
-                          onChange={(e) => setIsFrontend(e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 accent-black cursor-pointer"
-                        />
-                        <span>Frontend</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-gray-800">
-                        <input
-                          type="checkbox"
-                          checked={isBackend}
-                          onChange={(e) => setIsBackend(e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 accent-black cursor-pointer"
-                        />
-                        <span>Backend</span>
-                      </label>
-                    </div>
-                  </Field>
-                );
-              }
-
-              if (field.type === 'select') {
-                return (
-                  <Field key={field.id} label={field.name}>
-                    <CustomSelect
-                      value={customValues[field.id] || ''}
-                      onChange={(val) => setCustomValues((prev) => ({ ...prev, [field.id]: val }))}
-                      options={field.options || []}
-                      placeholder={`Select ${field.name.toLowerCase()}...`}
-                    />
-                  </Field>
-                );
-              }
-
-              return (
-                <Field key={field.id} label={field.name}>
-                  <input
-                    type="text"
-                    value={customValues[field.id] || ''}
-                    onChange={(e) =>
-                      setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    placeholder={`Enter ${field.name.toLowerCase()}...`}
-                    className={`${inputClass} font-mono`}
-                  />
-                </Field>
-              );
-            })}
-
-            <Field label="Department">
-              <CustomSelect
-                value={departmentId}
-                onChange={setDepartmentId}
-                options={departmentOptions}
-                placeholder="Select department..."
-              />
-            </Field>
-
-            <Field label="Assignee">
-              <CustomSelect
-                value={assigneeId}
-                onChange={handleAssigneeChange}
-                options={assigneeOptions}
-                searchable={users.length > 5}
-              />
-            </Field>
-          </aside>
+  return (
+    <form onSubmit={handleSubmit} className="flex-1 overflow-hidden bg-white flex flex-col h-full min-h-0">
+      {/* Top Header */}
+      <div className="px-3 sm:px-4 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between text-xs shrink-0 select-none">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => setIsCreatingIssue(false)}
+            className="flex items-center gap-1 text-gray-600 hover:text-black font-medium py-1 px-2 rounded hover:bg-gray-100 transition-colors shrink-0 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">All Issues</span>
+            <span className="sm:hidden">Back</span>
+          </button>
+          <span className="text-gray-300 shrink-0">/</span>
+          <span className="font-mono font-bold text-gray-900 shrink-0">New</span>
+          <span className="font-mono text-gray-400 truncate">
+            ({currentDept?.code || 'ISSUE'}-new)
+          </span>
         </div>
 
-        {/* Action bar */}
-        <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3.5 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <p className="text-[11px] font-mono text-gray-500 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              discardDraft.current = true;
+              setIsCreatingIssue(false);
+            }}
+            className="px-2.5 py-1.5 text-gray-600 hover:text-black rounded hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!canSave}
+            className="px-3.5 py-1.5 bg-black text-white font-medium rounded hover:bg-gray-800 transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Create Issue
+          </button>
+        </div>
+      </div>
+
+      {/* Main Split Layout: Title & Description on Left, Properties on Right */}
+      <div className="flex-1 flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200 overflow-y-auto lg:overflow-hidden min-h-0 bg-white">
+        <div className="shrink-0 lg:shrink lg:flex-1 min-w-0 p-3.5 sm:p-6 space-y-6 lg:overflow-y-auto lg:min-h-0">
+          {/* Title & Metadata */}
+          <div className="space-y-2">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Issue title *"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full text-base sm:text-lg font-bold text-gray-900 placeholder-gray-400 border border-gray-300 rounded px-2.5 py-1.5 bg-white focus:outline-none focus:border-black font-sans leading-snug"
+            />
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span>Opened just now by</span>
+              <div className="inline-flex items-center gap-1.5">
+                <UserAvatar user={currentUser} size="xs" />
+                <span className="font-medium text-gray-800">{currentUser?.name}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold block">
+              Description<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <textarea
+              rows={10}
+              placeholder="Context, details, acceptance criteria..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full p-3.5 sm:p-4 rounded-md border border-gray-200 bg-gray-50 text-xs text-gray-800 placeholder-gray-400 leading-relaxed font-sans focus:outline-none focus:border-gray-500"
+            />
+          </div>
+
+          {restored && (
+            <p className="text-[11px] font-mono text-sky-600">
+              Restored your unsaved draft. Cancel to discard it.
+            </p>
+          )}
+
+          <p className="text-[11px] font-mono text-gray-500">
             {canSave ? (
               <span className="text-emerald-600">All required fields are filled in.</span>
             ) : (
-              <span title={missing.join(', ')}>
+              <>
                 <span className="font-semibold text-gray-700">
                   {missing.length} required {missing.length === 1 ? 'field' : 'fields'} left:
                 </span>{' '}
                 {missing.join(', ')}
-              </span>
+              </>
             )}
           </p>
-          <div className="flex items-center justify-end gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsCreatingIssue(false)}
-              className="px-3 py-1.5 text-gray-600 hover:text-black rounded cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSave}
-              className="px-4 py-1.5 bg-black text-white font-medium rounded hover:bg-gray-800 transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Create Issue
-            </button>
+
+          {/* Mobile Properties Card (< lg) */}
+          <div className="lg:hidden bg-gray-50 border border-gray-200 rounded-lg p-3.5 sm:p-4 space-y-3 shadow-2xs text-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-gray-700 font-bold">
+                Ticket Properties
+              </span>
+            </div>
+            {renderProperties()}
           </div>
         </div>
-      </form>
-    </div>
+
+        {/* Right Column: Properties Sidebar (Desktop only >= lg) */}
+        <aside className="hidden lg:block w-72 xl:w-80 p-5 xl:p-6 space-y-5 bg-gray-50 border-l border-gray-200 text-xs shrink-0 overflow-y-auto min-h-0 [scrollbar-gutter:stable]">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500 font-bold block pb-2 border-b border-gray-200">
+            Issue Properties
+          </span>
+          {renderProperties()}
+        </aside>
+      </div>
+    </form>
   );
 };

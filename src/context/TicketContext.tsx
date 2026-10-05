@@ -25,7 +25,8 @@ import {
   ToastNotification,
 } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_ISSUES, USERS } from '../data/mockData';
-import { getUserDepartmentId } from '../lib/departmentRules';
+import { getUserDepartmentId, findDuplicateDepartment } from '../lib/departmentRules';
+import { withStandardIssueTypes } from '../lib/issueOptions';
 import {
   fetchAllDataFromNeon,
   createIssueInNeon,
@@ -70,10 +71,9 @@ interface IssueContextType {
   setSearchQuery: (query: string) => void;
   priorityFilter: string;
   setPriorityFilter: (priority: string) => void;
-  envFilter: string;
-  setEnvFilter: (env: string) => void;
-  subFilter: string;
-  setSubFilter: (filter: string) => void;
+  /** Active value (or 'ALL') per custom field the admin exposed as a filter, keyed by field id. */
+  fieldFilters: Record<string, string>;
+  setFieldFilter: (fieldId: string, value: string) => void;
   isCreatingIssue: boolean;
   setIsCreatingIssue: (creating: boolean) => void;
   activeTab: 'table' | 'timeline' | 'admin';
@@ -251,7 +251,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         code: 'DEV',
         description: 'Core product engineering and bug triage',
         customFields: [
-          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true },
+          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true, showAsFilter: true },
           { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'LOCAL' },
           { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
         ],
@@ -339,7 +339,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         code: 'DEV',
         description: 'Core product engineering and bug triage',
         customFields: [
-          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true },
+          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true, showAsFilter: true },
           { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'LOCAL' },
           { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
         ],
@@ -372,7 +372,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const data = await fetchAllDataFromNeon();
       if (data) {
         if (data.departments && data.departments.length > 0) {
-          setDepartments(data.departments);
+          setDepartments(data.departments.map(withStandardIssueTypes));
         }
         if (data.users) {
           setUsers(data.users.length > 0 ? data.users : (currentUser ? [currentUser] : []));
@@ -425,7 +425,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
-  const [subFilter, setSubFilter] = useState('ALL');
+  const [fieldFilters, setFieldFilters] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'table' | 'timeline' | 'admin'>('table');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCreatingIssue, setIsCreatingIssue] = useState(false);
@@ -445,8 +445,14 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setSelectedDepartment = (deptId: string) => {
     setSelectedDepartmentState(deptId);
-    setSubFilter('ALL');
+    // A department page lists that department's open issues, not whatever view was active
+    // before (e.g. "Assigned to me" would hide everything not assigned to the current user).
+    if (deptId !== 'all') setNavView('open');
+    setFieldFilters({});
   };
+
+  const setFieldFilter = (fieldId: string, value: string) =>
+    setFieldFilters((prev) => ({ ...prev, [fieldId]: value }));
 
   // Navigating anywhere (opening an issue, going back to the list, switching tab) leaves the
   // new-issue page. Internal code that merely refreshes the open issue uses the raw setters.
@@ -797,6 +803,30 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
               : curr
           );
+        } else {
+          // The server rejected or failed the save: don't leave a ticket that was never stored.
+          setIssues((prev) =>
+            prev
+              .filter((i) => i.id !== newIssue.id)
+              .map((i) =>
+                i.linkedIssues?.some((l) => l.issueId === newIssue.id)
+                  ? {
+                      ...i,
+                      linkedIssues: i.linkedIssues.filter((l) => l.issueId !== newIssue.id),
+                      customAttributes: {
+                        ...(i.customAttributes || {}),
+                        linkedIssues: i.linkedIssues.filter((l) => l.issueId !== newIssue.id),
+                      },
+                    }
+                  : i
+              )
+          );
+          setSelectedIssue((curr) => (curr && curr.id === newIssue.id ? null : curr));
+          showToast({
+            type: 'error',
+            title: 'Issue not saved',
+            message: `${newIssue.code} could not be saved. Check the required fields and try again.`,
+          });
         }
       }).catch((err) => {
         console.error('Failed to create issue in Neon:', err);
@@ -1355,6 +1385,10 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw new Error('Only workspace administrators have permission to create departments.');
     }
 
+    if (findDuplicateDepartment(departments, name, code)) {
+      throw new Error('A department with that name or code already exists.');
+    }
+
     const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'dept';
     const id = currentUser?.orgId
       ? `${baseSlug}-${currentUser.orgId.substring(0, 8)}`
@@ -1593,26 +1627,11 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return false;
       }
 
-      // Department-specific SubFilter
-      if (subFilter !== 'ALL') {
-        const matchesCustom = Object.values(issue.customAttributes || {}).some(
-          (val) => String(val).toLowerCase() === subFilter.toLowerCase()
-        );
-
-        const matches =
-          matchesCustom ||
-          issue.environment === subFilter ||
-          issue.devScope === subFilter ||
-          issue.marketingChannel === subFilter ||
-          issue.deliverableType === subFilter ||
-          issue.dealSegment === subFilter ||
-          issue.dealStage === subFilter ||
-          issue.opsCategory === subFilter ||
-          issue.impactLevel === subFilter;
-
-        if (!matches) {
-          return false;
-        }
+      // Custom property filters the department admin enabled
+      for (const [fieldId, wanted] of Object.entries(fieldFilters)) {
+        if (wanted === 'ALL') continue;
+        const actual = issue.customAttributes?.[fieldId] ?? (issue as any)[fieldId];
+        if (String(actual ?? '').toLowerCase() !== wanted.toLowerCase()) return false;
       }
 
       // Search Query
@@ -1658,7 +1677,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return true;
     });
-  }, [issues, selectedDepartment, navView, priorityFilter, subFilter, searchQuery, currentUser, departments]);
+  }, [issues, selectedDepartment, navView, priorityFilter, fieldFilters, searchQuery, currentUser, departments]);
 
   const counts = useMemo(() => {
     if (!currentUser) {
@@ -1741,10 +1760,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSearchQuery,
         priorityFilter,
         setPriorityFilter,
-        envFilter: subFilter,
-        setEnvFilter: setSubFilter,
-        subFilter,
-        setSubFilter,
+        fieldFilters,
+        setFieldFilter,
         activeTab,
         setActiveTab: switchTab,
         isMobileMenuOpen,

@@ -277,11 +277,12 @@ const startSession = async (ctx: Ctx, userId: string, orgId: string) => {
 // ============================================================================
 
 const DEFAULT_ENG_FIELDS = [
-  { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true },
+  { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true, showAsFilter: true },
   { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'LOCAL' },
   { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
 ];
 
+const ISSUE_PRIORITIES = ['P0', 'P1', 'P2', 'P3'];
 const ISSUE_STATUSES = ['NEW', 'ASSIGNED', 'ACCEPTED', 'PENDING', 'COMPLETED', 'VERIFIED', 'CLOSED'];
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -512,11 +513,24 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
     // Foreign-key checks bypass RLS, so department and assignee must be verified explicitly.
     const [dept, assignee] = await tx(
       { orgId: user.orgId },
-      sql`SELECT 1 FROM public.departments WHERE id = ${str(d.departmentId, 200)} AND org_id = ${user.orgId};`,
+      sql`SELECT custom_fields FROM public.departments WHERE id = ${str(d.departmentId, 200)} AND org_id = ${user.orgId};`,
       sql`SELECT id FROM public.profiles WHERE id = ${d.assigneeId ? str(d.assigneeId, 100) : null} AND org_id = ${user.orgId};`
     );
     if (!dept.length) throw new HttpError(400, 'Unknown department.');
     if (d.assigneeId && !assignee.length) throw new HttpError(400, 'Unknown assignee.');
+
+    // Every ticket needs a title, description, priority and a value for each department property
+    // (the UI enforces this too; the API must not rely on it).
+    if (!str(d.title, 500).trim()) throw new HttpError(400, 'A title is required.');
+    if (!str(d.description, 50000).trim()) throw new HttpError(400, 'A description is required.');
+    if (!ISSUE_PRIORITIES.includes(d.priority)) throw new HttpError(400, 'A valid priority is required.');
+    const attrs = d.customAttributes && typeof d.customAttributes === 'object' ? d.customAttributes : {};
+    const deptFields: { id: string; name: string }[] = Array.isArray(dept[0].custom_fields)
+      ? dept[0].custom_fields
+      : [];
+    for (const f of deptFields) {
+      if (!String(attrs[f.id] ?? '').trim()) throw new HttpError(400, `${f.name} is required.`);
+    }
     const assigneeId: string | null = d.assigneeId ? assignee[0].id : null;
 
     const [rows] = await tx(

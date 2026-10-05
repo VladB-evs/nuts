@@ -1,7 +1,7 @@
 import React from 'react';
 import { useIssues } from '../context/TicketContext';
 import { Priority, Status } from '../types';
-import { getDepartmentRuleKind, getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
+import { getDepartmentBadges, getUserDepartmentId } from '../lib/departmentRules';
 import { UserAvatar } from './UserAvatar';
 import { UserHoverCard } from './UserHoverCard';
 import { Star, Plus, Link2 } from 'lucide-react';
@@ -15,8 +15,8 @@ export const IssueTable: React.FC = () => {
     priorityFilter,
     setPriorityFilter,
     selectedDepartment,
-    subFilter,
-    setSubFilter,
+    fieldFilters,
+    setFieldFilter,
     departments,
     currentUser,
     navView,
@@ -71,63 +71,21 @@ export const IssueTable: React.FC = () => {
     );
   };
 
-  const currentDeptKind = getDepartmentRuleKind(selectedDepartment);
-
-  const getSubFilterOptions = () => {
-    if (selectedDepartment === 'all') return null;
-
-    const currentDept = departments.find((d) => d.id === selectedDepartment);
-    if (currentDept?.customFields && currentDept.customFields.length > 0) {
-      const firstSelectField = currentDept.customFields.find(
-        (f) => f.type === 'select' && f.options && f.options.length > 0
-      );
-      if (firstSelectField && firstSelectField.options) {
-        const label =
-          firstSelectField.id === 'issueType'
-            ? 'Type'
-            : firstSelectField.name.split(' ')[0] || 'Filter';
-        return {
-          label,
-          options: ['ALL', ...firstSelectField.options],
-        };
-      }
-    }
-
-    switch (currentDeptKind) {
-      case 'engineering':
-        return { label: 'Type', options: ['ALL', 'Bug', 'Feature', 'Update', 'Adjustment'] };
-      case 'marketing':
-        return {
-          label: 'Channel',
-          options: ['ALL', 'Product Launch', 'Social Media', 'Content & SEO', 'Paid Ads'],
-        };
-      case 'sales':
-        return {
-          label: 'Segment',
-          options: ['ALL', 'Enterprise', 'Mid-Market', 'SMB / Startup', 'Strategic Partner'],
-        };
-      case 'operations':
-        return {
-          label: 'Category',
-          options: ['ALL', 'IT & Access', 'Finance & Billing', 'People & HR', 'Office & Facilities'],
-        };
-      default:
-        return null;
-    }
-  };
-
-  const subFilterConfig = getSubFilterOptions();
-
   const userDeptId = getUserDepartmentId(currentUser, departments);
   const userDept = departments.find((d) => d.id === userDeptId);
   const selectedDeptObj = departments.find((d) => d.id === selectedDepartment);
+
+  // Besides Priority, only the custom properties the department admin enabled as filters.
+  const filterFields = (selectedDeptObj?.customFields || []).filter(
+    (f) => f.type === 'select' && f.showAsFilter && (f.options?.length ?? 0) > 0
+  );
 
   const getViewHeader = () => {
     if (selectedDepartment !== 'all') {
       return {
         title: `${selectedDeptObj?.name || selectedDepartment}`,
         badge: selectedDeptObj?.code,
-        subtitle: `Showing issues in ${selectedDeptObj?.name || selectedDepartment}`,
+        subtitle: `Showing open issues in ${selectedDeptObj?.name || selectedDepartment}`,
       };
     }
     if (navView === 'open') {
@@ -212,18 +170,18 @@ export const IssueTable: React.FC = () => {
             ))}
           </div>
 
-          {/* Department-specific sub filter */}
-          {subFilterConfig && (
-            <>
+          {/* Custom property filters (opt-in per field by the department admin) */}
+          {filterFields.map((field) => (
+            <React.Fragment key={field.id}>
               <div className="h-4 w-px bg-gray-200 hidden sm:block shrink-0" />
               <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full py-0.5">
-                <span className="text-gray-500 font-medium mr-1 text-[11px] shrink-0">{subFilterConfig.label}:</span>
-                {subFilterConfig.options.map((opt) => (
+                <span className="text-gray-500 font-medium mr-1 text-[11px] shrink-0">{field.name}:</span>
+                {['ALL', ...(field.options || [])].map((opt) => (
                   <button
                     key={opt}
-                    onClick={() => setSubFilter(opt)}
+                    onClick={() => setFieldFilter(field.id, opt)}
                     className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors shrink-0 ${
-                      subFilter === opt
+                      (fieldFilters[field.id] || 'ALL') === opt
                         ? 'bg-black text-white font-medium'
                         : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                     }`}
@@ -232,8 +190,8 @@ export const IssueTable: React.FC = () => {
                   </button>
                 ))}
               </div>
-            </>
-          )}
+            </React.Fragment>
+          ))}
         </div>
 
         <span className="font-mono text-[11px] text-gray-500 shrink-0">

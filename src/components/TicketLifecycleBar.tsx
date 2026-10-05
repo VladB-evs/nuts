@@ -26,7 +26,7 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
     return computeTicketLifecycle(issue);
   }, [issue]);
 
-  const { segments, totalDurationMs, leadTimeMs, cycleTimeMs, isStalled, isResolved } = lifecycle;
+  const { segments, totalDurationMs, leadTimeMs, cycleTimeMs, isStalled, isSlaPaused, isResolved } = lifecycle;
 
   // Calculate percentage width for each segment, with minimum width for visibility
   const totalMs = Math.max(1, totalDurationMs);
@@ -53,6 +53,8 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
                 <AlertTriangle className="w-2.5 h-2.5 text-amber-600 shrink-0" />
                 <span>SLA Breached (+{formatDuration(lifecycle.slaOverdueMs)})</span>
               </span>
+            ) : isSlaPaused ? (
+              <span className="text-[10px] text-sky-700 font-medium">(SLA paused while pending)</span>
             ) : !isResolved ? (
               <span className="text-[10px] text-emerald-700 font-medium">
                 ({formatDuration(lifecycle.slaRemainingMs)} left)
@@ -192,6 +194,8 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
               >
                 {isResolved
                   ? 'Ticket Completed'
+                  : isSlaPaused
+                  ? 'SLA paused while pending'
                   : isStalled
                   ? `Breached by +${formatDuration(lifecycle.slaOverdueMs)} (${lifecycle.slaUsagePercent}%)`
                   : `${formatDuration(lifecycle.slaRemainingMs)} left before stall (${lifecycle.slaUsagePercent}%)`}
@@ -372,6 +376,8 @@ export const TicketLifecycleBar: React.FC<TicketLifecycleBarProps> = ({
             >
               {isResolved
                 ? 'Ticket Resolved'
+                : isSlaPaused
+                ? 'SLA paused while pending'
                 : isStalled
                 ? `Breached by +${formatDuration(lifecycle.slaOverdueMs)} (${lifecycle.slaUsagePercent}% used)`
                 : `${formatDuration(lifecycle.slaRemainingMs)} left before stall (${lifecycle.slaUsagePercent}%)`}

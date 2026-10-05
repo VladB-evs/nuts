@@ -19,6 +19,7 @@ export const INITIAL_DEPARTMENTS: Department[] = [
         type: 'select',
         options: ['Bug', 'Feature', 'Update', 'Adjustment'],
         defaultValue: 'Bug',
+        showAsFilter: true,
       },
       {
         id: 'environment',

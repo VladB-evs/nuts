@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export type Theme = 'light' | 'dark';
 
@@ -21,6 +21,11 @@ export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : readTheme()
   );
+
+  // Keep <html> in step with the reported theme (covers the case where theme-init.js did not run).
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const toggleTheme = useCallback(() => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';

@@ -13,16 +13,9 @@ import {
   Layers,
   UserCheck,
 } from 'lucide-react';
+import { DEPARTMENT_TEMPLATES } from '../lib/departmentTemplates';
 
-const DEPARTMENT_PRESETS = [
-  { name: 'Engineering', code: 'DEV', description: 'Core product development, bug triage, and feature engineering' },
-  { name: 'Product', code: 'PRD', description: 'Product management, user research, and roadmap planning' },
-  { name: 'Marketing', code: 'MKT', description: 'Content, growth campaigns, SEO, and brand acquisition' },
-  { name: 'Sales', code: 'SLS', description: 'Pipelines, enterprise deals, partnerships, and account executive tasks' },
-  { name: 'Operations', code: 'OPS', description: 'Finance, legal contracts, IT access, and office facilities' },
-  { name: 'Customer Support', code: 'CS', description: 'Customer tickets, troubleshooting, and issue escalation' },
-  { name: 'Design', code: 'DSN', description: 'Product design, UI/UX systems, and visual design assets' },
-];
+const DEPARTMENT_PRESETS = DEPARTMENT_TEMPLATES;
 
 export const DepartmentOnboardingModal: React.FC = () => {
   const {
@@ -109,7 +102,12 @@ export const DepartmentOnboardingModal: React.FC = () => {
   const handleAddPreset = (preset: (typeof DEPARTMENT_PRESETS)[0]) => {
     setError(null);
     try {
-      addDepartment(preset.name, preset.code, preset.description);
+      addDepartment(
+        preset.name,
+        preset.code,
+        preset.description,
+        JSON.parse(JSON.stringify(preset.customFields))
+      );
       if (!selectedDeptName) {
         setSelectedDeptName(preset.name);
       }

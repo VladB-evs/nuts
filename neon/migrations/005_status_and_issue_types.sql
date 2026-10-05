@@ -52,14 +52,21 @@ ALTER TABLE public.issues
     ADD CONSTRAINT issues_issue_type_check
     CHECK (issue_type IN ('Bug', 'Feature', 'Update', 'Adjustment'));
 
--- 4. Existing departments keep their own copy of the Issue Type options in custom_fields.
---    Add the new options wherever the field still has the original Bug/Feature list.
+-- 4. Existing departments keep their own copy of the Issue Type field in custom_fields.
+--    * Add the new options wherever the field still has the original Bug/Feature list.
+--    * Turn on "show as a filter" for it unless an admin already set that either way, so
+--      existing Engineering departments keep the Type filter on the issue list.
 UPDATE public.departments d
 SET custom_fields = (
     SELECT jsonb_agg(
                CASE
-                   WHEN f->>'id' = 'issueType' AND f->'options' = '["Bug", "Feature"]'::jsonb
-                   THEN jsonb_set(f, '{options}', '["Bug", "Feature", "Update", "Adjustment"]'::jsonb)
+                   WHEN f->>'id' = 'issueType' THEN
+                       (CASE
+                            WHEN f->'options' = '["Bug", "Feature"]'::jsonb
+                            THEN jsonb_set(f, '{options}', '["Bug", "Feature", "Update", "Adjustment"]'::jsonb)
+                            ELSE f
+                        END)
+                       || (CASE WHEN f ? 'showAsFilter' THEN '{}'::jsonb ELSE '{"showAsFilter": true}'::jsonb END)
                    ELSE f
                END
                ORDER BY ord)
@@ -68,7 +75,7 @@ SET custom_fields = (
 WHERE jsonb_typeof(d.custom_fields) = 'array'
   AND EXISTS (
       SELECT 1 FROM jsonb_array_elements(d.custom_fields) AS e(f)
-      WHERE e.f->>'id' = 'issueType' AND e.f->'options' = '["Bug", "Feature"]'::jsonb
+      WHERE e.f->>'id' = 'issueType'
   );
 
 COMMIT;

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useIssues } from '../context/TicketContext';
-import { CustomFieldDefinition, CustomFieldType } from '../types';
-import { CustomSelect, SelectOption } from './CustomSelect';
+import { CustomFieldDefinition } from '../types';
 import { X, Plus, Trash2, Sliders, AlertTriangle, ShieldAlert } from 'lucide-react';
-
-const FIELD_TYPE_OPTIONS: SelectOption[] = [
-  { value: 'select', label: 'Dropdown Menu (Select)', description: 'Predefined options list' },
-  { value: 'text', label: 'Single-line Text', description: 'Free-form text input' },
-];
+import {
+  DEPARTMENT_TEMPLATES,
+  DepartmentTemplate,
+  parseQuickProperty,
+  suggestDepartmentCode,
+} from '../lib/departmentTemplates';
+import { findDuplicateDepartment } from '../lib/departmentRules';
 
 export const DepartmentModal: React.FC = () => {
   const {
@@ -30,11 +31,12 @@ export const DepartmentModal: React.FC = () => {
   const [description, setDescription] = useState('');
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
 
-  // New field creator state
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState<CustomFieldType>('select');
-  const [newFieldOptionsRaw, setNewFieldOptionsRaw] = useState('');
-  const [isAddingField, setIsAddingField] = useState(false);
+  // Code follows the name until the admin types their own
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [templateName, setTemplateName] = useState<string | null>(null);
+
+  // One-line "Name: option, option" property entry
+  const [quickProperty, setQuickProperty] = useState('');
 
   // New option tag input for existing select field
   const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({});
@@ -55,45 +57,35 @@ export const DepartmentModal: React.FC = () => {
         setDescription('');
         setCustomFields([]);
       }
-      setIsAddingField(false);
-      setNewFieldName('');
-      setNewFieldType('select');
-      setNewFieldOptionsRaw('');
+      setCodeTouched(false);
+      setTemplateName(null);
+      setQuickProperty('');
       setShowDeleteConfirm(false);
     }
   }, [isDepartmentModalOpen, targetDept]);
 
   if (!isDepartmentModalOpen) return null;
 
-  const handleAddField = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFieldName.trim()) return;
+  const handleQuickAdd = () => {
+    const field = parseQuickProperty(quickProperty, customFields.map((f) => f.id));
+    if (!field) return;
+    setCustomFields((prev) => [...prev, field]);
+    setQuickProperty('');
+  };
 
-    const id = newFieldName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '_')
-      .replace(/^_+|_+$/g, '');
+  const applyTemplate = (template: DepartmentTemplate | null) => {
+    setTemplateName(template?.name ?? null);
+    setName(template?.name ?? '');
+    setCode(template?.code ?? '');
+    setCodeTouched(Boolean(template));
+    setDescription(template?.description ?? '');
+    setCustomFields(template ? JSON.parse(JSON.stringify(template.customFields)) : []);
+  };
 
-    const options =
-      newFieldType === 'select'
-        ? newFieldOptionsRaw
-            .split(',')
-            .map((o) => o.trim())
-            .filter(Boolean)
-        : undefined;
-
-    const newField: CustomFieldDefinition = {
-      id: id || `field_${Date.now()}`,
-      name: newFieldName.trim(),
-      type: newFieldType,
-      options: options && options.length > 0 ? options : newFieldType === 'select' ? ['Default'] : undefined,
-    };
-
-    setCustomFields((prev) => [...prev, newField]);
-    setNewFieldName('');
-    setNewFieldOptionsRaw('');
-    setIsAddingField(false);
+  const handleToggleFilter = (fieldId: string) => {
+    setCustomFields((prev) =>
+      prev.map((f) => (f.id === fieldId ? { ...f, showAsFilter: !f.showAsFilter } : f))
+    );
   };
 
   const handleRemoveField = (fieldId: string) => {
@@ -130,9 +122,11 @@ export const DepartmentModal: React.FC = () => {
     );
   };
 
+  const duplicate = findDuplicateDepartment(departments, name, code, editingDepartmentId);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !code.trim()) return;
+    if (!name.trim() || !code.trim() || duplicate) return;
 
     if (isEditing && editingDepartmentId) {
       updateDepartment(editingDepartmentId, {
@@ -205,7 +199,42 @@ export const DepartmentModal: React.FC = () => {
           </div>
         ) : (
           /* Content Form */
-          <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Templates (new departments only) */}
+          {!isEditing && (
+            <div className="space-y-1.5">
+              <label className="block text-gray-700 font-semibold">Start from a template</label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => applyTemplate(null)}
+                  className={`px-2.5 py-1 rounded border text-[11px] font-medium transition-colors cursor-pointer ${
+                    templateName === null
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  Blank
+                </button>
+                {DEPARTMENT_TEMPLATES.map((t) => (
+                  <button
+                    key={t.name}
+                    type="button"
+                    onClick={() => applyTemplate(t)}
+                    className={`px-2.5 py-1 rounded border text-[11px] font-medium transition-colors cursor-pointer ${
+                      templateName === t.name
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
+                    }`}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Basic Details */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 space-y-1">
@@ -214,10 +243,11 @@ export const DepartmentModal: React.FC = () => {
                 type="text"
                 required
                 value={name}
+                autoFocus={!isEditing}
                 onChange={(e) => {
                   setName(e.target.value);
-                  if (!isEditing && !code) {
-                    setCode(e.target.value.substring(0, 3).toUpperCase());
+                  if (!isEditing && !codeTouched) {
+                    setCode(suggestDepartmentCode(e.target.value));
                   }
                 }}
                 placeholder="e.g. Engineering, Security, Mobile"
@@ -232,12 +262,23 @@ export const DepartmentModal: React.FC = () => {
                 required
                 maxLength={5}
                 value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setCode(e.target.value.toUpperCase());
+                  setCodeTouched(true);
+                }}
                 placeholder="e.g. DEV"
                 className="w-full px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:border-black font-mono uppercase font-bold"
               />
             </div>
           </div>
+
+          {duplicate && (
+            <p className="text-[11px] text-red-600 -mt-2">
+              {duplicate.name.trim().toLowerCase() === name.trim().toLowerCase()
+                ? `A department named "${duplicate.name}" already exists.`
+                : `The code ${duplicate.code} is already used by ${duplicate.name}.`}
+            </p>
+          )}
 
           <div className="space-y-1">
             <label className="block text-gray-700 font-medium">Description</label>
@@ -258,19 +299,9 @@ export const DepartmentModal: React.FC = () => {
                   Custom Fields & Properties ({customFields.length})
                 </h3>
                 <p className="text-[11px] text-gray-500">
-                  Custom fields automatically display on each ticket of this department.
+                  Every property is filled in when a ticket is created.
                 </p>
               </div>
-              {!isAddingField && (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingField(true)}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 rounded transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Add Property</span>
-                </button>
-              )}
             </div>
 
             {/* List of Defined Custom Fields */}
@@ -297,6 +328,18 @@ export const DepartmentModal: React.FC = () => {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
+
+                    {field.type === 'select' && (
+                      <label className="flex items-center gap-1.5 text-[11px] text-gray-700 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(field.showAsFilter)}
+                          onChange={() => handleToggleFilter(field.id)}
+                          className="w-3.5 h-3.5 accent-black cursor-pointer"
+                        />
+                        <span>Show as a filter on the issue list</span>
+                      </label>
+                    )}
 
                     {/* If select, display options chips and add option input */}
                     {field.type === 'select' && (
@@ -355,77 +398,36 @@ export const DepartmentModal: React.FC = () => {
               </div>
             )}
 
-            {/* Add Property Form Drawer */}
-            {isAddingField && (
-              <div className="p-3 border border-gray-300 rounded-md bg-white space-y-2.5 shadow-2xs">
-                <div className="flex items-center justify-between font-semibold text-gray-900 text-[11px]">
-                  <span>Add New Property</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingField(false)}
-                    className="text-gray-400 hover:text-black"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="block text-[11px] text-gray-600 font-medium">Property Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Environment, Deal Stage"
-                      value={newFieldName}
-                      onChange={(e) => setNewFieldName(e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-black"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[11px] text-gray-600 font-medium">Property Type</label>
-                    <CustomSelect
-                      value={newFieldType}
-                      onChange={(val) => setNewFieldType(val as CustomFieldType)}
-                      options={FIELD_TYPE_OPTIONS}
-                      size="xs"
-                    />
-                  </div>
-                </div>
-
-                {newFieldType === 'select' && (
-                  <div className="space-y-1">
-                    <label className="block text-[11px] text-gray-600 font-medium">
-                      Dropdown Options (comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. LOCAL, STAGING, PROD"
-                      value={newFieldOptionsRaw}
-                      onChange={(e) => setNewFieldOptionsRaw(e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-black font-mono text-[11px]"
-                    />
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-1.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingField(false)}
-                    className="px-2.5 py-1 text-[11px] text-gray-600 hover:text-black"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddField}
-                    className="px-3 py-1 text-[11px] font-medium bg-black text-white rounded hover:bg-gray-800"
-                  >
-                    Add Property
-                  </button>
-                </div>
+            {/* Quick add: one line per property */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={quickProperty}
+                  onChange={(e) => setQuickProperty(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleQuickAdd();
+                    }
+                  }}
+                  placeholder="Add a property, e.g.  Channel: Social, Email, Paid"
+                  className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black font-mono text-[11px]"
+                />
+                <button
+                  type="button"
+                  onClick={handleQuickAdd}
+                  disabled={!quickProperty.trim()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium bg-black text-white rounded hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add</span>
+                </button>
               </div>
-            )}
+              <p className="text-[10px] text-gray-500">
+                Press Enter. Add options after a colon for a dropdown; leave them off for a free-text field.
+              </p>
+            </div>
           </div>
 
           {/* Delete Department Section (Only for existing department) */}
@@ -472,8 +474,10 @@ export const DepartmentModal: React.FC = () => {
             </div>
           )}
 
+          </div>
+
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200">
+          <div className="shrink-0 flex items-center justify-end gap-2 px-4 sm:px-5 py-3 border-t border-gray-200 bg-gray-50/80">
             <button
               type="button"
               onClick={closeDepartmentModal}
@@ -483,7 +487,8 @@ export const DepartmentModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 text-xs font-medium bg-black text-white rounded hover:bg-gray-800 transition-colors shadow-2xs"
+              disabled={Boolean(duplicate)}
+              className="px-4 py-1.5 text-xs font-medium bg-black text-white rounded hover:bg-gray-800 transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isEditing ? 'Save Changes' : 'Create Department'}
             </button>
