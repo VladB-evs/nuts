@@ -557,7 +557,7 @@ export const AdminDashboard: React.FC = () => {
       {offboardTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+            className="fixed inset-0 bg-scrim/40 backdrop-blur-xs"
             onClick={() => setOffboardTarget(null)}
           />
           <div className="relative w-full max-w-md bg-white rounded-xl border border-gray-300 shadow-2xl overflow-hidden z-10 animate-fade-in text-xs flex flex-col font-sans">

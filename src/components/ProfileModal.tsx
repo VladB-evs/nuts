@@ -95,7 +95,7 @@ export const ProfileModal: React.FC = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+        className="fixed inset-0 bg-scrim/40 backdrop-blur-xs"
         onClick={() => setIsProfileModalOpen(false)}
       />
 

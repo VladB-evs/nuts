@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { ThemeToggle } from './ThemeToggle';
 import { UserProfile } from '../types';
 import { loginWithEmail, registerUser } from '../lib/neonService';
 import {
@@ -302,6 +303,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-3 sm:p-4 selection:bg-black selection:text-white">
+      <ThemeToggle className="fixed top-3 right-3 z-10" />
       <div className="w-full max-w-md bg-white border border-gray-300 rounded-xl shadow-lg p-5 sm:p-7">
         {/* ================================================================ */}
         {/* GUARDED ADMIN ONBOARDING VIEW (Only accessible via special sales/onboarding link) */}

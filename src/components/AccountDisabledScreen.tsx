@@ -125,7 +125,7 @@ export const AccountDisabledScreen: React.FC = () => {
       {showSwitchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+            className="fixed inset-0 bg-scrim/40 backdrop-blur-xs"
             onClick={() => setShowSwitchModal(false)}
           />
           <div className="relative w-full max-w-sm bg-white rounded-lg border border-gray-200 shadow-xl p-4 z-10 animate-fade-in text-xs">

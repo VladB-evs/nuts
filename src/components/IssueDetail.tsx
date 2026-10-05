@@ -36,10 +36,28 @@ import {
   Clock,
   User,
   History,
+  Flag,
+  CircleDot,
+  UserRound,
+  Building2,
+  Type,
+  Pencil,
+  Link2,
+  Sparkles,
 } from 'lucide-react';
 import { TicketLifecycleBar } from './TicketLifecycleBar';
 import { PRIORITY_SLAS } from '../lib/timelineUtils';
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/issueOptions';
 import { LinkedTicketsProperty } from './LinkedTicketsProperty';
+
+const HISTORY_FIELD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Status: CircleDot,
+  Priority: Flag,
+  Assignee: UserRound,
+  Department: Building2,
+  Title: Type,
+  'Linked Issue': Link2,
+};
 
 export const IssueDetail: React.FC = () => {
   const {
@@ -60,50 +78,10 @@ export const IssueDetail: React.FC = () => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
 
-  const STATUS_OPTIONS: SelectOption[] = [
-    { value: 'NEW', label: 'NEW', badge: 'NEW', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { value: 'ASSIGNED', label: 'ASSIGNED', badge: 'ASSIGNED', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-    { value: 'ACCEPTED', label: 'ACCEPTED', badge: 'ACCEPTED', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200' },
-    { value: 'FIXED', label: 'FIXED', badge: 'FIXED', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { value: 'VERIFIED', label: 'VERIFIED', badge: 'VERIFIED', badgeClass: 'bg-teal-50 text-teal-700 border-teal-200' },
-    { value: 'CLOSED', label: 'CLOSED', badge: 'CLOSED', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
-  ];
-
   const commentStatusOptions: SelectOption[] = useMemo(() => [
     { value: '', label: `(Keep current: ${selectedIssue?.status || ''})` },
     ...STATUS_OPTIONS,
   ], [selectedIssue?.status]);
-
-  const PRIORITY_OPTIONS: SelectOption[] = [
-    {
-      value: 'P0',
-      label: 'P0 — Blocker (24h SLA)',
-      badge: 'P0',
-      badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
-      description: '24h Stage SLA • 48h Resolution target',
-    },
-    {
-      value: 'P1',
-      label: 'P1 — Critical (3d SLA)',
-      badge: 'P1',
-      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold',
-      description: '3d Stage SLA • 7d Resolution target',
-    },
-    {
-      value: 'P2',
-      label: 'P2 — Major (7d SLA)',
-      badge: 'P2',
-      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
-      description: '7d Stage SLA • 14d Resolution target',
-    },
-    {
-      value: 'P3',
-      label: 'P3 — Minor (14d SLA)',
-      badge: 'P3',
-      badgeClass: 'bg-gray-50 text-gray-700 border-gray-200',
-      description: '14d Stage SLA • 30d Resolution target',
-    },
-  ];
 
   const departmentOptions: SelectOption[] = useMemo(() => {
     return departments.map((dept) => ({
@@ -543,103 +521,96 @@ export const IssueDetail: React.FC = () => {
               </div>
             </div>
 
-            {/* Timeline Stream */}
-            <div className="space-y-2.5">
-              {timelineItems.length > 0 ? (
-                timelineItems.map((item) => {
+            {/* Timeline Stream.
+                Comments are full cards with a header bar; property changes are single
+                muted lines with an icon, so the two read differently at a glance. */}
+            {timelineItems.length > 0 ? (
+              <div className="relative space-y-3">
+                <div className="absolute left-[11px] top-2 bottom-2 w-px bg-gray-200" aria-hidden="true" />
+                {timelineItems.map((item) => {
                   if (item.type === 'comment') {
                     const comment = item.comment;
                     return (
-                      <div
-                        key={item.id}
-                        className="p-3 sm:p-3.5 rounded-md border border-gray-200 bg-white text-xs space-y-2 shadow-2xs"
-                      >
-                        <div className="flex items-center justify-between text-xs text-gray-500 gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <UserHoverCard user={comment.author}>
-                              <div className="inline-flex items-center gap-1.5 hover:text-black group/author cursor-pointer">
-                                <UserAvatar user={comment.author} size="xs" />
-                                <span className="font-semibold text-gray-900 group-hover/author:underline">
+                      <div key={item.id} className="relative pl-9">
+                        <div className="absolute left-0 top-1.5 rounded-full ring-4 ring-white bg-white">
+                          <UserAvatar user={comment.author} size="md" />
+                        </div>
+                        <div className="rounded-lg border border-gray-300 bg-white text-xs shadow-2xs overflow-hidden">
+                          <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-100 border-b border-gray-200 text-gray-500">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                              <MessageSquare className="w-3 h-3 text-gray-400 shrink-0" />
+                              <UserHoverCard user={comment.author}>
+                                <span className="font-semibold text-gray-900 hover:underline cursor-pointer">
                                   {comment.author.name}
                                 </span>
-                              </div>
-                            </UserHoverCard>
-                            {comment.statusChange && (
-                              <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-medium text-[10px] font-mono shrink-0">
-                                {comment.statusChange}
-                              </span>
-                            )}
+                              </UserHoverCard>
+                              <span>commented</span>
+                              {comment.statusChange && (
+                                <span className="text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-medium text-[10px] font-mono shrink-0">
+                                  {comment.statusChange}
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              title={formatDateTime(comment.createdAt)}
+                              className="text-gray-400 text-[11px] font-mono shrink-0"
+                            >
+                              {timeAgo(comment.createdAt)}
+                            </span>
                           </div>
-                          <span title={formatDateTime(comment.createdAt)} className="text-gray-400 text-[11px] font-mono shrink-0 ml-auto">
-                            {timeAgo(comment.createdAt)}
-                          </span>
+                          {comment.text && (
+                            <p className="px-3.5 py-3 text-[13px] text-gray-900 leading-relaxed font-sans whitespace-pre-wrap break-words">
+                              {comment.text}
+                            </p>
+                          )}
                         </div>
-                        {comment.text && (
-                          <p className="text-gray-800 leading-relaxed font-sans pl-2 sm:pl-6 whitespace-pre-wrap break-words">
-                            {comment.text}
-                          </p>
-                        )}
                       </div>
                     );
                   }
 
                   const hist = item.history;
+                  const isCreation = hist.field === 'Issue';
+                  const FieldIcon = isCreation ? Sparkles : HISTORY_FIELD_ICONS[hist.field] || Pencil;
                   return (
-                    <div
-                      key={item.id}
-                      className="px-3 sm:px-3.5 py-2.5 rounded-md border border-gray-200 bg-gray-50 text-xs flex items-start gap-2.5 transition-colors hover:bg-gray-100/70"
-                    >
-                      <div className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5">
-                        <UserHoverCard user={hist.actor}>
-                          <UserAvatar user={hist.actor} size="xs" />
-                        </UserHoverCard>
+                    <div key={item.id} className="relative pl-9 min-h-[24px] flex items-center">
+                      <div className="absolute left-[3px] top-0 w-[17px] h-[17px] mt-[3px] rounded-full bg-gray-100 border border-gray-300 ring-4 ring-white flex items-center justify-center">
+                        <FieldIcon className="w-2.5 h-2.5 text-gray-500" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1 gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                            <UserHoverCard user={hist.actor}>
-                              <span className="font-semibold text-gray-900 font-sans hover:text-black hover:underline cursor-pointer">
-                                {hist.actor.name}
-                              </span>
-                            </UserHoverCard>
-                            <span className="text-gray-500">
-                              {hist.field === 'Issue'
-                                ? 'created this issue'
-                                : `changed ${hist.field}`}
-                            </span>
-                          </div>
-                          <span
-                            className="text-gray-400 text-[11px] font-mono shrink-0 ml-auto"
-                            title={formatDateTime(hist.createdAt)}
-                          >
-                            {timeAgo(hist.createdAt)}
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-gray-500 min-w-0 w-full">
+                        <UserHoverCard user={hist.actor}>
+                          <span className="font-semibold text-gray-700 hover:underline cursor-pointer">
+                            {hist.actor.name}
                           </span>
-                        </div>
-                        {hist.field !== 'Issue' ? (
-                          <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-700 bg-white border border-gray-200 px-2 py-0.5 rounded inline-flex flex-wrap break-all">
-                            <span className="text-gray-500 line-through">
-                              {hist.oldValue}
-                            </span>
-                            <span className="text-gray-400 font-bold">→</span>
-                            <span className="font-semibold text-gray-900">
-                              {hist.newValue}
-                            </span>
-                          </div>
+                        </UserHoverCard>
+                        {isCreation ? (
+                          <span>created this issue</span>
                         ) : (
-                          <p className="text-[11px] text-gray-600 font-mono break-words">
-                            {hist.message}
-                          </p>
+                          <>
+                            <span>changed</span>
+                            <span className="font-medium text-gray-700">{hist.field}</span>
+                            <span className="inline-flex flex-wrap items-center gap-1 font-mono text-[10px] bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded break-all">
+                              <span className="text-gray-400 line-through">{hist.oldValue || '—'}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="font-semibold text-gray-800">{hist.newValue || '—'}</span>
+                            </span>
+                          </>
                         )}
+                        <span
+                          className="text-gray-400 font-mono ml-auto shrink-0"
+                          title={formatDateTime(hist.createdAt)}
+                        >
+                          {timeAgo(hist.createdAt)}
+                        </span>
                       </div>
                     </div>
                   );
-                })
-              ) : (
-                <div className="p-4 text-center text-gray-400 font-mono text-xs border border-dashed border-gray-200 rounded">
-                  No activity found for this filter.
-                </div>
-              )}
-            </div>
+                })}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-gray-400 font-mono text-xs border border-dashed border-gray-200 rounded">
+                No activity found for this filter.
+              </div>
+            )}
 
             {/* Comment Form (100% Mobile Responsive) */}
             <form onSubmit={handlePostComment} className="p-3 sm:p-3.5 border border-gray-200 rounded-md bg-gray-50 space-y-3">

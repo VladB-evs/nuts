@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useIssues } from '../context/TicketContext';
 import { UserAvatar } from './UserAvatar';
+import { ThemeToggle } from './ThemeToggle';
 import {
   Search,
   Plus,
@@ -27,7 +28,7 @@ export const Header: React.FC<HeaderProps> = () => {
     setCurrentUser,
     logout,
     users,
-    setIsCreateModalOpen,
+    setIsCreatingIssue,
     setSelectedIssue,
     setIsProfileModalOpen,
     openDepartmentModal,
@@ -167,6 +168,8 @@ export const Header: React.FC<HeaderProps> = () => {
           >
             <Search className="w-4 h-4" />
           </button>
+        <ThemeToggle />
+
         {/* Admin Dashboard Quick Button in Header */}
         {currentUser.isAdmin && (
           <button
@@ -186,7 +189,7 @@ export const Header: React.FC<HeaderProps> = () => {
         {/* New Issue Button */}
         <button
           type="button"
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={() => setIsCreatingIssue(true)}
           className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-medium bg-black text-white hover:bg-gray-800 rounded-md transition-colors shadow-sm cursor-pointer shrink-0"
           title="Create New Issue"
         >

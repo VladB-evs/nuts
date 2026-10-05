@@ -107,14 +107,14 @@ export interface TicketLifecycle {
   // Key performance metrics
   totalDurationMs: number;       // From creation to now (or closed)
   triageDurationMs: number;      // Time in NEW before first ASSIGNED
-  cycleTimeMs: number;           // Time from ACCEPTED to FIXED / CLOSED
-  leadTimeMs: number;            // Total time from Creation to FIXED / CLOSED
+  cycleTimeMs: number;           // Time from ACCEPTED to COMPLETED / CLOSED
+  leadTimeMs: number;            // Total time from Creation to COMPLETED / CLOSED
 
   // Edge-case flags
-  isResolved: boolean;           // Currently in FIXED, VERIFIED, or CLOSED
+  isResolved: boolean;           // Currently in COMPLETED, VERIFIED, or CLOSED
   isStalled: boolean;            // Stuck in current active status beyond priority stage SLA
   stalledDurationMs: number;     // How long it has been in current status
-  hasRegressions: boolean;       // Moved backwards at least once (e.g. FIXED -> ASSIGNED)
+  hasRegressions: boolean;       // Moved backwards at least once (e.g. COMPLETED -> ASSIGNED)
   regressionCount: number;
 
   // SLA Specific Metrics
@@ -179,9 +179,18 @@ export const STATUS_META: Record<
     borderClass: 'border-purple-200',
     barColor: 'bg-purple-500',
   },
-  FIXED: {
-    label: 'Fixed',
+  PENDING: {
+    label: 'Pending',
     order: 4,
+    color: '#d97706',
+    bgClass: 'bg-amber-50',
+    textClass: 'text-amber-700',
+    borderClass: 'border-amber-200',
+    barColor: 'bg-amber-500',
+  },
+  COMPLETED: {
+    label: 'Completed',
+    order: 5,
     color: '#059669',
     bgClass: 'bg-emerald-50',
     textClass: 'text-emerald-700',
@@ -190,7 +199,7 @@ export const STATUS_META: Record<
   },
   VERIFIED: {
     label: 'Verified',
-    order: 5,
+    order: 6,
     color: '#0d9488',
     bgClass: 'bg-teal-50',
     textClass: 'text-teal-700',
@@ -199,7 +208,7 @@ export const STATUS_META: Record<
   },
   CLOSED: {
     label: 'Closed',
-    order: 6,
+    order: 7,
     color: '#4b5563',
     bgClass: 'bg-gray-100',
     textClass: 'text-gray-700',
@@ -316,7 +325,8 @@ export function computeTicketLifecycle(
     NEW: 0,
     ASSIGNED: 0,
     ACCEPTED: 0,
-    FIXED: 0,
+    PENDING: 0,
+    COMPLETED: 0,
     VERIFIED: 0,
     CLOSED: 0,
   };
@@ -382,7 +392,7 @@ export function computeTicketLifecycle(
 
   // 5. Calculate lead time, cycle time, and triage metrics
   const isResolved =
-    issue.status === 'FIXED' ||
+    issue.status === 'COMPLETED' ||
     issue.status === 'VERIFIED' ||
     issue.status === 'CLOSED';
 
@@ -393,8 +403,8 @@ export function computeTicketLifecycle(
   // Triage Duration: Time in NEW
   const triageDurationMs = statusDurations.NEW;
 
-  // Cycle Time: Time from ACCEPTED to FIXED/CLOSED (active engineering/work duration)
-  const cycleTimeMs = statusDurations.ACCEPTED + statusDurations.FIXED;
+  // Cycle Time: Time from ACCEPTED to COMPLETED/CLOSED (active engineering/work duration)
+  const cycleTimeMs = statusDurations.ACCEPTED + statusDurations.PENDING + statusDurations.COMPLETED;
 
   // Priority-based SLA resolution & Stalled Detection:
   // "Stall" is strictly defined by whether an active, unresolved ticket exceeds its Priority Stage SLA
@@ -477,7 +487,8 @@ export function computeDepartmentLifecycleMetrics(
     NEW: 0,
     ASSIGNED: 0,
     ACCEPTED: 0,
-    FIXED: 0,
+    PENDING: 0,
+    COMPLETED: 0,
     VERIFIED: 0,
     CLOSED: 0,
   };

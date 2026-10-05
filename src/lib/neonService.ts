@@ -104,6 +104,7 @@ export async function createIssueInNeon(
     issueType?: string;
     environment?: string;
     devScope?: string;
+    status?: string;
     assigneeId?: string;
   },
   _reporter?: UserProfile,

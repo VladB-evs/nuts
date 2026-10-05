@@ -74,8 +74,8 @@ interface IssueContextType {
   setEnvFilter: (env: string) => void;
   subFilter: string;
   setSubFilter: (filter: string) => void;
-  isCreateModalOpen: boolean;
-  setIsCreateModalOpen: (open: boolean) => void;
+  isCreatingIssue: boolean;
+  setIsCreatingIssue: (creating: boolean) => void;
   activeTab: 'table' | 'timeline' | 'admin';
   setActiveTab: (tab: 'table' | 'timeline' | 'admin') => void;
   setUserEmploymentStatus: (
@@ -108,6 +108,7 @@ interface IssueContextType {
     dealStage?: DealStage;
     opsCategory?: OpsCategory;
     impactLevel?: ImpactLevel;
+    status?: Status;
     assigneeId?: string;
     linkedIssues?: IssueLink[];
   }) => Issue;
@@ -250,8 +251,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         code: 'DEV',
         description: 'Core product engineering and bug triage',
         customFields: [
-          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature'], defaultValue: 'Bug', required: true },
-          { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'STAGING' },
+          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true },
+          { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'LOCAL' },
           { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
         ],
       },
@@ -338,8 +339,8 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         code: 'DEV',
         description: 'Core product engineering and bug triage',
         customFields: [
-          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature'], defaultValue: 'Bug', required: true },
-          { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'STAGING' },
+          { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true },
+          { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'LOCAL' },
           { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
         ],
       },
@@ -427,7 +428,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [subFilter, setSubFilter] = useState('ALL');
   const [activeTab, setActiveTab] = useState<'table' | 'timeline' | 'admin'>('table');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreatingIssue, setIsCreatingIssue] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
   const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
@@ -445,6 +446,18 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setSelectedDepartment = (deptId: string) => {
     setSelectedDepartmentState(deptId);
     setSubFilter('ALL');
+  };
+
+  // Navigating anywhere (opening an issue, going back to the list, switching tab) leaves the
+  // new-issue page. Internal code that merely refreshes the open issue uses the raw setters.
+  const openIssue = (issue: Issue | null) => {
+    setIsCreatingIssue(false);
+    setSelectedIssue(issue);
+  };
+
+  const switchTab = (tab: 'table' | 'timeline' | 'admin') => {
+    setIsCreatingIssue(false);
+    setActiveTab(tab);
   };
 
   // Only the sandbox demo persists workspace data locally. Real organizations live on the server;
@@ -553,6 +566,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     dealStage?: DealStage;
     opsCategory?: OpsCategory;
     impactLevel?: ImpactLevel;
+    status?: Status;
     assigneeId?: string;
     linkedIssues?: IssueLink[];
   }): Issue => {
@@ -611,7 +625,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const isDuplicate = initialLinkedIssues.some((l) => l.relation === 'duplicate');
-    const initialStatus: Status = isDuplicate ? 'CLOSED' : assignee ? 'ASSIGNED' : 'NEW';
+    const initialStatus: Status = isDuplicate ? 'CLOSED' : data.status ?? (assignee ? 'ASSIGNED' : 'NEW');
     const initialComments: Comment[] = [];
 
     const newIssue: Issue = {
@@ -656,7 +670,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 id: `h-${Date.now()}-dup-stat`,
                 actor: reporterUser,
                 field: 'Status',
-                oldValue: assignee ? 'ASSIGNED' : 'NEW',
+                oldValue: data.status ?? (assignee ? 'ASSIGNED' : 'NEW'),
                 newValue: 'CLOSED',
                 message: 'Closed as duplicate ticket',
                 createdAt: now,
@@ -739,6 +753,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           issueType: (customAttrs.issueType as IssueType) || data.issueType,
           environment: (customAttrs.environment as Environment) || data.environment,
           devScope: data.devScope,
+          status: initialStatus,
           assigneeId: data.assigneeId,
         },
         reporterUser,
@@ -1542,7 +1557,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           issue.assignee?.id === currentUser.id ||
           (!!currentUser.email && issue.assignee?.email?.toLowerCase() === currentUser.email.toLowerCase());
         if (!isAssigned) return false;
-        if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
+        if (issue.status === 'COMPLETED' || issue.status === 'CLOSED') return false;
 
         if (selectedDepartment === 'all') {
           if (userDeptId && issue.departmentId !== userDeptId) return false;
@@ -1551,7 +1566,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } else if (navView === 'open') {
         // "Opened issues will show all the opened issues in the department I am assigned to."
-        if (issue.status === 'FIXED' || issue.status === 'CLOSED') return false;
+        if (issue.status === 'COMPLETED' || issue.status === 'CLOSED') return false;
 
         if (selectedDepartment === 'all') {
           if (userDeptId && issue.departmentId !== userDeptId) return false;
@@ -1565,7 +1580,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!issue.starred) return false;
         if (selectedDepartment !== 'all' && issue.departmentId !== selectedDepartment) return false;
       } else if (navView === 'closed') {
-        if (issue.status !== 'FIXED' && issue.status !== 'CLOSED') return false;
+        if (issue.status !== 'COMPLETED' && issue.status !== 'CLOSED') return false;
         if (selectedDepartment === 'all') {
           if (userDeptId && issue.departmentId !== userDeptId) return false;
         } else {
@@ -1661,7 +1676,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const openInUserDept = issues.filter(
       (i) =>
         (userDeptId ? i.departmentId === userDeptId : true) &&
-        i.status !== 'FIXED' &&
+        i.status !== 'COMPLETED' &&
         i.status !== 'CLOSED'
     ).length;
 
@@ -1671,7 +1686,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         (userDeptId ? i.departmentId === userDeptId : true) &&
         (i.assignee?.id === currentUser.id ||
           (!!currentUser.email && i.assignee?.email?.toLowerCase() === currentUser.email.toLowerCase())) &&
-        i.status !== 'FIXED' &&
+        i.status !== 'COMPLETED' &&
         i.status !== 'CLOSED'
     ).length;
 
@@ -1681,7 +1696,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const closedInUserDept = issues.filter(
       (i) =>
         (userDeptId ? i.departmentId === userDeptId : true) &&
-        (i.status === 'FIXED' || i.status === 'CLOSED')
+        (i.status === 'COMPLETED' || i.status === 'CLOSED')
     ).length;
 
     return {
@@ -1721,7 +1736,7 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         navView,
         setNavView,
         selectedIssue,
-        setSelectedIssue,
+        setSelectedIssue: openIssue,
         searchQuery,
         setSearchQuery,
         priorityFilter,
@@ -1731,11 +1746,11 @@ export const IssueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         subFilter,
         setSubFilter,
         activeTab,
-        setActiveTab,
+        setActiveTab: switchTab,
         isMobileMenuOpen,
         setIsMobileMenuOpen,
-        isCreateModalOpen,
-        setIsCreateModalOpen,
+        isCreatingIssue,
+        setIsCreatingIssue,
         toasts,
         showToast,
         dismissToast,

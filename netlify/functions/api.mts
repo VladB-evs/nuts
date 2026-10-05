@@ -277,10 +277,12 @@ const startSession = async (ctx: Ctx, userId: string, orgId: string) => {
 // ============================================================================
 
 const DEFAULT_ENG_FIELDS = [
-  { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature'], defaultValue: 'Bug', required: true },
-  { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'STAGING' },
+  { id: 'issueType', name: 'Issue Type', type: 'select', options: ['Bug', 'Feature', 'Update', 'Adjustment'], defaultValue: 'Bug', required: true },
+  { id: 'environment', name: 'Environment Stage', type: 'select', options: ['LOCAL', 'STAGING', 'PROD'], defaultValue: 'LOCAL' },
   { id: 'devScope', name: 'Development Layer', type: 'select', options: ['Frontend only', 'Backend only', 'Both (Frontend + Backend)'], defaultValue: 'Both (Frontend + Backend)' },
 ];
+
+const ISSUE_STATUSES = ['NEW', 'ASSIGNED', 'ACCEPTED', 'PENDING', 'COMPLETED', 'VERIFIED', 'CLOSED'];
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const randomCode = (len: number) =>
@@ -525,7 +527,7 @@ const actions: Record<string, (ctx: Ctx, args: any) => Promise<unknown>> = {
         custom_attributes, issue_type, environment, dev_scope, assignee_id, reporter_id
       ) VALUES (
         ${user.orgId}, ${str(d.title, 500)}, ${str(d.description, 50000)}, ${str(d.departmentId, 200)},
-        ${str(d.priority, 2)}, 'NEW', ${JSON.stringify(d.customAttributes || {})},
+        ${str(d.priority, 2)}, ${ISSUE_STATUSES.includes(d.status) ? d.status : 'NEW'}, ${JSON.stringify(d.customAttributes || {})},
         ${d.issueType || null}, ${d.environment || null}, ${d.devScope || null},
         ${assigneeId}, ${user.id}
       )

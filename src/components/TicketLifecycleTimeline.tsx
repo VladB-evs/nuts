@@ -555,7 +555,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
 
       {/* 4. Priority SLA & Stall Policy Modal (Fully Responsive on Web & Mobile) */}
       {isSlaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs select-none animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-scrim/50 backdrop-blur-xs select-none animate-fade-in">
           <div className="bg-white rounded-xl border border-gray-200 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -582,7 +582,7 @@ export const TicketLifecycleTimeline: React.FC = () => {
                 A ticket is marked as <strong>Stalled (SLA Breached)</strong> when it remains in an active, unresolved stage (<code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">NEW</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">ASSIGNED</code>, or <code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">ACCEPTED</code>) longer than the Service Level Agreement (SLA) configured for its Priority.
               </p>
               <p className="text-xs leading-relaxed text-sky-900 font-sans">
-                Once a ticket is resolved (<code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">FIXED</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">VERIFIED</code>, or <code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">CLOSED</code>), stage timers halt.
+                Once a ticket is resolved (<code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">COMPLETED</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">VERIFIED</code>, or <code className="bg-white px-1.5 py-0.5 rounded border border-sky-300 font-mono font-bold text-[11px]">CLOSED</code>), stage timers halt.
               </p>
             </div>
 

@@ -84,7 +84,7 @@ export const DepartmentOnboardingModal: React.FC = () => {
   // Loading state while Neon fetches initial organization departments
   if (isLoadingDatabase) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none">
+      <div className="fixed inset-0 z-50 bg-scrim/60 backdrop-blur-xs flex items-center justify-center p-4 select-none">
         <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-8 max-w-sm w-full text-center space-y-3 font-mono">
           <div className="animate-spin w-6 h-6 border-2 border-black border-t-transparent rounded-full mx-auto" />
           <p className="text-xs text-gray-700 font-medium">Connecting to company workspace...</p>
@@ -202,7 +202,7 @@ export const DepartmentOnboardingModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-scrim/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-2xl border border-gray-300 max-w-lg w-full overflow-hidden flex flex-col my-auto max-h-[90vh]">
         {/* Header Bar */}
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">

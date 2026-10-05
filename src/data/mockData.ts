@@ -17,7 +17,7 @@ export const INITIAL_DEPARTMENTS: Department[] = [
         id: 'issueType',
         name: 'Issue Type',
         type: 'select',
-        options: ['Bug', 'Feature'],
+        options: ['Bug', 'Feature', 'Update', 'Adjustment'],
         defaultValue: 'Bug',
       },
       {
@@ -372,7 +372,7 @@ export const INITIAL_ISSUES: Issue[] = [
     description: 'Users with multiple organizations need a quick switcher in the top navigation. Functional spec and API contract.',
     departmentId: 'engineering',
     priority: 'P2',
-    status: 'FIXED',
+    status: 'COMPLETED',
     customAttributes: {
       issueType: 'Feature',
       environment: 'STAGING',
@@ -389,9 +389,9 @@ export const INITIAL_ISSUES: Issue[] = [
       {
         id: 'c4',
         author: USERS[0],
-        text: 'Spec completed and merged into the main development branch. Marking FIXED.',
+        text: 'Spec completed and merged into the main development branch. Marking COMPLETED.',
         createdAt: '2026-09-27T18:00:00Z',
-        statusChange: 'Status changed from ACCEPTED to FIXED',
+        statusChange: 'Status changed from ACCEPTED to COMPLETED',
       },
     ],
     history: [
@@ -409,8 +409,8 @@ export const INITIAL_ISSUES: Issue[] = [
         actor: USERS[0],
         field: 'Status',
         oldValue: 'ACCEPTED',
-        newValue: 'FIXED',
-        message: 'Status changed from ACCEPTED to FIXED',
+        newValue: 'COMPLETED',
+        message: 'Status changed from ACCEPTED to COMPLETED',
         createdAt: '2026-09-27T18:00:00Z',
       },
     ],

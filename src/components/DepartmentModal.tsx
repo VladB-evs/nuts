@@ -163,7 +163,7 @@ export const DepartmentModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" onClick={closeDepartmentModal} />
+      <div className="fixed inset-0 bg-scrim/40 backdrop-blur-xs" onClick={closeDepartmentModal} />
 
       {/* Modal Dialog */}
       <div className="relative w-full max-w-lg bg-white rounded-lg border border-gray-300 shadow-xl overflow-hidden z-10 animate-fade-in text-xs max-h-[92vh] flex flex-col font-sans">

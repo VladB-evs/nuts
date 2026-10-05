@@ -156,7 +156,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
   };
 
   const getStatusBadge = (status: string) => {
-    const isDone = status === 'FIXED' || status === 'CLOSED';
+    const isDone = status === 'COMPLETED' || status === 'CLOSED';
     if (isDone) {
       return (
         <span className="font-mono text-[9px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-semibold inline-flex items-center gap-0.5">
@@ -362,7 +362,7 @@ export const LinkedTicketsProperty: React.FC<LinkedTicketsPropertyProps> = ({
               );
             }
 
-            const isDone = target.status === 'FIXED' || target.status === 'CLOSED';
+            const isDone = target.status === 'COMPLETED' || target.status === 'CLOSED';
             return (
               <div
                 key={target.id}

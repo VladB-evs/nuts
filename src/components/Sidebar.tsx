@@ -31,7 +31,7 @@ export const Sidebar: React.FC = () => {
     setSelectedIssue,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
-    setIsCreateModalOpen,
+    setIsCreatingIssue,
   } = useIssues();
 
   if (!currentUser) return null;
@@ -72,8 +72,8 @@ export const Sidebar: React.FC = () => {
     },
     {
       id: 'closed',
-      label: 'Closed / Fixed',
-      tooltip: `Closed/Fixed issues in your department (${userDept?.name || currentUser.department})`,
+      label: 'Closed / Completed',
+      tooltip: `Closed/Completed issues in your department (${userDept?.name || currentUser.department})`,
       icon: CheckCircle2,
       count: counts.closed,
     },
@@ -86,7 +86,7 @@ export const Sidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => {
-            setIsCreateModalOpen(true);
+            setIsCreatingIssue(true);
             setIsMobileMenuOpen(false);
           }}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-black text-white hover:bg-gray-800 rounded-md text-xs font-medium transition-colors shadow-2xs cursor-pointer"
@@ -299,7 +299,7 @@ export const Sidebar: React.FC = () => {
         <div className="md:hidden fixed inset-0 z-50 flex">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-scrim/50 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           />
 

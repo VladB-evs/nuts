@@ -35,7 +35,8 @@ const LIFECYCLE_STAGES: Status[] = [
   'NEW',
   'ASSIGNED',
   'ACCEPTED',
-  'FIXED',
+  'PENDING',
+  'COMPLETED',
   'VERIFIED',
   'CLOSED',
 ];
@@ -210,7 +211,7 @@ export const TicketLifecycleDetailView: React.FC<TicketLifecycleDetailViewProps>
                 Regression & Rework Detected
               </p>
               <p className="text-amber-800 font-sans leading-relaxed">
-                This ticket moved backwards in the lifecycle <strong>{lifecycle.regressionCount} time(s)</strong> (e.g. from Fixed/Verified back to Assigned or Accepted), indicating rework, test failure, or reopened scope.
+                This ticket moved backwards in the lifecycle <strong>{lifecycle.regressionCount} time(s)</strong> (e.g. from Completed/Verified back to Assigned or Accepted), indicating rework, test failure, or reopened scope.
               </p>
             </div>
           </div>
@@ -278,7 +279,7 @@ export const TicketLifecycleDetailView: React.FC<TicketLifecycleDetailViewProps>
               </span>
             </div>
             <p className="text-[10px] font-mono text-gray-500 pt-2">
-              Work time (Accepted & Fixed)
+              Work time (Accepted, Pending & Completed)
             </p>
           </div>
 

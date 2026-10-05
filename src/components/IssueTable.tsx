@@ -20,7 +20,7 @@ export const IssueTable: React.FC = () => {
     departments,
     currentUser,
     navView,
-    setIsCreateModalOpen,
+    setIsCreatingIssue,
   } = useIssues();
 
   if (!currentUser) return null;
@@ -55,7 +55,7 @@ export const IssueTable: React.FC = () => {
   };
 
   const getStatusBadge = (s: Status) => {
-    const isDone = s === 'FIXED' || s === 'VERIFIED' || s === 'CLOSED';
+    const isDone = s === 'COMPLETED' || s === 'VERIFIED' || s === 'CLOSED';
     return (
       <span
         className={`font-mono text-[11px] px-1.5 py-0.5 rounded border ${
@@ -95,7 +95,7 @@ export const IssueTable: React.FC = () => {
 
     switch (currentDeptKind) {
       case 'engineering':
-        return { label: 'Type', options: ['ALL', 'Bug', 'Feature'] };
+        return { label: 'Type', options: ['ALL', 'Bug', 'Feature', 'Update', 'Adjustment'] };
       case 'marketing':
         return {
           label: 'Channel',
@@ -158,7 +158,7 @@ export const IssueTable: React.FC = () => {
     }
     if (navView === 'closed') {
       return {
-        title: `Closed / Fixed Issues (${userDept?.name || currentUser.department})`,
+        title: `Closed / Completed Issues (${userDept?.name || currentUser.department})`,
         badge: userDept?.code,
         subtitle: 'Showing resolved and closed tickets',
       };
@@ -493,7 +493,7 @@ export const IssueTable: React.FC = () => {
         <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center space-y-3">
           <p className="text-sm font-medium text-gray-500">No issues match this view or query.</p>
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => setIsCreatingIssue(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-black text-white rounded-md hover:bg-gray-800 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />

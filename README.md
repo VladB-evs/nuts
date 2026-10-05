@@ -7,12 +7,12 @@
 ## ⚡ Core Features
 
 - **Google Buganizer Minimalist Aesthetic**:
-  - High-density issue table with status chips (`NEW`, `ASSIGNED`, `ACCEPTED`, `FIXED`, `VERIFIED`, `CLOSED`) and priority markers (`P0`, `P1`, `P2`, `P3`).
+  - High-density issue table with status chips (`NEW`, `ASSIGNED`, `ACCEPTED`, `PENDING`, `COMPLETED`, `VERIFIED`, `CLOSED`) and priority markers (`P0`, `P1`, `P2`, `P3`).
   - Clean split view / master-detail pane with comment stream and activity audit log.
   - Quick-action status dropdowns and assignee reassignment.
 
 - **Dynamic Department Custom Fields**:
-  - Starts with **Engineering (`DEV`)** as the primary default department, featuring `issueType` (Bug vs Feature), `environment` (LOCAL, STAGING, PROD), and `devScope`.
+  - Starts with **Engineering (`DEV`)** as the primary default department, featuring `issueType` (Bug, Feature, Update or Adjustment), `environment` (LOCAL, STAGING, PROD), and `devScope`.
   - Add, edit, and reorder custom department properties dynamically without database schema migrations.
   - Dynamic fields automatically populate into every ticket belonging to that department.
 
@@ -88,7 +88,7 @@ The browser never sees database credentials, and the database enforces tenant is
 
 1. Create a project at [Neon](https://console.neon.tech).
 2. In the **SQL Editor** (which runs as the owner), run the migrations in `neon/migrations/` in order:
-   `001` → `002` → `003` → `004`. Migration `004` creates the `nuts_app` role and enables RLS.
+   `001` → `002` → `003` → `004` → `005`. Migration `004` creates the `nuts_app` role and enables RLS.
 3. Give the app role a password (it's created without one):
    ```sql
    ALTER ROLE nuts_app PASSWORD 'a-long-random-password';
